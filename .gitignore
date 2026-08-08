@@ -1,0 +1,30 @@
+# --- Node / API ---
+node_modules/
+*.log
+
+# --- Generated database (rebuild with: npm run init-db) ---
+data/*.db
+data/*.db-journal
+
+# --- Generated placeholder images ---
+public/images/products/*.svg
+
+# --- Android / Gradle ---
+.gradle/
+build/
+app/build/
+captures/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# --- IDEs ---
+.idea/
+*.iml
+.vscode/
+
+# --- OS ---
+.DS_Store
+Thumbs.db

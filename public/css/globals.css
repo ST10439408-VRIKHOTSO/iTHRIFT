@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Base Styles ===== */
+@layer base {
+  html,
+  body {
+    @apply m-0 p-0 bg-white text-text-primary antialiased;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  img {
+    @apply max-w-full block;
+  }
+
+  button {
+    @apply font-inherit cursor-pointer;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply font-inherit text-base;
+  }
+}
+
+/* ===== Component Styles ===== */
+@layer components {
+  /* App Shell */
+  .app-shell {
+    @apply min-h-screen flex flex-col bg-white shadow-lg;
+    max-width: 1760px;
+    margin: 0 auto;
+  }
+
+  /* Navigation */
+  .topnav {
+    @apply sticky top-0 z-50 bg-transparent backdrop-blur-sm;
+  }
+
+  .topnav-inner {
+    @apply max-w-container mx-auto px-8 py-7 pb-4.5 flex items-center gap-8;
+  }
+
+  .logo {
+    @apply font-black tracking-tight text-lg inline-flex items-center gap-2.5 whitespace-nowrap text-text-primary;
+  }
+
+  .logo .badge-mark {
+    @apply bg-text-primary text-white font-black w-7.5 h-7.5 rounded-lg inline-flex items-center justify-center text-sm;
+  }
+
+  .nav-links {
+    @apply flex gap-7 flex-1 text-sm font-bold items-center flex-wrap;
+  }
+
+  .nav-links a {
+    @apply text-text-muted px-0 whitespace-nowrap uppercase tracking-widest transition-colors duration-200;
+  }
+
+  .nav-links a.active {
+    @apply text-text-primary border-b-2 border-text-primary pb-1;
+  }
+
+  .nav-links a:hover:not(.active) {
+    @apply text-text-primary;
+  }
+
+  .nav-actions {
+    @apply flex items-center gap-3 ml-auto;
+  }
+
+  /* Buttons */
+  .pill-btn {
+    @apply border border-accent-subtle bg-bg-secondary text-text-primary px-4.5 py-2.5 rounded-full font-bold text-sm inline-flex items-center gap-2 whitespace-nowrap transition-all duration-180;
+  }
+
+  .pill-btn:hover {
+    @apply border-gray-300 -translate-y-0.5;
+  }
+
+  .pill-btn.dark,
+  .pill-btn.accent {
+    @apply bg-text-primary text-white border-text-primary;
+  }
+
+  .pill-btn.dark:hover,
+  .pill-btn.accent:hover {
+    @apply bg-black;
+  }
+
+  .cart-badge {
+    @apply bg-white text-text-primary rounded-full text-xs px-2 py-0.5 ml-1.5 font-black;
+  }
+
+  /* Container and Layout */
+  .container {
+    @apply max-w-container mx-auto px-8;
+  }
+
+  .section {
+    @apply py-9;
+  }
+
+  /* Footer */
+  .site-footer {
+    @apply mt-auto bg-bg-secondary border-t border-accent-subtle py-12;
+  }
+
+  .footer-inner {
+    @apply max-w-container mx-auto px-8 grid grid-cols-2 gap-16;
+  }
+
+  .footer-logo {
+    @apply font-black text-lg text-text-primary;
+  }
+
+  .footer-inner .small {
+    @apply text-xs text-text-muted;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-2xl border border-accent-subtle p-6 shadow-soft transition-all duration-200;
+  }
+
+  .card:hover {
+    @apply shadow-md -translate-y-0.5;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  .badge.excellent {
+    @apply bg-status-good-bg text-status-good;
+  }
+
+  .badge.good {
+    @apply bg-status-warn-bg text-status-warn;
+  }
+
+  .badge.info {
+    @apply bg-status-info-bg text-status-info;
+  }
+
+  /* Grid Layout */
+  .grid-3 {
+    @apply grid grid-cols-3 gap-6;
+  }
+
+  .grid-4 {
+    @apply grid grid-cols-4 gap-6;
+  }
+
+  @media (max-width: 1024px) {
+    .grid-4 {
+      @apply grid-cols-3;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .grid-3,
+    .grid-4 {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .grid-3,
+    .grid-4 {
+      @apply grid-cols-1;
+    }
+  }
+}
+
+/* ===== Utilities ===== */
+.transition-180 {
+  transition-duration: 180ms;
+}
+
+.text-balance {
+  text-wrap: balance;
+}

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iTHIFT — Pre-loved branded fashion</title>
+<meta name="description" content="iTHIFT — South African pre-loved branded fashion. Curated, condition-rated and affordably priced.">
+
+<!-- Fonts: Playfair Display (display) + Inter (UI) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Lucide icons (SVG sprite via CDN) -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Navigation ── -->
+  <nav class="topnav">
+    <div class="topnav-inner" id="topnav-inner">
+      <!-- rendered by app.js → renderNav() -->
+    </div>
+  </nav>
+
+  <!-- ── Main view (SPA router target) ── -->
+  <main id="view"></main>
+
+  <!-- ── Footer ── -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+
+      <!-- Brand column -->
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <span class="badge-mark">i</span>
+          <span>iTHIFT</span>
+        </div>
+        <p>Pre-loved branded fashion &mdash; condition-rated, seller-verified and affordably priced for South African shoppers.</p>
+      </div>
+
+      <!-- Help column -->
+      <div class="footer-col">
+        <h4>Help</h4>
+        <a href="#/about">Help Centre</a>
+        <a href="#/about">Selling &amp; Buying</a>
+        <a href="#/about">Staying Safe</a>
+      </div>
+
+      <!-- Legal column -->
+      <div class="footer-col">
+        <h4>Legal Bits</h4>
+        <a href="#/about">Terms &amp; Conditions</a>
+        <a href="#/about">Privacy Policy</a>
+        <a href="#/about">Shipping Policy</a>
+        <a href="#/about">Dispute Policy</a>
+      </div>
+
+      <!-- Account column -->
+      <div class="footer-col">
+        <h4>Account</h4>
+        <a href="#/login">Sign in</a>
+        <a href="#/register">Register</a>
+        <a href="#/orders">My Orders</a>
+        <a href="#/admin">Admin portal</a>
+      </div>
+
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="footer-bottom">
+      <span>&copy; 2026 iTHIFT South Africa (Pty) Ltd</span>
+      <div class="footer-social">
+        <!-- Facebook -->
+        <a href="#" title="Facebook" aria-label="Facebook">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        </a>
+        <!-- X / Twitter -->
+        <a href="#" title="X" aria-label="X">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <!-- Instagram -->
+        <a href="#" title="Instagram" aria-label="Instagram">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        </a>
+        <!-- LinkedIn -->
+        <a href="#" title="LinkedIn" aria-label="LinkedIn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- App scripts -->
+<script src="/js/app.js"></script>
+<script src="/js/views-shop.js"></script>
+<script src="/js/views-auth.js"></script>
+<script src="/js/views-admin.js"></script>
+
+<!-- Activate Lucide icons after DOM is ready -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+  // Re-run after SPA route changes so dynamically rendered icons work
+  document.addEventListener('lucide:refresh', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
+</body>
+</html>

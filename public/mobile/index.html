@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>iTHRIFT</title>
+<meta name="description" content="iTHRIFT Clothes mobile - installable Progressive Web App for browsing and buying pre-loved branded fashion.">
+<meta name="theme-color" content="#14131a">
+<link rel="manifest" href="/mobile/manifest.json">
+<link rel="apple-touch-icon" href="/mobile/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="iTHRIFT">
+<link rel="stylesheet" href="/mobile/css/style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<div class="phone-shell">
+  <header class="app-bar">
+    <span class="app-bar-title" id="app-bar-title">iTHRIFT</span>
+    <span class="app-bar-actions" id="app-bar-actions"></span>
+  </header>
+
+  <main id="view" class="phone-view"></main>
+
+  <nav class="tab-bar" id="tab-bar">
+    <a href="#/shop" data-tab="shop"><span class="tab-icon">&#127978;</span><span>Shop</span></a>
+    <a href="#/search" data-tab="search"><span class="tab-icon">&#128269;</span><span>Search</span></a>
+    <a href="#/cart" data-tab="cart"><span class="tab-icon">&#128722;</span><span id="tab-cart-label">Cart</span></a>
+    <a href="#/orders" data-tab="orders"><span class="tab-icon">&#128230;</span><span>Orders</span></a>
+    <a href="#/account" data-tab="account"><span class="tab-icon">&#128100;</span><span>Account</span></a>
+  </nav>
+</div>
+
+<script src="/mobile/js/app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/mobile/sw.js').catch(() => { /* offline shell still works without it */ });
+  });
+}
+</script>
+</body>
+</html>
