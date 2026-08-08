@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">iTHRIFT</string>
+
+    <string name="tab_shop">Shop</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_cart">Cart</string>
+    <string name="tab_orders">Orders</string>
+    <string name="tab_account">Account</string>
+
+    <string name="hint_search">Search brand or piece…</string>
+    <string name="hint_email_or_username">Email</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_first_name">First name</string>
+    <string name="hint_last_name">Last name</string>
+    <string name="hint_comment">Comment (optional)</string>
+    <string name="hint_server_url">Server address, e.g. http://10.0.2.2:3000</string>
+
+    <string name="action_sign_in">Sign in</string>
+    <string name="action_create_account">Create account</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="action_add_to_cart">Add to cart</string>
+    <string name="action_checkout">Checkout</string>
+    <string name="action_place_order">Place order</string>
+    <string name="action_submit_review">Submit review</string>
+    <string name="action_save_server">Save</string>
+
+    <string name="cd_product_image">Product photo</string>
+    <string name="cd_back">Back</string>
+</resources>

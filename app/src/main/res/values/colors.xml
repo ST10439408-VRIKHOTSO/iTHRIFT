@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FFFFFF</color>
+    <color name="secondary_bg">#F5F5F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="ink">#111111</color>
+    <color name="muted">#666666</color>
+    <color name="border">#E5E5E5</color>
+    <color name="accent">#111111</color>
+    <color name="accent_soft">#F0F0F0</color>
+
+    <color name="condition_excellent_bg">#D4EDDA</color>
+    <color name="condition_excellent_text">#155724</color>
+    <color name="condition_good_bg">#F8F0E3</color>
+    <color name="condition_good_text">#856404</color>
+
+    <color name="excellent">#2D8A4E</color>
+    <color name="good_condition">#B1893E</color>
+
+    <color name="good">#2D8A4E</color>
+    <color name="warn">#B1893E</color>
+    <color name="bad">#A14C3E</color>
+    <color name="info">#3E7CB1</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

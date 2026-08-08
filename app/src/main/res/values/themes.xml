@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.IThrift" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/ink</item>
+        <item name="colorPrimaryDark">@color/ink</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="colorSecondary">@color/accent</item>
+
+        <!-- Status bar color. -->
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Customize your theme here. -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.IThrift.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.IThrift.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.IThrift.LargeComponent</item>
+
+        <item name="bottomNavigationStyle">@style/Widget.IThrift.BottomNavigationView</item>
+        <item name="toolbarStyle">@style/Widget.IThrift.Toolbar</item>
+
+        <item name="chipStyle">@style/Widget.IThrift.Chip</item>
+        <item name="materialButtonStyle">@style/Widget.IThrift.Button</item>
+    </style>
+
+    <style name="ShapeAppearance.IThrift.SmallComponent" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+
+    <style name="ShapeAppearance.IThrift.MediumComponent" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.IThrift.LargeComponent" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="Widget.IThrift.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="backgroundTint">@color/bg</item>
+        <item name="itemIconTint">@color/ink</item>
+        <item name="itemTextColor">@color/ink</item>
+        <item name="itemRippleColor">@color/secondary_bg</item>
+        <item name="elevation">8dp</item>
+    </style>
+
+    <style name="Widget.IThrift.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="background">@color/bg</item>
+        <item name="titleTextColor">@color/ink</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="Widget.IThrift.Chip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="chipBackgroundColor">@color/chip_bg_color</item>
+        <item name="android:textColor">@color/chip_text_color</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.IThrift.SmallComponent</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="rippleColor">@color/secondary_bg</item>
+    </style>
+
+    <style name="Widget.IThrift.Button" parent="Widget.MaterialComponents.Button">
+        <item name="cornerRadius">12dp</item>
+        <item name="textAllCaps">false</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.IThrift.Button.Secondary" parent="Widget.IThrift.Button">
+        <item name="backgroundTint">@color/secondary_bg</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="rippleColor">@color/border</item>
+    </style>
+
+</resources>
