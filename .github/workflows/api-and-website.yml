@@ -1,0 +1,69 @@
+name: API and website
+
+# Proves the server builds and runs on a clean machine, not only on ours,
+# and that the end-to-end behaviour the two clients depend on still works.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: Seed the database and run the end-to-end smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # Node 24: server/db.js uses the built-in node:sqlite module, which is
+      # available without an experimental flag from Node 23.4 onwards.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies from the lock file
+        run: npm ci
+
+      - name: Build and seed the database
+        run: npm run init-db
+
+      - name: Start the server and run the smoke test
+        run: |
+          npm start > server.log 2>&1 &
+          SERVER_PID=$!
+
+          echo "Waiting for the API to come up..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api > /dev/null; then
+              echo "API is responding."
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "The API did not start within 60 seconds."
+              cat server.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          set +e
+          npm test
+          STATUS=$?
+          set -e
+
+          kill "$SERVER_PID" 2>/dev/null || true
+          exit $STATUS
+
+      - name: Upload the server log if the run failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log
+          path: server.log
+          if-no-files-found: ignore
