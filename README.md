@@ -1,13 +1,13 @@
-# iTHRIFT Clothes — website and Android application
+# iTHRIFT Clothes: website and Android application
 
 South African pre-loved branded fashion e-commerce platform.
 
-**XISD6329 Work Integrated Learning 3B — Group 11**
+**XISD6329 Work Integrated Learning 3B, Group 11**
 Theo Golele (ST10439863) and Vukosi Rikhotso (ST10439408)
 IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 
 iTHRIFT Clothes buys and resells pre-owned branded clothing. It sells from physical
-stores in Pretoria and, for everything else, through WhatsApp and Instagram — with no
+stores in Pretoria and, for everything else, through WhatsApp and Instagram, with no
 single system behind any of it. This repository holds the system that replaces that:
 a customer storefront and staff console on the web, a native Android application for
 customers, and one REST API and database behind both.
@@ -19,7 +19,7 @@ produced for **XISD5319 Work Integrated Learning 3A**.
 
 | Task | Deliverable | State |
 |---|---|---|
-| Task 1 | Updated project plan, site map, wireframes | Complete — see [`docs/task1/`](docs/task1/) |
+| Task 1 | Updated project plan, site map, wireframes | Complete. See [`docs/task1/`](docs/task1/) |
 | Task 2 | Working prototype: Android app, API, database, tests | In progress |
 | Task 3 | Final project report and presentation | Not started |
 
@@ -33,7 +33,7 @@ The Task 1 document, together with all fifteen figures at full resolution, is in
 | Website | `public/`, served at `/` | Customer storefront plus the staff and administrator console |
 | Android application | `app/` | Native Kotlin client, customer-facing |
 | Installable web app | `public/mobile/`, served at `/mobile` | Progressive Web App build of the storefront |
-| REST API | `server/`, served at `/api` | The shared application tier — every business rule lives here |
+| REST API | `server/`, served at `/api` | The shared application tier, where every business rule lives |
 | Database | `data/ithrift.db` (generated) | SQLite, built and seeded by `npm run init-db` |
 | MySQL schema | `database/mysql-schema.sql` | Production-equivalent Third Normal Form schema |
 | Smoke test | `test/smoke-test.js` | 51 end-to-end API checks (`npm test`) |
@@ -48,7 +48,7 @@ Website (HTML5/CSS3/JS)      Android app (Kotlin)
             |                          |
             +----- HTTPS / JSON -------+
                        |
-        REST API — Node.js + Express (server/)
+        REST API: Node.js + Express (server/)
         auth · roles · cart totals · stock locking
         order status rules · reporting
                        |
@@ -89,11 +89,11 @@ Then open:
 ## Running the Android application
 
 1. Open the repository root in Android Studio and let Gradle sync.
-2. Create `local.properties` with your SDK location — it is deliberately not
+2. Create `local.properties` with your SDK location, which is deliberately not
    committed:
-   ```properties
+```properties
    sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
-   ```
+```
 3. Start the API first (`npm start`).
 4. Run the app. On a physical handset, set the API endpoint under **Account →
    Settings → API server URL** to your machine's LAN address (for example
@@ -123,12 +123,12 @@ in only on the website, because the console does not exist in the application.
 2. In the Android application, search for that product. It is already there, because
    the phone reads the same database the website just wrote to.
 3. In the application, sign in as a customer, add the product to the cart and check out.
-4. Stock drops by the quantity ordered — the server reserved the stock and recalculated
+4. Stock drops by the quantity ordered. The server reserved the stock and recalculated
    the total, not the client.
 5. Back on the website, open **Admin Console → Process orders**. The order placed on
    the phone is listed with its payment and total.
 6. Set the status to **Shipped** and capture a courier reference. In the application,
-   open **Orders** — the tracker now shows **Shipped**.
+   open **Orders**, and the tracker now shows **Shipped**.
 
 `npm test` walks this same path automatically.
 
@@ -162,7 +162,7 @@ cross-client database link.
 
 ```
 ithrift/
-├── public/                     web root — everything the browser downloads
+├── public/                     web root: everything the browser downloads
 │   ├── index.html              single-page shell for every route
 │   ├── css/                    globals.css (design tokens), style.css (components)
 │   ├── js/                     app.js (router), views-shop.js, views-auth.js, views-admin.js
@@ -194,35 +194,4 @@ deliberate exceptions: `README.md`, because that is the name GitHub renders, and
 Kotlin sources under `app/`, which follow the Android package conventions. Neither is
 served over HTTP.
 
-## Scope and limitations
-
-Recorded here for transparency; also explained in the project report.
-
-- **SQLite stands in for MySQL.** The design specifies MySQL 8. So the prototype runs
-  with one command and no setup, it uses Node's built-in SQLite engine. The schema is
-  the same Third Normal Form design — see `database/mysql-schema.sql`. SQLite treats
-  `ORDER` as reserved, so that table is named `Orders`; everything else matches the
-  design.
-- **Payments are simulated.** No money changes hands. The payment step records a method
-  and a status, which is enough to demonstrate the order and reporting flow. Live
-  PayFast integration is a stretch goal.
-- **Sessions are in memory.** Signing in issues a bearer token held in the server's
-  memory, so restarting the server signs everyone out. A production build would use a
-  persistent session store.
-- **Android unit tests are thin.** Building out the unit and instrumented test suites
-  is a Task 2 deliverable; the workflow that runs them is already in place.
-- **Product photography** under `public/images/products/` is real brand photography
-  used to make the catalogue realistic for assessment purposes.
-
-## Release notes
-
-### 0.2.0 — Task 1 (August 2026)
-- Native Kotlin Android client added: five bottom-navigation tabs, shared API client,
-  typed network results, session handling.
-- Site maps and wireframes produced for both clients; see `docs/task1/`.
-- GitHub Actions pipelines added for the API and for the Android build.
-- Project plan rebuilt against the twelve-week schedule with the DevOps lifecycle.
-
-### 0.1.0 — XISD5319 Task 3 (June 2026)
-- Website, installable web app, REST API and seeded database.
-- 51-check end-to-end smoke test.
+## Scope
