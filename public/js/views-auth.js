@@ -226,11 +226,11 @@ function renderAbout(view) {
     <div class="container section" style="max-width:800px">
       <div class="eyebrow">Our story</div>
       <h1 style="font-size:34px;font-weight:900;letter-spacing:-0.03em;line-height:1.1;margin-bottom:16px">Pre-loved fashion that <span style="font-weight:400">tells a story.</span></h1>
-      <p style="font-size:16px;color:var(--muted);max-width:600px;line-height:1.7">iTHIFT connects South African buyers with verified sellers of premium branded second-hand clothing. Every piece is condition-rated by our team &mdash; <strong>Excellent</strong>, <strong>Very Good</strong>, or <strong>Good</strong> &mdash; so you know exactly what you're getting.</p>
+      <p style="font-size:16px;color:var(--muted);max-width:600px;line-height:1.7">iTHRIFT connects South African buyers with verified sellers of premium branded second-hand clothing. Every piece is condition-rated by our team &mdash; <strong>Excellent</strong>, <strong>Very Good</strong>, or <strong>Good</strong> &mdash; so you know exactly what you're getting.</p>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:28px 0;border-radius:var(--radius);overflow:hidden">
         <div style="aspect-ratio:4/3;background:var(--surface-2);border-radius:var(--radius);overflow:hidden">
-          <img src="/images/brand/storefront.jpg" alt="iTHIFT storefront" style="width:100%;height:100%;object-fit:cover">
+          <img src="/images/brand/storefront.jpg" alt="iTHRIFT storefront" style="width:100%;height:100%;object-fit:cover">
         </div>
         <div style="background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;padding:32px">
           <div style="text-align:center">
@@ -247,11 +247,11 @@ function renderAbout(view) {
       <div style="background:var(--surface-2);border-radius:var(--radius);padding:28px;margin:24px 0;border:1.5px solid var(--border)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <span style="font-size:18px">&#x1F6E1;</span>
-          <h3 style="margin:0;font-size:16px">Staying Safe on iTHIFT</h3>
+          <h3 style="margin:0;font-size:16px">Staying Safe on iTHRIFT</h3>
         </div>
         <p style="font-size:12px;color:var(--muted2);margin:0 0 16px">Last updated: June 2026</p>
         <p><strong>Verified Accounts Only</strong><br>Every buyer and seller must register and be verified by our admin team before they can trade.</p>
-        <p><strong>Never Share Personal Details</strong><br>Do not share your phone number, home address or banking details through the chat system. All payments must go through the official iTHIFT checkout.</p>
+        <p><strong>Never Share Personal Details</strong><br>Do not share your phone number, home address or banking details through the chat system. All payments must go through the official iTHRIFT checkout.</p>
         <p style="margin:0"><strong>Condition-Rated Listings</strong><br>Every listing is reviewed and condition-rated (Excellent, Very Good, or Good) by our team before it goes live.</p>
       </div>
 

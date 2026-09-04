@@ -112,7 +112,7 @@ function openProductModal(product, main) {
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal">
-      <button class="modal-close" id="modal-close">&times;</button>
+      <button class="modal-close" id="modal-close" type="button" aria-label="Close dialog">&times;</button>
       <h2>${isEdit ? 'Edit product' : 'Add product'}</h2>
       <form id="product-form">
         <div class="field"><label>Name</label><input type="text" name="name" required value="${isEdit ? escapeHtml(product.name) : ''}"></div>
@@ -233,7 +233,7 @@ async function renderAdminCustomers(main) {
           <tr>
             <td>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</td>
             <td>${escapeHtml(u.email)}</td>
-            <td>${escapeHtml(u.city || '&mdash;')}</td>
+            <td>${u.city ? escapeHtml(u.city) : '&mdash;'}</td>
             <td>${timeAgo(u.createdAt)}</td>
             <td><span class="badge ${u.status === 'active' ? 'excellent' : 'out'}">${u.status}</span></td>
             <td><button class="muted-link" style="background:none;border:none" data-toggle="${u.id}" data-status="${u.status}">${u.status === 'active' ? 'Suspend' : 'Reactivate'}</button></td>

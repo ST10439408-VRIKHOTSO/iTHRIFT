@@ -26,7 +26,7 @@ async function renderShop(view, query) {
     <div class="container hero">
       <div class="eyebrow">The catalogue</div>
       <h1>Pre-loved pieces, ready to be <span style="font-weight:400">re-worn.</span></h1>
-      <p class="hero-sub">${totalCount} piece${totalCount === 1 ? '' : 's'} available &mdash; every listing condition-rated by the iTHIFT team.</p>
+      <p class="hero-sub">${totalCount} piece${totalCount === 1 ? '' : 's'} available &mdash; every listing condition-rated by the iTHRIFT team.</p>
     </div>
     <div class="container">
       <div class="select-bar">
@@ -39,7 +39,7 @@ async function renderShop(view, query) {
       <div class="chip-filter-row">
         ${categoryChips}
         <form id="search-form" style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
-          <input type="text" name="q" placeholder="Search brand or piece&hellip;" value="${escapeHtml(query.q || '')}" style="border:1.5px solid var(--border);border-radius:999px;padding:9px 16px;background:var(--surface);font-size:14px;min-width:200px;outline:none">
+          <input type="text" name="q" aria-label="Search products by brand or name" placeholder="Search brand or piece&hellip;" value="${escapeHtml(query.q || '')}" style="border:1.5px solid var(--border);border-radius:999px;padding:9px 16px;background:var(--surface);font-size:14px;min-width:200px;outline:none">
           <button class="pill-btn" type="submit" style="border-color:var(--border)">Search</button>
         </form>
       </div>
@@ -179,9 +179,9 @@ async function renderProductDetail(view, id) {
         ${product.inStock ? `
           <div style="display:flex;align-items:center;gap:14px;margin:16px 0">
             <div class="qty-stepper">
-              <button type="button" id="qty-minus">&minus;</button>
-              <span id="qty-val">1</span>
-              <button type="button" id="qty-plus">+</button>
+              <button type="button" id="qty-minus" aria-label="Decrease quantity">&minus;</button>
+              <span id="qty-val" aria-live="polite">1</span>
+              <button type="button" id="qty-plus" aria-label="Increase quantity">+</button>
             </div>
             <span class="small">${product.stock} in stock</span>
           </div>
@@ -320,12 +320,12 @@ function cartLine(item) {
         <div class="small">${money(item.price)} each &middot; ${item.stock} in stock</div>
       </div>
       <div class="qty-stepper">
-        <button type="button" data-qty-minus="${item.id}">&minus;</button>
+        <button type="button" data-qty-minus="${item.id}" aria-label="Decrease quantity of ${escapeHtml(item.name)}">&minus;</button>
         <span>${item.quantity}</span>
-        <button type="button" data-qty-plus="${item.id}">+</button>
+        <button type="button" data-qty-plus="${item.id}" aria-label="Increase quantity of ${escapeHtml(item.name)}">+</button>
       </div>
       <strong style="width:80px;text-align:right">${money(item.price * item.quantity)}</strong>
-      <button type="button" class="muted-link" data-remove="${item.id}" style="background:none;border:none">Remove</button>
+      <button type="button" class="muted-link" data-remove="${item.id}" aria-label="Remove ${escapeHtml(item.name)} from cart" style="background:none;border:none">Remove</button>
     </div>
   `;
 }

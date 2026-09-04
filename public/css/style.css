@@ -1,5 +1,5 @@
 /* ================================================================
-   iTHIFT — Premium design system
+   iTHRIFT — Premium design system
    Fonts: "Playfair Display" (display) + "Inter" (UI/body)
    Icons: Lucide (loaded in index.html)
    ================================================================ */
@@ -1086,3 +1086,42 @@ hr.divider {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* ================================================================
+   Accessibility: keyboard focus + skip link
+   Inputs above use outline:none, so keyboard users need a clear,
+   consistent focus indicator. :focus-visible shows it for keyboard
+   navigation without drawing a ring on mouse clicks.
+   ================================================================ */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip link — hidden until focused, then jumps to the main content */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 100;
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 0 0 10px 10px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* The main region receives focus after a route change via tabindex="-1";
+   never show an outline just because it was focused programmatically. */
+main#view:focus { outline: none; }

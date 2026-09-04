@@ -134,7 +134,7 @@ function renderNav() {
     `;
 
   nav.innerHTML = `
-    <a class="logo" href="#/shop"><span class="badge-mark">i</span><span>iTHIFT</span></a>
+    <a class="logo" href="#/shop"><span class="badge-mark">i</span><span>iTHRIFT</span></a>
     <div class="nav-links">${links}</div>
     <div class="nav-actions">${actions}</div>
   `;
