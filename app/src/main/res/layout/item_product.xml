@@ -33,7 +33,7 @@
                 android:layout_gravity="top|end"
                 android:layout_margin="12dp"
                 android:background="@drawable/bg_badge"
-                android:textColor="@color/white"
+                android:textColor="@color/on_status"
                 android:textSize="9sp"
                 android:textStyle="bold"
                 android:paddingStart="10dp"

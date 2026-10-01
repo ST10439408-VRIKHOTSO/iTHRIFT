@@ -73,7 +73,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Exclusive"
-                            app:chipBackgroundColor="@color/white"
+                            app:chipBackgroundColor="@color/surface"
+                            android:textColor="@color/ink"
                             app:chipStrokeColor="@color/border"
                             app:chipStrokeWidth="1dp"
                             android:textSize="11sp"/>
@@ -82,7 +83,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Branded"
-                            app:chipBackgroundColor="@color/white"
+                            app:chipBackgroundColor="@color/surface"
+                            android:textColor="@color/ink"
                             app:chipStrokeColor="@color/border"
                             app:chipStrokeWidth="1dp"
                             android:textSize="11sp"/>
@@ -91,7 +93,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Pre-loved"
-                            app:chipBackgroundColor="@color/white"
+                            app:chipBackgroundColor="@color/surface"
+                            android:textColor="@color/ink"
                             app:chipStrokeColor="@color/border"
                             app:chipStrokeWidth="1dp"
                             android:textSize="11sp"/>
@@ -100,7 +103,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Verified"
-                            app:chipBackgroundColor="@color/white"
+                            app:chipBackgroundColor="@color/surface"
+                            android:textColor="@color/ink"
                             app:chipStrokeColor="@color/border"
                             app:chipStrokeWidth="1dp"
                             android:textSize="11sp"/>
@@ -122,8 +126,9 @@
                         android:layout_marginTop="24dp"
                         app:cardCornerRadius="16dp"
                         app:cardElevation="0dp"
-                        app:strokeWidth="0dp"
-                        app:cardBackgroundColor="@color/ink">
+                        app:strokeWidth="1dp"
+                        app:strokeColor="@color/border"
+                        app:cardBackgroundColor="@color/feature_surface">
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -139,7 +144,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Weekly drop"
-                                    android:textColor="@color/muted"
+                                    android:textColor="@color/feature_muted"
                                     android:textSize="10sp"
                                     android:textAllCaps="true" />
                                 <TextView
@@ -147,7 +152,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="4dp"
                                     android:text="Curated Drops Every Thursday"
-                                    android:textColor="@color/white"
+                                    android:textColor="@color/on_feature"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
                                 <TextView
@@ -155,7 +160,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="4dp"
                                     android:text="Fresh verified pieces from South African sellers, including rare colourways and designer labels."
-                                    android:textColor="@color/muted"
+                                    android:textColor="@color/feature_muted"
                                     android:textSize="12sp"
                                     android:lineSpacingMultiplier="1.2" />
                             </LinearLayout>
@@ -171,8 +176,7 @@
                                     android:id="@+id/image_weekly_drop"
                                     android:layout_width="match_parent"
                                     android:layout_height="match_parent"
-                                    android:scaleType="centerInside"
-                                    android:padding="8dp"
+                                    android:scaleType="centerCrop"
                                     android:contentDescription="@null" />
                             </com.google.android.material.card.MaterialCardView>
                         </LinearLayout>
@@ -186,7 +190,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="20dp"
-                android:background="@color/white">
+                android:background="@color/secondary_bg">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -309,7 +313,7 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:gravity="center">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="4.8★" android:textStyle="bold" android:textSize="22sp" android:textColor="@color/ink"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="4.8 / 5" android:textStyle="bold" android:textSize="22sp" android:textColor="@color/ink"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Average rating" android:textSize="11sp" android:textColor="@color/muted"/>
                 </LinearLayout>
             </LinearLayout>
@@ -346,7 +350,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="67 pieces available, every listing condition-rated by the iTHRIFT team."
+                    android:text="Every listing is condition-rated by the iTHRIFT team."
                     android:textColor="@color/muted"
                     android:textSize="14sp" />
 

@@ -14,16 +14,36 @@
     <color name="condition_good_bg">#F8F0E3</color>
     <color name="condition_good_text">#856404</color>
 
-    <color name="excellent">#2D8A4E</color>
-    <color name="good_condition">#B1893E</color>
+    <color name="excellent">#23733F</color>
+    <color name="good_condition">#8A6420</color>
 
-    <color name="good">#2D8A4E</color>
-    <color name="warn">#B1893E</color>
+    <color name="good">#23733F</color>
+    <color name="warn">#8A6420</color>
     <color name="bad">#A14C3E</color>
-    <color name="info">#3E7CB1</color>
+    <color name="info">#2F6A9C</color>
 
     <!-- Background behind an inline error message. Overridden in values-night. -->
     <color name="error_bg">#FBE9E4</color>
+
+    <!--
+      Inverse surfaces: a block that stands out from the page in either theme
+      (the weekly drop card, a selected chip, the logo badge). Dark on a light
+      page, light on a dark page, with text that always contrasts with it.
+    -->
+    <color name="inverse_surface">#111111</color>
+    <color name="on_inverse">#FFFFFF</color>
+
+    <!--
+      Feature blocks (the weekly drop card, the logo badge): black with white
+      text in the light theme, dark grey with white text in the dark theme,
+      so the dark theme never shows a white block.
+    -->
+    <color name="feature_surface">#111111</color>
+    <color name="on_feature">#FFFFFF</color>
+    <color name="feature_muted">#B8B8B8</color>
+
+    <!-- Text on a solid status or condition badge. Every pair meets WCAG AA (4.5:1). -->
+    <color name="on_status">#FFFFFF</color>
 
     <!-- Fixed values: white stays white in either theme (e.g. the Google mark). -->
     <color name="white">#FFFFFF</color>

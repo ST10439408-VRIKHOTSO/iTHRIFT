@@ -80,8 +80,8 @@ class ShopFragment : BaseFragment() {
             isCheckable = true
             isChecked = selectedCategory == null
             tag = null
-            setChipBackgroundColorResource(if (isChecked) R.color.ink else R.color.white)
-            setTextColor(ContextCompat.getColor(context, if (isChecked) R.color.white else R.color.ink))
+            setChipBackgroundColorResource(if (isChecked) R.color.inverse_surface else R.color.surface)
+            setTextColor(ContextCompat.getColor(context, if (isChecked) R.color.on_inverse else R.color.ink))
             chipStrokeWidth = if (isChecked) 0f else 1f
             setChipStrokeColorResource(R.color.border)
         }
@@ -93,8 +93,8 @@ class ShopFragment : BaseFragment() {
                 isCheckable = true
                 isChecked = selectedCategory == category.name
                 tag = category.name
-                setChipBackgroundColorResource(if (isChecked) R.color.ink else R.color.white)
-                setTextColor(ContextCompat.getColor(context, if (isChecked) R.color.white else R.color.ink))
+                setChipBackgroundColorResource(if (isChecked) R.color.inverse_surface else R.color.surface)
+                setTextColor(ContextCompat.getColor(context, if (isChecked) R.color.on_inverse else R.color.ink))
                 chipStrokeWidth = if (isChecked) 0f else 1f
                 setChipStrokeColorResource(R.color.border)
             }

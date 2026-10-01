@@ -36,4 +36,11 @@
     <color name="info">#7FB3E0</color>
 
     <color name="error_bg">#3A2320</color>
+
+    <color name="inverse_surface">#ECECEC</color>
+    <color name="on_inverse">#121212</color>
+    <color name="feature_surface">#1E1E1E</color>
+
+    <!-- The dark theme's badge colours are light, so their text turns dark. -->
+    <color name="on_status">#121212</color>
 </resources>
