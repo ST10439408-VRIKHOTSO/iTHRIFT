@@ -6,7 +6,7 @@
  *
  * The schema follows the Third Normal Form entity model from the System
  * Design document (Database Design section). SQLite is used as the data
- * tier so the prototype runs with zero external services - the design
+ * tier so the prototype runs with zero external services. The design
  * itself is unchanged and a MySQL-equivalent schema is kept under
  * /database/mysql-schema.sql for production traceability.
  */
@@ -52,19 +52,33 @@ CREATE TABLE Product (
   CreatedAt      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- PasswordHash/PasswordSalt are nullable because a customer who signs in
+-- through single sign-on never chooses a password on this system; their
+-- identity is proved by the provider instead. AuthProvider records which
+-- of the two routes an account uses, and ProviderSubject holds the
+-- provider's own immutable user id ("sub" in the Google ID token), which
+-- is the correct key to match on, because an email address can be reassigned.
 CREATE TABLE Customer (
-  CustomerID   INTEGER PRIMARY KEY AUTOINCREMENT,
-  FirstName    TEXT NOT NULL,
-  LastName     TEXT NOT NULL,
-  Email        TEXT NOT NULL UNIQUE,
-  PasswordHash TEXT NOT NULL,
-  PasswordSalt TEXT NOT NULL,
-  Phone        TEXT,
-  AddressLine  TEXT,
-  City         TEXT,
-  PostalCode   TEXT,
-  Status       TEXT NOT NULL DEFAULT 'active' CHECK (Status IN ('active','suspended')),
-  CreatedAt    TEXT NOT NULL DEFAULT (datetime('now'))
+  CustomerID      INTEGER PRIMARY KEY AUTOINCREMENT,
+  FirstName       TEXT NOT NULL,
+  LastName        TEXT NOT NULL,
+  Email           TEXT NOT NULL UNIQUE,
+  PasswordHash    TEXT,
+  PasswordSalt    TEXT,
+  AuthProvider    TEXT NOT NULL DEFAULT 'password' CHECK (AuthProvider IN ('password','google')),
+  ProviderSubject TEXT UNIQUE,
+  Phone           TEXT,
+  AddressLine     TEXT,
+  City            TEXT,
+  PostalCode      TEXT,
+  Status          TEXT NOT NULL DEFAULT 'active' CHECK (Status IN ('active','suspended')),
+  CreatedAt       TEXT NOT NULL DEFAULT (datetime('now')),
+  -- A password account must carry a hash; an SSO account must carry a subject.
+  CHECK (
+    (AuthProvider = 'password' AND PasswordHash IS NOT NULL AND PasswordSalt IS NOT NULL)
+    OR
+    (AuthProvider = 'google' AND ProviderSubject IS NOT NULL)
+  )
 );
 
 CREATE TABLE Admin (
@@ -137,7 +151,7 @@ CREATE INDEX idx_review_product ON Review(ProductID);
 console.log('Seeding brands and categories...');
 
 const brandNames = ['Adidas', 'Calvin Klein', 'Dickies', 'Generic', 'Guess', 'H&M', 'L.L.Bean', 'Mocome', 'Next', 'Nike', 'Puma', 'Tommy Hilfiger', 'Woolrich', 'Wrangler', 'Zara'];
-const categoryNames = ['Accessories', 'Dresses', 'Footwear', 'Jeans', 'Knitwear', 'Outerwear', 'Tees', 'Trousers'];
+const categoryNames = ['Accessories', 'Dresses', 'Footwear', 'Hoodies', 'Jackets', 'Jeans', 'Knitwear', 'Outerwear', 'Polos', 'Shirts', 'Tees', 'Trousers'];
 
 const insertBrand = db.prepare('INSERT INTO Brand (Name) VALUES (?)');
 const brandIds = {};
@@ -156,53 +170,53 @@ for (const name of categoryNames) {
 console.log('Seeding products...');
 
 const products = [
-  { name: 'EQT Running Shoes', brand: 'Adidas', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 899, stock: 2, desc: 'Adidas EQT running shoe in a soft grey knit upper with the classic red trim, barely creased.', image: 'adidas_eqt.jpg' },
-  { name: 'Samba OG Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 9', condition: 'Very Good', price: 1099, stock: 3, desc: 'The Samba OG in navy suede and leather, gum sole shows light honest wear.', image: 'adidas_samba.jpg' },
-  { name: 'Samba Suede Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 7', condition: 'Excellent', price: 1149, stock: 2, desc: 'White and green leather Samba with the classic gum outsole, crisp and clean.', image: 'adidas_samba2.jpg' },
-  { name: 'Spezial Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 8', condition: 'Good', price: 949, stock: 1, desc: 'Taupe suede Spezial trainer with pink detailing, comfortable broken-in feel.', image: 'adidas_spezial.jpg' },
-  { name: 'Ultraboost Sneakers', brand: 'Adidas', category: 'Footwear', size: 'UK 9', condition: 'Excellent', price: 1399, stock: 2, desc: 'Lightweight Ultraboost runner in lilac and coral, Boost midsole still springy.', image: 'adidas_ultraboost.jpg' },
-  { name: 'Air Force 1 Low', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Very Good', price: 1199, stock: 4, desc: 'The classic all-white Air Force 1 low, cleaned up with only light creasing on the toe box.', image: 'nike_airforce1.jpg' },
-  { name: 'Air Max 90', brand: 'Nike', category: 'Footwear', size: 'UK 9', condition: 'Good', price: 999, stock: 2, desc: 'Black and white Air Max 90 with visible Air unit, honest wear on the sole.', image: 'nike_airmax90.jpg' },
-  { name: 'Air Max 90 White', brand: 'Nike', category: 'Footwear', size: 'UK 7', condition: 'Excellent', price: 1049, stock: 2, desc: 'All-white Air Max 90, barely worn with a crisp midsole.', image: 'nike_airmax90_2.jpg' },
-  { name: 'Dunk Low', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Very Good', price: 1099, stock: 3, desc: 'Dunk Low in a deep green and black colourway, light scuffing on the toe only.', image: 'nike_dunklow.jpg' },
-  { name: 'Air Jordan 1 Low', brand: 'Nike', category: 'Footwear', size: 'UK 9', condition: 'Good', price: 1299, stock: 1, desc: 'Low-top Air Jordan 1, comfortable with general signs of wear consistent with use.', image: 'nike_jordan1.jpg' },
-  { name: 'Air Jordan 1 High \'85', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 1599, stock: 1, desc: 'High-top Air Jordan 1 in green and white with gold Wings hit, almost like new.', image: 'nike_jordan1_high.jpg' },
-  { name: 'Suede Basket Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 7', condition: 'Very Good', price: 749, stock: 3, desc: 'Green and white Puma Suede with the classic basket silhouette, light wear on the sole.', image: 'puma_basket.jpg' },
-  { name: 'Speedcat Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 799, stock: 2, desc: 'Low-profile racing-inspired Speedcat in black with white Formstripe, hardly worn.', image: 'puma_speedcat.jpg' },
-  { name: 'Speedcat Navy Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 9', condition: 'Very Good', price: 779, stock: 2, desc: 'Navy Speedcat with classic Puma stripe, comfortable everyday trainer.', image: 'puma_speedcat2.jpg' },
-  { name: 'Suede Classic Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 8', condition: 'Good', price: 649, stock: 5, desc: 'The timeless suede low-top, cleaned and re-laced, honest signs of wear on the toe.', image: 'puma_suede.jpg' },
+  { name: 'EQT Running Shoes', brand: 'Adidas', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 899, stock: 2, desc: 'Adidas EQT running shoe in a soft grey knit upper with the classic red trim, barely creased.', image: 'adidas-eqt.jpg' },
+  { name: 'Samba OG Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 9', condition: 'Very Good', price: 1099, stock: 3, desc: 'The Samba OG in navy suede and leather, gum sole shows light honest wear.', image: 'adidas-samba.jpg' },
+  { name: 'Samba Suede Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 7', condition: 'Excellent', price: 1149, stock: 2, desc: 'White and green leather Samba with the classic gum outsole, crisp and clean.', image: 'adidas-samba2.jpg' },
+  { name: 'Spezial Trainers', brand: 'Adidas', category: 'Footwear', size: 'UK 8', condition: 'Good', price: 949, stock: 1, desc: 'Taupe suede Spezial trainer with pink detailing, comfortable broken-in feel.', image: 'adidas-spezial.jpg' },
+  { name: 'Ultraboost Sneakers', brand: 'Adidas', category: 'Footwear', size: 'UK 9', condition: 'Excellent', price: 1399, stock: 2, desc: 'Lightweight Ultraboost runner in lilac and coral, Boost midsole still springy.', image: 'adidas-ultraboost.jpg' },
+  { name: 'Air Force 1 Low', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Very Good', price: 1199, stock: 4, desc: 'The classic all-white Air Force 1 low, cleaned up with only light creasing on the toe box.', image: 'nike-airforce1.jpg' },
+  { name: 'Air Max 90', brand: 'Nike', category: 'Footwear', size: 'UK 9', condition: 'Good', price: 999, stock: 2, desc: 'Black and white Air Max 90 with visible Air unit, honest wear on the sole.', image: 'nike-airmax90.jpg' },
+  { name: 'Air Max 90 White', brand: 'Nike', category: 'Footwear', size: 'UK 7', condition: 'Excellent', price: 1049, stock: 2, desc: 'All-white Air Max 90, barely worn with a crisp midsole.', image: 'nike-airmax90-2.jpg' },
+  { name: 'Dunk Low', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Very Good', price: 1099, stock: 3, desc: 'Dunk Low in a deep green and black colourway, light scuffing on the toe only.', image: 'nike-dunklow.jpg' },
+  { name: 'Air Jordan 1 Low', brand: 'Nike', category: 'Footwear', size: 'UK 9', condition: 'Good', price: 1299, stock: 1, desc: 'Low-top Air Jordan 1, comfortable with general signs of wear consistent with use.', image: 'nike-jordan1.jpg' },
+  { name: 'Air Jordan 1 High \'85', brand: 'Nike', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 1599, stock: 1, desc: 'High-top Air Jordan 1 in green and white with gold Wings hit, almost like new.', image: 'nike-jordan1-high.jpg' },
+  { name: 'Suede Basket Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 7', condition: 'Very Good', price: 749, stock: 3, desc: 'Green and white Puma Suede with the classic basket silhouette, light wear on the sole.', image: 'puma-basket.jpg' },
+  { name: 'Speedcat Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 8', condition: 'Excellent', price: 799, stock: 2, desc: 'Low-profile racing-inspired Speedcat in black with white Formstripe, hardly worn.', image: 'puma-speedcat.jpg' },
+  { name: 'Speedcat Navy Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 9', condition: 'Very Good', price: 779, stock: 2, desc: 'Navy Speedcat with classic Puma stripe, comfortable everyday trainer.', image: 'puma-speedcat2.jpg' },
+  { name: 'Suede Classic Sneakers', brand: 'Puma', category: 'Footwear', size: 'UK 8', condition: 'Good', price: 649, stock: 5, desc: 'The timeless suede low-top, cleaned and re-laced, honest signs of wear on the toe.', image: 'puma-suede.jpg' },
   { name: '3-Stripe Trefoil Tee', brand: 'Adidas', category: 'Tees', size: 'M', condition: 'Very Good', price: 280, stock: 6, desc: 'Classic black 3-Stripe tee with the Trefoil logo, soft cotton with light wash wear.', image: 'black-adidas-3stripe-tshirt.jpg' },
-  { name: 'CK96 Graphic Tee', brand: 'Calvin Klein', category: 'Tees', size: 'L', condition: 'Excellent', price: 320, stock: 4, desc: 'Black crew-neck tee with the CK96 logo print across the chest, barely worn.', image: 'ck_graphictee.jpg' },
+  { name: 'CK96 Graphic Tee', brand: 'Calvin Klein', category: 'Tees', size: 'L', condition: 'Excellent', price: 320, stock: 4, desc: 'Black crew-neck tee with the CK96 logo print across the chest, barely worn.', image: 'ck-graphictee.jpg' },
   { name: 'Long Sleeve Tee', brand: 'Generic', category: 'Tees', size: 'M', condition: 'Very Good', price: 220, stock: 3, desc: 'Olive green long-sleeve cotton tee, simple and versatile, light fading.', image: 'green-long-sleeve-tshirt.jpg' },
   { name: 'Oversized Tee', brand: 'Generic', category: 'Tees', size: 'L', condition: 'Good', price: 199, stock: 4, desc: 'Washed grey oversized tee with a relaxed drop-shoulder fit.', image: 'grey-oversized-tshirt.jpg' },
-  { name: 'Iconic Triangle Logo Tee', brand: 'Guess', category: 'Tees', size: 'M', condition: 'Excellent', price: 299, stock: 3, desc: 'White cotton tee with the iconic Guess triangle logo print, like new.', image: 'guess_iconictee.jpg' },
-  { name: 'Triangle Logo Tee Black', brand: 'Guess', category: 'Tees', size: 'L', condition: 'Very Good', price: 289, stock: 2, desc: 'Black cotton tee with the classic Guess triangle logo, light wash wear only.', image: 'guess_tshirt.jpg' },
+  { name: 'Iconic Triangle Logo Tee', brand: 'Guess', category: 'Tees', size: 'M', condition: 'Excellent', price: 299, stock: 3, desc: 'White cotton tee with the iconic Guess triangle logo print, like new.', image: 'guess-iconictee.jpg' },
+  { name: 'Triangle Logo Tee Black', brand: 'Guess', category: 'Tees', size: 'L', condition: 'Very Good', price: 289, stock: 2, desc: 'Black cotton tee with the classic Guess triangle logo, light wash wear only.', image: 'guess-tshirt.jpg' },
   { name: 'Money Is The Motive Graphic Tee', brand: 'Generic', category: 'Tees', size: 'M', condition: 'Good', price: 179, stock: 2, desc: 'Cream oversized graphic tee with bold red and black print lettering.', image: 'money-is-the-motive-graphic-tshirt.jpg' },
   { name: '5-Pack Crew Tees', brand: 'Next', category: 'Tees', size: 'M', condition: 'Very Good', price: 399, stock: 1, desc: 'Set of five plain crew-neck tees in assorted colours, sold as one bundle.', image: 'multicolor-tshirt-5pack-next.jpg' },
   { name: 'Crew Tee Multipack', brand: 'Mocome', category: 'Tees', size: 'L', condition: 'Good', price: 349, stock: 1, desc: 'Assorted multipack of relaxed-fit crew tees in brown, teal, white and stone.', image: 'multicolor-tshirt-pack-mocome.jpg' },
   { name: 'V-Neck Tee', brand: 'Generic', category: 'Tees', size: 'M', condition: 'Excellent', price: 189, stock: 4, desc: 'Olive green v-neck tee in soft cotton, minimal wear.', image: 'olive-vneck-tshirt.jpg' },
   { name: 'Plaid Cropped Shirt', brand: 'Generic', category: 'Tees', size: 'S', condition: 'Very Good', price: 259, stock: 2, desc: 'Short-sleeve cropped plaid shirt in rust and brown check, cute boxy fit.', image: 'red-plaid-cropped-shirt.jpg' },
-  { name: 'Flag Logo Tee', brand: 'Tommy Hilfiger', category: 'Tees', size: 'M', condition: 'Excellent', price: 339, stock: 5, desc: 'Cream tee with the signature Tommy flag logo on the chest, excellent condition.', image: 'tommy_flagtee.jpg' },
-  { name: 'Pique Polo Shirt', brand: 'Tommy Hilfiger', category: 'Tees', size: 'L', condition: 'Very Good', price: 359, stock: 3, desc: 'Classic navy pique polo with embroidered flag logo, light wear at the collar.', image: 'tommy_polo.jpg' },
-  { name: 'Cotton Pique Golfer', brand: 'Generic', category: 'Tees', size: 'L', condition: 'Excellent', price: 249, stock: 3, desc: 'Coral cotton pique golf shirt with classic two-button placket, tag still attached.', image: 'woolworths_golfer.jpg' },
-  { name: 'Tommy Hilfiger Tee', brand: 'Tommy Hilfiger', category: 'Tees', size: 'M', condition: 'Excellent', price: 329, stock: 2, desc: 'Black crew tee with embroidered Tommy Hilfiger wordmark, barely worn.', image: 'woolworths_shirt.jpg' },
+  { name: 'Flag Logo Tee', brand: 'Tommy Hilfiger', category: 'Tees', size: 'M', condition: 'Excellent', price: 339, stock: 5, desc: 'Cream tee with the signature Tommy flag logo on the chest, excellent condition.', image: 'tommy-flagtee.jpg' },
+  { name: 'Pique Polo Shirt', brand: 'Tommy Hilfiger', category: 'Tees', size: 'L', condition: 'Very Good', price: 359, stock: 3, desc: 'Classic navy pique polo with embroidered flag logo, light wear at the collar.', image: 'tommy-polo.jpg' },
+  { name: 'Cotton Pique Golfer', brand: 'Generic', category: 'Tees', size: 'L', condition: 'Excellent', price: 249, stock: 3, desc: 'Coral cotton pique golf shirt with classic two-button placket, tag still attached.', image: 'woolworths-golfer.jpg' },
+  { name: 'Tommy Hilfiger Tee', brand: 'Tommy Hilfiger', category: 'Tees', size: 'M', condition: 'Excellent', price: 329, stock: 2, desc: 'Black crew tee with embroidered Tommy Hilfiger wordmark, barely worn.', image: 'woolworths-shirt.jpg' },
   { name: 'Heritage Polo Shirt', brand: 'Generic', category: 'Tees', size: 'M', condition: 'Very Good', price: 269, stock: 2, desc: 'Soft pink pique polo, classic fit with light pilling only.', image: 'pink-polo-shirt.jpg' },
   { name: 'Classic Polo Shirt', brand: 'Generic', category: 'Tees', size: 'L', condition: 'Excellent', price: 279, stock: 3, desc: 'Plain black pique polo, clean lines, like new.', image: 'black-polo-shirt.jpg' },
-  { name: 'CK96 Crew Sweater', brand: 'Calvin Klein', category: 'Knitwear', size: 'M', condition: 'Excellent', price: 549, stock: 2, desc: 'Heavyweight grey crew sweater with the bold CK96 logo print, near-new.', image: 'ck_sweater.jpg' },
-  { name: 'Faux-Fur Logo Jacket', brand: 'Guess', category: 'Knitwear', size: 'S', condition: 'Very Good', price: 699, stock: 1, desc: 'Black faux-fur zip-up with embroidered Guess wordmark on the hood, cosy and warm.', image: 'guess_jacket.jpg' },
-  { name: 'Zip-Up Track Top', brand: 'Guess', category: 'Knitwear', size: 'M', condition: 'Good', price: 459, stock: 2, desc: 'Fitted black zip-up top with Guess script logo, light wear from regular use.', image: 'guess_zip.jpg' },
-  { name: 'Mohair-Blend Jumper', brand: 'H&M', category: 'Knitwear', size: 'M', condition: 'Excellent', price: 489, stock: 2, desc: 'Camel mohair-blend jumper with a relaxed fit, soft and barely worn.', image: 'hm_knit.jpg' },
-  { name: 'Turtleneck Knit Jumper', brand: 'H&M', category: 'Knitwear', size: 'L', condition: 'Very Good', price: 459, stock: 2, desc: 'Oatmeal turtleneck jumper in a chunky knit, warm and comfortable.', image: 'hm_knit2.jpg' },
-  { name: 'Heritage Crest Sweatshirt', brand: 'Tommy Hilfiger', category: 'Knitwear', size: 'L', condition: 'Excellent', price: 599, stock: 2, desc: 'Cream crew sweatshirt with the Tommy Hilfiger flag crest, excellent condition.', image: 'tommy_heritage.jpg' },
-  { name: 'Cable Knit Jumper', brand: 'Tommy Hilfiger', category: 'Knitwear', size: 'M', condition: 'Very Good', price: 629, stock: 1, desc: 'Navy cable-knit crew jumper with embroidered flag logo, classic preppy style.', image: 'tommy_knit.jpg' },
-  { name: 'Fine Knit Jumper', brand: 'Generic', category: 'Knitwear', size: 'S', condition: 'Good', price: 379, stock: 2, desc: 'Light grey fine-knit jumper, soft and easy to layer, honest signs of wear.', image: 'woolworths_knits.jpg' },
-  { name: 'V-Neck Wool Jumper', brand: 'Woolrich', category: 'Knitwear', size: 'L', condition: 'Very Good', price: 499, stock: 1, desc: 'Grey v-neck wool jumper with logo patch, warm midweight knit.', image: 'woolworths_sweater.jpg' },
-  { name: 'Quilted Puffer Gilet', brand: 'Calvin Klein', category: 'Outerwear', size: 'M', condition: 'Excellent', price: 749, stock: 1, desc: 'Black quilted puffer gilet, lightweight warmth for layering, like new.', image: 'ck_gilet.jpg' },
-  { name: 'Zip-Through Hoodie', brand: 'Calvin Klein', category: 'Outerwear', size: 'L', condition: 'Very Good', price: 599, stock: 2, desc: 'Black zip-up hoodie with embroidered CK logo on the chest, soft brushed fleece.', image: 'ck_zip.jpg' },
-  { name: 'Tie-Waist Maxi Dress', brand: 'Generic', category: 'Dresses', size: 'M', condition: 'Excellent', price: 449, stock: 1, desc: 'Flowing beige maxi dress with a tie waist and bishop sleeves, elegant and barely worn.', image: 'woolworths_maxidress.jpg' },
-  { name: 'Floral Halter Maxi Dress', brand: 'Zara', category: 'Dresses', size: 'S', condition: 'Very Good', price: 499, stock: 1, desc: 'Black and cream floral print dress with a halter neckline, statement piece.', image: 'zara_floraldress.jpg' },
-  { name: 'Green Floral Slip Dress', brand: 'Zara', category: 'Dresses', size: 'S', condition: 'Excellent', price: 459, stock: 2, desc: 'Green ditsy floral slip dress with adjustable straps, light and breezy.', image: 'zara_floraldress2.jpg' },
-  { name: 'Green Printed Shirt Dress', brand: 'Zara', category: 'Dresses', size: 'M', condition: 'Very Good', price: 479, stock: 1, desc: 'Button-through shirt dress in a green leaf print, short sleeves, lovely for summer.', image: 'zara_printeddress.jpg' },
+  { name: 'CK96 Crew Sweater', brand: 'Calvin Klein', category: 'Knitwear', size: 'M', condition: 'Excellent', price: 549, stock: 2, desc: 'Heavyweight grey crew sweater with the bold CK96 logo print, near-new.', image: 'ck-sweater.jpg' },
+  { name: 'Faux-Fur Logo Jacket', brand: 'Guess', category: 'Knitwear', size: 'S', condition: 'Very Good', price: 699, stock: 1, desc: 'Black faux-fur zip-up with embroidered Guess wordmark on the hood, cosy and warm.', image: 'guess-jacket.jpg' },
+  { name: 'Zip-Up Track Top', brand: 'Guess', category: 'Knitwear', size: 'M', condition: 'Good', price: 459, stock: 2, desc: 'Fitted black zip-up top with Guess script logo, light wear from regular use.', image: 'guess-zip.jpg' },
+  { name: 'Mohair-Blend Jumper', brand: 'H&M', category: 'Knitwear', size: 'M', condition: 'Excellent', price: 489, stock: 2, desc: 'Camel mohair-blend jumper with a relaxed fit, soft and barely worn.', image: 'hm-knit.jpg' },
+  { name: 'Turtleneck Knit Jumper', brand: 'H&M', category: 'Knitwear', size: 'L', condition: 'Very Good', price: 459, stock: 2, desc: 'Oatmeal turtleneck jumper in a chunky knit, warm and comfortable.', image: 'hm-knit2.jpg' },
+  { name: 'Heritage Crest Sweatshirt', brand: 'Tommy Hilfiger', category: 'Knitwear', size: 'L', condition: 'Excellent', price: 599, stock: 2, desc: 'Cream crew sweatshirt with the Tommy Hilfiger flag crest, excellent condition.', image: 'tommy-heritage.jpg' },
+  { name: 'Cable Knit Jumper', brand: 'Tommy Hilfiger', category: 'Knitwear', size: 'M', condition: 'Very Good', price: 629, stock: 1, desc: 'Navy cable-knit crew jumper with embroidered flag logo, classic preppy style.', image: 'tommy-knit.jpg' },
+  { name: 'Fine Knit Jumper', brand: 'Generic', category: 'Knitwear', size: 'S', condition: 'Good', price: 379, stock: 2, desc: 'Light grey fine-knit jumper, soft and easy to layer, honest signs of wear.', image: 'woolworths-knits.jpg' },
+  { name: 'V-Neck Wool Jumper', brand: 'Woolrich', category: 'Knitwear', size: 'L', condition: 'Very Good', price: 499, stock: 1, desc: 'Grey v-neck wool jumper with logo patch, warm midweight knit.', image: 'woolworths-sweater.jpg' },
+  { name: 'Quilted Puffer Gilet', brand: 'Calvin Klein', category: 'Outerwear', size: 'M', condition: 'Excellent', price: 749, stock: 1, desc: 'Black quilted puffer gilet, lightweight warmth for layering, like new.', image: 'ck-gilet.jpg' },
+  { name: 'Zip-Through Hoodie', brand: 'Calvin Klein', category: 'Outerwear', size: 'L', condition: 'Very Good', price: 599, stock: 2, desc: 'Black zip-up hoodie with embroidered CK logo on the chest, soft brushed fleece.', image: 'ck-zip.jpg' },
+  { name: 'Tie-Waist Maxi Dress', brand: 'Generic', category: 'Dresses', size: 'M', condition: 'Excellent', price: 449, stock: 1, desc: 'Flowing beige maxi dress with a tie waist and bishop sleeves, elegant and barely worn.', image: 'woolworths-maxidress.jpg' },
+  { name: 'Floral Halter Maxi Dress', brand: 'Zara', category: 'Dresses', size: 'S', condition: 'Very Good', price: 499, stock: 1, desc: 'Black and cream floral print dress with a halter neckline, statement piece.', image: 'zara-floraldress.jpg' },
+  { name: 'Green Floral Slip Dress', brand: 'Zara', category: 'Dresses', size: 'S', condition: 'Excellent', price: 459, stock: 2, desc: 'Green ditsy floral slip dress with adjustable straps, light and breezy.', image: 'zara-floraldress2.jpg' },
+  { name: 'Green Printed Shirt Dress', brand: 'Zara', category: 'Dresses', size: 'M', condition: 'Very Good', price: 479, stock: 1, desc: 'Button-through shirt dress in a green leaf print, short sleeves, lovely for summer.', image: 'zara-printeddress.jpg' },
   { name: 'Slim Chino Trousers', brand: 'Generic', category: 'Trousers', size: '32', condition: 'Excellent', price: 399, stock: 3, desc: 'Beige slim-fit chinos, smart-casual staple, barely worn.', image: 'beige-chino-trousers.jpg' },
   { name: 'Classic Chino Trousers', brand: 'Generic', category: 'Trousers', size: '34', condition: 'Very Good', price: 379, stock: 2, desc: 'Black straight-leg chinos, versatile and comfortable, light wear.', image: 'black-chino-trousers.jpg' },
   { name: 'Formal Dress Trousers', brand: 'Generic', category: 'Trousers', size: '32', condition: 'Excellent', price: 449, stock: 1, desc: 'Tailored black dress trousers with a flat front, smart finish.', image: 'black-formal-dress-trousers.jpg' },
@@ -226,23 +240,65 @@ const insertProduct = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
+/**
+ * Four categories were split out of the broader ones so that a shopper
+ * filtering for a polo is not wading through sixteen t-shirts. The products
+ * themselves are listed above with their original category, and this map
+ * moves the affected ones at insert time; that keeps the change in one
+ * readable place instead of scattered through sixty product literals.
+ */
+const CATEGORY_OVERRIDES = {
+  'Classic Polo Shirt': 'Polos',
+  'Heritage Polo Shirt': 'Polos',
+  'Pique Polo Shirt': 'Polos',
+  'Cotton Pique Golfer': 'Polos',
+  'Plaid Cropped Shirt': 'Shirts',
+  'Green Printed Shirt Dress': 'Shirts',
+  'Zip-Through Hoodie': 'Hoodies',
+  'Heritage Crest Sweatshirt': 'Hoodies',
+  'Zip-Up Track Top': 'Hoodies',
+  'Faux-Fur Logo Jacket': 'Jackets',
+  'Quilted Puffer Gilet': 'Jackets',
+};
+
 const productIds = [];
 for (const p of products) {
   const imagePath = '/images/products/' + p.image;
+  const category = CATEGORY_OVERRIDES[p.name] || p.category;
   const info = insertProduct.run(
-    p.name, p.desc, brandIds[p.brand], categoryIds[p.category], p.size, p.condition, p.price, p.stock, imagePath
+    p.name, p.desc, brandIds[p.brand], categoryIds[category], p.size, p.condition, p.price, p.stock, imagePath
   );
   const id = Number(info.lastInsertRowid);
-  productIds.push({ id, ...p, image: imagePath });
+  productIds.push({ id, ...p, category, image: imagePath });
 }
 
 
 console.log('Seeding customers...');
 
+/**
+ * Twelve customers. The module requires at least ten rows in every table, so
+ * the demonstration data is sized to that rather than to the three accounts
+ * the walk-through actually uses. The first three are the documented demo
+ * accounts and keep their original passwords, so anything written down
+ * elsewhere still works.
+ *
+ * These people are invented. The names, addresses and numbers are simulated
+ * data for assessment; no real customer's details appear anywhere in this
+ * repository.
+ */
 const customers = [
   { first: 'Lerato', last: 'Mokoena', email: 'lerato.m@gmail.com', password: 'Password1', phone: '082 555 0101', address: '14 Jacaranda Street', city: 'Pretoria', postal: '0181' },
   { first: 'Sipho', last: 'Ndlovu', email: 'sipho.n@gmail.com', password: 'Password2', phone: '083 555 0202', address: '8 Church Street', city: 'Centurion', postal: '0157' },
   { first: 'Amahle', last: 'Dube', email: 'amahle.d@gmail.com', password: 'Password3', phone: '084 555 0303', address: '21 Brooklyn Road', city: 'Pretoria', postal: '0011' },
+  { first: 'Thabo', last: 'Molefe', email: 'thabo.molefe@gmail.com', password: 'Password4', phone: '072 555 0404', address: '5 Lynnwood Ridge', city: 'Pretoria', postal: '0081' },
+  { first: 'Nandi', last: 'Zulu', email: 'nandi.zulu@outlook.com', password: 'Password5', phone: '076 555 0505', address: '112 Hatfield Square', city: 'Pretoria', postal: '0028' },
+  { first: 'Kagiso', last: 'Sithole', email: 'kagiso.s@gmail.com', password: 'Password6', phone: '081 555 0606', address: '3 Menlyn Close', city: 'Pretoria', postal: '0063' },
+  { first: 'Zanele', last: 'Mahlangu', email: 'zanele.m@gmail.com', password: 'Password7', phone: '073 555 0707', address: '48 Rooihuiskraal Road', city: 'Centurion', postal: '0157' },
+  { first: 'Tshepo', last: 'Radebe', email: 'tshepo.r@outlook.com', password: 'Password8', phone: '079 555 0808', address: '27 Sunnyside Avenue', city: 'Pretoria', postal: '0002' },
+  { first: 'Palesa', last: 'Nkosi', email: 'palesa.nkosi@gmail.com', password: 'Password9', phone: '074 555 0909', address: '9 Waterkloof Heights', city: 'Pretoria', postal: '0181' },
+  { first: 'Bongani', last: 'Khoza', email: 'bongani.k@gmail.com', password: 'Password10', phone: '083 555 1010', address: '61 Wonderboom Road', city: 'Pretoria', postal: '0182' },
+  { first: 'Refilwe', last: 'Motaung', email: 'refilwe.m@outlook.com', password: 'Password11', phone: '071 555 1111', address: '15 Garsfontein Drive', city: 'Pretoria', postal: '0042' },
+  { first: 'Ayanda', last: 'Mthembu', email: 'ayanda.mthembu@gmail.com', password: 'Password12', phone: '078 555 1212', address: '33 Highveld Boulevard', city: 'Centurion', postal: '0169' },
 ];
 
 const insertCustomer = db.prepare(`
@@ -262,9 +318,25 @@ for (const c of customers) {
 
 console.log('Seeding staff and administrator accounts...');
 
+/**
+ * Ten staff and administrator accounts, again to meet the ten-row minimum.
+ * `admin` and `staff01` are the documented demo accounts; the rest are the
+ * counter and stockroom staff across the two Pretoria branches. Only two
+ * hold the administrator role, because the console's destructive actions
+ * (suspending a customer, deleting a listing) should not be within reach of
+ * every till operator.
+ */
 const staffAccounts = [
   { username: 'admin', password: 'Admin@123', fullName: 'Naledi Khumalo', role: 'admin' },
   { username: 'staff01', password: 'Staff@123', fullName: 'Kabelo Tau', role: 'staff' },
+  { username: 'staff02', password: 'Staff@234', fullName: 'Dineo Mabaso', role: 'staff' },
+  { username: 'staff03', password: 'Staff@345', fullName: 'Sizwe Ngcobo', role: 'staff' },
+  { username: 'staff04', password: 'Staff@456', fullName: 'Karabo Pillay', role: 'staff' },
+  { username: 'staff05', password: 'Staff@567', fullName: 'Lindiwe Botha', role: 'staff' },
+  { username: 'staff06', password: 'Staff@678', fullName: 'Mpho Jacobs', role: 'staff' },
+  { username: 'staff07', password: 'Staff@789', fullName: 'Sanele Adams', role: 'staff' },
+  { username: 'staff08', password: 'Staff@890', fullName: 'Thandeka Naidoo', role: 'staff' },
+  { username: 'admin02', password: 'Admin@234', fullName: 'Johan van Wyk', role: 'admin' },
 ];
 
 const insertAdmin = db.prepare(`
@@ -309,53 +381,136 @@ function placeSeedOrder({ customerId, items, status, method, paymentStatus, days
   return orderId;
 }
 
-// Order 1: delivered, paid by card
-placeSeedOrder({
-  customerId: customerIds[0],
-  items: [
-    { productId: findProduct('Air Force 1 Low').id, qty: 1, unitPrice: findProduct('Air Force 1 Low').price },
-    { productId: findProduct('Slim Chino Trousers').id, qty: 1, unitPrice: findProduct('Slim Chino Trousers').price },
-  ],
-  status: 'Delivered',
-  method: 'card',
-  paymentStatus: 'paid',
-  daysAgo: 12,
-});
+/**
+ * Twelve orders across four statuses and all three payment methods.
+ *
+ * The spread is deliberate rather than decorative. The staff console's order
+ * queue, the status filter, the sales report and the app's order tracker are
+ * all only worth looking at if there is something in every state, and a
+ * demonstration that shows four Processing orders and nothing else proves
+ * none of them work. Ages run from twelve weeks back to yesterday so the
+ * "last 30 days" figures on the dashboard are not the same as the totals.
+ *
+ * `product` names are looked up rather than hard-coded ids, so re-ordering
+ * the product list above cannot silently point an order at the wrong item.
+ */
+const seedOrders = [
+  { customer: 0, products: ['Air Force 1 Low', 'Slim Chino Trousers'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 84 },
+  { customer: 1, products: ['Cable Knit Jumper'], status: 'Delivered', method: 'payfast', payment: 'paid', daysAgo: 61 },
+  { customer: 3, products: ['Samba OG Trainers', 'Flag Logo Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 45 },
+  { customer: 4, products: ['Tie-Waist Maxi Dress'], status: 'Delivered', method: 'eft', payment: 'paid', daysAgo: 38 },
+  { customer: 5, products: ['Air Max 90', 'Oversized Tee', 'Straight Leg Jeans'], status: 'Delivered', method: 'payfast', payment: 'paid', daysAgo: 27 },
+  { customer: 6, products: ['Silver Cuban Link Bracelet'], status: 'Cancelled', method: 'eft', payment: 'pending', daysAgo: 22 },
+  { customer: 7, products: ['Zip-Through Hoodie', 'Classic Chino Trousers'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 18 },
+  { customer: 8, products: ['Floral Halter Maxi Dress', 'Fine Knit Jumper'], status: 'Shipped', method: 'payfast', payment: 'paid', daysAgo: 11 },
+  { customer: 9, products: ['Dunk Low'], status: 'Shipped', method: 'card', payment: 'paid', daysAgo: 7 },
+  { customer: 2, products: ["Air Jordan 1 High '85", 'CK96 Crew Sweater'], status: 'Processing', method: 'eft', payment: 'pending', daysAgo: 3 },
+  { customer: 10, products: ['Heritage Polo Shirt', 'Sage Green Chinos'], status: 'Processing', method: 'card', payment: 'paid', daysAgo: 2 },
+  { customer: 11, products: ['Speedcat Sneakers'], status: 'Processing', method: 'payfast', payment: 'paid', daysAgo: 1 },
+];
 
-// Order 2: shipped, paid via PayFast
-placeSeedOrder({
-  customerId: customerIds[1],
-  items: [
-    { productId: findProduct('Cable Knit Jumper').id, qty: 1, unitPrice: findProduct('Cable Knit Jumper').price },
-  ],
-  status: 'Shipped',
-  method: 'payfast',
-  paymentStatus: 'paid',
-  daysAgo: 4,
-});
+for (const order of seedOrders) {
+  placeSeedOrder({
+    customerId: customerIds[order.customer],
+    items: order.products.map((name) => {
+      const product = findProduct(name);
+      return { productId: product.id, qty: 1, unitPrice: product.price };
+    }),
+    status: order.status,
+    method: order.method,
+    paymentStatus: order.payment,
+    daysAgo: order.daysAgo,
+  });
+}
 
-// Order 3: processing, EFT pending
-placeSeedOrder({
-  customerId: customerIds[2],
-  items: [
-    { productId: findProduct("Air Jordan 1 High '85").id, qty: 1, unitPrice: findProduct("Air Jordan 1 High '85").price },
-    { productId: findProduct('CK96 Crew Sweater').id, qty: 1, unitPrice: findProduct('CK96 Crew Sweater').price },
-  ],
-  status: 'Processing',
-  method: 'eft',
-  paymentStatus: 'pending',
-  daysAgo: 1,
-});
+console.log('Seeding open carts...');
+
+/**
+ * Baskets left mid-shop. Real stores always have some, and the cart tables
+ * would otherwise be empty in a demonstration until somebody adds an item by
+ * hand. Each of these customers can sign in and find their basket waiting.
+ */
+const insertCartItem = db.prepare(`
+  INSERT INTO CartItem (CartID, ProductID, Quantity) VALUES (?, ?, ?)
+`);
+const cartIdFor = db.prepare('SELECT CartID FROM Cart WHERE CustomerID = ?');
+
+const openCarts = [
+  { customer: 0, products: ['V-Neck Wool Jumper', 'Straight Leg Jeans Medium Wash'] },
+  { customer: 2, products: ['Suede Classic Sneakers'] },
+  { customer: 4, products: ['Green Floral Slip Dress', 'Gold Clover & Mother of Pearl Bracelet'] },
+  { customer: 5, products: ['Pleated Wool Trousers'] },
+  { customer: 7, products: ['Turtleneck Knit Jumper', 'Plaid Cropped Shirt'] },
+  { customer: 9, products: ['Spezial Trainers', 'Long Sleeve Tee'] },
+  { customer: 11, products: ['Silver Diamond Halo Ring', 'Quilted Puffer Gilet'] },
+];
+
+for (const cart of openCarts) {
+  const { CartID } = cartIdFor.get(customerIds[cart.customer]);
+  for (const name of cart.products) {
+    insertCartItem.run(CartID, findProduct(name).id, 1);
+  }
+}
+
+console.log('Seeding reviews...');
 
 const insertReview = db.prepare(`
   INSERT INTO Review (ProductID, CustomerID, Rating, Comment) VALUES (?, ?, ?, ?)
 `);
-insertReview.run(findProduct('Air Force 1 Low').id, customerIds[0], 5, 'Looked exactly like the photos and arrived really well packaged. Great find!');
-insertReview.run(findProduct('Slim Chino Trousers').id, customerIds[0], 4, 'Lovely fit, slightly more worn than I expected but still great value.');
-insertReview.run(findProduct('Cable Knit Jumper').id, customerIds[1], 5, 'Barely worn, smells fresh, fits true to size. Will shop here again.');
 
+/**
+ * Fifteen reviews, and not all of them are five stars.
+ *
+ * A catalogue where every rating is perfect tells a shopper nothing, and it
+ * hides the bug where the star widget cannot render three. The low ratings
+ * here are also the honest ones for second-hand stock: the complaint is
+ * almost always that a Good or Fair piece was more worn than the photographs
+ * suggested, which is exactly what the condition grade is meant to prevent.
+ */
+const reviews = [
+  { product: 'Air Force 1 Low', customer: 0, rating: 5, comment: 'Looked exactly like the photos and arrived really well packaged. Great find!' },
+  { product: 'Slim Chino Trousers', customer: 0, rating: 4, comment: 'Lovely fit, slightly more worn than I expected but still great value.' },
+  { product: 'Cable Knit Jumper', customer: 1, rating: 5, comment: 'Barely worn, smells fresh, fits true to size. Will shop here again.' },
+  { product: 'Samba OG Trainers', customer: 3, rating: 5, comment: 'Gum sole is barely marked. For the price of one new pair I got these and a tee.' },
+  { product: 'Flag Logo Tee', customer: 3, rating: 3, comment: 'Graded Good and it is Good, but the print has cracked a little. Fair enough for the price.' },
+  { product: 'Tie-Waist Maxi Dress', customer: 4, rating: 4, comment: 'Beautiful fabric. Runs slightly small, size up if you are between sizes.' },
+  { product: 'Air Max 90', customer: 5, rating: 5, comment: 'Cleaner in person than in the listing. Delivered to Centurion in two days.' },
+  { product: 'Oversized Tee', customer: 5, rating: 4, comment: 'Exactly the oversized fit I wanted. Would have liked more photos of the back.' },
+  { product: 'Straight Leg Jeans', customer: 5, rating: 2, comment: 'Hem was frayed in a way the photographs did not show. Support sorted it out but check yours.' },
+  { product: 'Zip-Through Hoodie', customer: 7, rating: 5, comment: 'Thick and warm, no bobbling at all. Hard to believe it is second hand.' },
+  { product: 'Classic Chino Trousers', customer: 7, rating: 4, comment: 'Good honest condition, pressed and ready to wear.' },
+  { product: 'Floral Halter Maxi Dress', customer: 8, rating: 5, comment: 'Wore it to a wedding and got three compliments. Nobody guessed it was pre-loved.' },
+  { product: 'Fine Knit Jumper', customer: 8, rating: 3, comment: 'Fine but there is a small pull on the sleeve that was not mentioned.' },
+  { product: 'Dunk Low', customer: 9, rating: 5, comment: 'Sizing advice on the listing was spot on. Very happy.' },
+  { product: 'Heritage Polo Shirt', customer: 10, rating: 4, comment: 'Collar still stands up properly, which is rare second hand. Good buy.' },
+];
+
+for (const review of reviews) {
+  insertReview.run(findProduct(review.product).id, customerIds[review.customer], review.rating, review.comment);
+}
+
+// A seed script that quietly under-fills a table is worse than one that
+// fails, because the gap is only found during the demonstration. The module
+// requires at least ten rows in every table, so that is checked here rather
+// than trusted.
+const MINIMUM_ROWS = 10;
+const tables = ['Brand', 'Category', 'Product', 'Customer', 'Admin', 'Cart', 'CartItem', 'Orders', 'OrderItem', 'Payment', 'Review'];
+const counts = {};
+const shortfall = [];
+
+for (const table of tables) {
+  const { total } = db.prepare(`SELECT COUNT(*) AS total FROM ${table}`).get();
+  counts[table] = total;
+  if (total < MINIMUM_ROWS) shortfall.push(`${table} (${total})`);
+}
 
 console.log('Database created at', DB_PATH);
-console.log('Seed summary: 15 brands, 8 categories, 63 products, 3 customers, 3 orders, 3 payments, 3 reviews, 2 staff/admin accounts.');
+console.log('Seed summary:', tables.map((t) => `${counts[t]} ${t}`).join(', ') + '.');
+
+if (shortfall.length > 0) {
+  console.error(`\nThese tables hold fewer than ${MINIMUM_ROWS} rows: ${shortfall.join(', ')}.`);
+  db.close();
+  process.exit(1);
+}
 
 db.close();

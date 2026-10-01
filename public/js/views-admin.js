@@ -50,12 +50,12 @@ async function renderAdminDashboard(main) {
     <div class="two-col">
       <div class="panel">
         <h3>Revenue by brand</h3>
-        <table><thead><tr><th>Brand</th><th>Units sold</th><th>Revenue</th></tr></thead>
+        <table><thead><tr><th scope="col">Brand</th><th scope="col">Units sold</th><th scope="col">Revenue</th></tr></thead>
         <tbody>${data.byBrand.map(b => `<tr><td>${escapeHtml(b.brand)}</td><td>${b.unitsSold}</td><td>${money(b.revenue)}</td></tr>`).join('') || '<tr><td colspan="3" class="small">No sales yet.</td></tr>'}</tbody></table>
       </div>
       <div class="panel">
         <h3>Revenue by category</h3>
-        <table><thead><tr><th>Category</th><th>Units sold</th><th>Revenue</th></tr></thead>
+        <table><thead><tr><th scope="col">Category</th><th scope="col">Units sold</th><th scope="col">Revenue</th></tr></thead>
         <tbody>${data.byCategory.map(c => `<tr><td>${escapeHtml(c.category)}</td><td>${c.unitsSold}</td><td>${money(c.revenue)}</td></tr>`).join('') || '<tr><td colspan="3" class="small">No sales yet.</td></tr>'}</tbody></table>
       </div>
     </div>
@@ -65,9 +65,9 @@ async function renderAdminDashboard(main) {
 async function renderAdminListings(main) {
   const { products } = await api('/products');
   main.innerHTML = `
-    <div class="flex-between"><h1>Listings</h1><button class="pill-btn accent" id="add-product-btn">+ Add product</button></div>
+    <div class="flex-between"><h1>Listings</h1><button type="button" class="pill-btn accent" id="add-product-btn">+ Add product</button></div>
     <table>
-      <thead><tr><th>Ref</th><th>Product</th><th>Brand</th><th>Size</th><th>Condition</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Ref</th><th scope="col">Product</th><th scope="col">Brand</th><th scope="col">Size</th><th scope="col">Condition</th><th scope="col">Price</th><th scope="col">Stock</th><th scope="col"></th></tr></thead>
       <tbody>
         ${products.map(p => `
           <tr>
@@ -79,9 +79,9 @@ async function renderAdminListings(main) {
             <td>${money(p.price)}</td>
             <td>${p.stock === 0 ? '<span class="badge out">0</span>' : p.stock}</td>
             <td>
-              <button class="muted-link" style="background:none;border:none" data-edit="${p.id}">Edit</button>
+              <button type="button" class="muted-link" style="background:none;border:none" data-edit="${p.id}">Edit</button>
               &middot;
-              <button class="muted-link" style="background:none;border:none;color:var(--bad)" data-delete="${p.id}">Delete</button>
+              <button type="button" class="muted-link" style="background:none;border:none;color:var(--bad)" data-delete="${p.id}">Delete</button>
             </td>
           </tr>
         `).join('')}
@@ -112,7 +112,7 @@ function openProductModal(product, main) {
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal">
-      <button class="modal-close" id="modal-close">&times;</button>
+      <button class="modal-close" id="modal-close" type="button" aria-label="Close dialog">&times;</button>
       <h2>${isEdit ? 'Edit product' : 'Add product'}</h2>
       <form id="product-form">
         <div class="field"><label>Name</label><input type="text" name="name" required value="${isEdit ? escapeHtml(product.name) : ''}"></div>
@@ -177,12 +177,12 @@ async function renderAdminInventory(main) {
     <div class="two-col">
       <div class="panel">
         <h3>Out of stock</h3>
-        <table><thead><tr><th>Product</th><th>Brand</th><th>Category</th></tr></thead>
+        <table><thead><tr><th scope="col">Product</th><th scope="col">Brand</th><th scope="col">Category</th></tr></thead>
         <tbody>${data.outOfStock.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.brand)}</td><td>${escapeHtml(p.category)}</td></tr>`).join('') || '<tr><td colspan="3" class="small">Nothing out of stock.</td></tr>'}</tbody></table>
       </div>
       <div class="panel">
         <h3>Low stock</h3>
-        <table><thead><tr><th>Product</th><th>Stock</th><th>Brand</th></tr></thead>
+        <table><thead><tr><th scope="col">Product</th><th scope="col">Stock</th><th scope="col">Brand</th></tr></thead>
         <tbody>${data.lowStock.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.stock}</td><td>${escapeHtml(p.brand)}</td></tr>`).join('') || '<tr><td colspan="3" class="small">Stock levels look healthy.</td></tr>'}</tbody></table>
       </div>
     </div>
@@ -201,7 +201,7 @@ async function renderAdminOrders(main, query) {
       </select>
     </div>
     <table>
-      <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th>Total</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Total</th><th scope="col"></th></tr></thead>
       <tbody>
         ${orders.map(o => `
           <tr>
@@ -227,16 +227,16 @@ async function renderAdminCustomers(main) {
   main.innerHTML = `
     <h1>Customers</h1>
     <table>
-      <thead><tr><th>Name</th><th>Email</th><th>City</th><th>Joined</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">City</th><th scope="col">Joined</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
       <tbody>
         ${users.map(u => `
           <tr>
             <td>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</td>
             <td>${escapeHtml(u.email)}</td>
-            <td>${escapeHtml(u.city || '&mdash;')}</td>
+            <td>${u.city ? escapeHtml(u.city) : '&mdash;'}</td>
             <td>${timeAgo(u.createdAt)}</td>
             <td><span class="badge ${u.status === 'active' ? 'excellent' : 'out'}">${u.status}</span></td>
-            <td><button class="muted-link" style="background:none;border:none" data-toggle="${u.id}" data-status="${u.status}">${u.status === 'active' ? 'Suspend' : 'Reactivate'}</button></td>
+            <td><button type="button" class="muted-link" style="background:none;border:none" data-toggle="${u.id}" data-status="${u.status}">${u.status === 'active' ? 'Suspend' : 'Reactivate'}</button></td>
           </tr>
         `).join('')}
       </tbody>

@@ -1,9 +1,9 @@
 'use strict';
 
 /* =========================================================================
-   iTHRIFT Clothes - desktop website
+   iTHRIFT Clothes: desktop website
    Single-file vanilla JS front end. Talks only to the shared REST API at
-   /api - the same API the mobile PWA in /mobile uses. No build step,
+   /api, the same API the mobile PWA in /mobile uses. No build step,
    no framework: HTML5, CSS3 and JavaScript, as specified in the System
    Design document's technology stack.
    ========================================================================= */
@@ -134,7 +134,7 @@ function renderNav() {
     `;
 
   nav.innerHTML = `
-    <a class="logo" href="#/shop"><span class="badge-mark">i</span><span>iTHIFT</span></a>
+    <a class="logo" href="#/shop"><span class="badge-mark">i</span><span>iTHRIFT</span></a>
     <div class="nav-links">${links}</div>
     <div class="nav-actions">${actions}</div>
   `;

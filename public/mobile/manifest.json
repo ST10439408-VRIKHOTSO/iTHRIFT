@@ -1,7 +1,7 @@
 {
   "name": "iTHRIFT Clothes",
   "short_name": "iTHRIFT",
-  "description": "South African pre-loved branded fashion - browse, buy and track orders on the go.",
+  "description": "South African pre-loved branded fashion. Browse, buy and track orders on the go.",
   "start_url": "/mobile/",
   "scope": "/mobile/",
   "display": "standalone",

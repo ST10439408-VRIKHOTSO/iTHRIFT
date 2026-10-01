@@ -1,9 +1,9 @@
 'use strict';
 
 /* =========================================================================
-   iTHRIFT Clothes - mobile PWA (installable, customer-facing)
+   iTHRIFT Clothes: mobile PWA (installable, customer-facing)
    Talks to the same /api as the desktop website. Five tabs: Shop, Search,
-   Cart, Orders, Account - matching the Prototype Documentation.
+   Cart, Orders and Account, matching the Prototype Documentation.
    ========================================================================= */
 
 const state = {
