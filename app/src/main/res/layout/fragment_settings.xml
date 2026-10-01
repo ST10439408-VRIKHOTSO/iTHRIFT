@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings. Grouped by what the setting belongs to rather than by where it
+  is stored, because that is how a customer thinks about it:
+
+    Profile      - the account, saved to the database through the API
+    Password     - the account, hidden entirely for a Google sign-in
+    Appearance   - this phone
+    Notifications- this phone
+    Connection   - this phone (which server the app talks to)
+    Reset        - clear cached data, sign out
+-->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/action_settings"
+            android:textColor="@color/ink"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/text_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ============================= Profile ============================= -->
+        <LinearLayout
+            android:id="@+id/group_profile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_profile" />
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_profile_hint" />
+
+            <TextView
+                android:id="@+id/text_profile_email"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textColor="@color/muted"
+                android:textSize="13sp"
+                tools:text="Signed in as lerato.m@gmail.com" />
+
+            <EditText
+                android:id="@+id/input_first_name"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/hint_first_name"
+                android:inputType="textPersonName" />
+
+            <EditText
+                android:id="@+id/input_last_name"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_last_name"
+                android:inputType="textPersonName" />
+
+            <EditText
+                android:id="@+id/input_phone"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_phone"
+                android:inputType="phone" />
+
+            <EditText
+                android:id="@+id/input_address"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_address"
+                android:inputType="textPostalAddress" />
+
+            <EditText
+                android:id="@+id/input_city"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_city"
+                android:inputType="textCapWords" />
+
+            <EditText
+                android:id="@+id/input_postal_code"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_postal_code"
+                android:inputType="number"
+                android:maxLength="4" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_save_profile"
+                style="@style/Widget.IThrift.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/action_save_profile" />
+        </LinearLayout>
+
+        <!-- ============================ Password ============================= -->
+        <LinearLayout
+            android:id="@+id/group_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_password" />
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_password_hint" />
+
+            <EditText
+                android:id="@+id/input_current_password"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="@string/hint_current_password"
+                android:autofillHints="password"
+                android:inputType="textPassword" />
+
+            <EditText
+                android:id="@+id/input_new_password"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_new_password"
+                android:autofillHints="newPassword"
+                android:inputType="textPassword" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/hint_password_policy"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_change_password"
+                style="@style/Widget.IThrift.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/action_change_password" />
+        </LinearLayout>
+
+        <!-- =========================== Appearance =========================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_appearance" />
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_appearance_hint" />
+
+            <RadioGroup
+                android:id="@+id/group_theme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/radio_theme_system"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_system"
+                    android:textColor="@color/ink"
+                    android:minHeight="48dp" />
+
+                <RadioButton
+                    android:id="@+id/radio_theme_light"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_light"
+                    android:textColor="@color/ink"
+                    android:minHeight="48dp" />
+
+                <RadioButton
+                    android:id="@+id/radio_theme_dark"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_dark"
+                    android:textColor="@color/ink"
+                    android:minHeight="48dp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <!-- ========================= Notifications ========================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_notifications" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_order_updates"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:minHeight="48dp"
+                android:text="@string/settings_notify_orders"
+                android:textColor="@color/ink" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switch_promotions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/settings_notify_promotions"
+                android:textColor="@color/ink" />
+        </LinearLayout>
+
+        <!-- =========================== Connection =========================== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_connection" />
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_connection_hint" />
+
+            <EditText
+                android:id="@+id/input_server_url"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="@string/hint_server_url"
+                android:inputType="textUri"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_save_server"
+                    style="@style/Widget.IThrift.Button"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginEnd="6dp"
+                    android:text="@string/action_save_server" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_test_connection"
+                    style="@style/Widget.IThrift.Button.Secondary"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/action_test_connection" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_connection_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/muted"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- ============================== Reset ============================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/secondary_bg"
+            android:padding="20dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_reset" />
+
+            <TextView
+                style="@style/TextAppearance.IThrift.SectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_reset_hint" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_clear_cache"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/action_clear_cache" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_sign_out"
+                style="@style/Widget.IThrift.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/action_sign_out" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/text_version"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:textColor="@color/muted"
+            android:textSize="12sp"
+            tools:text="iTHRIFT 1.1.0 (2)" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The dark palette.
+
+  Every layout in the app already refers to these names, such as @color/bg,
+  @color/ink and @color/secondary_bg, so redefining them here is all that is
+  needed to give the whole app a dark theme. No layout changes, and no risk
+  of one screen being left behind on a colour someone hard-coded.
+
+  The values are not a straight inversion. Pure white text on pure black
+  glares and smears on an OLED panel, so the background is a very dark grey
+  and the text is a warm off-white. Status colours are lightened to keep
+  their contrast against the dark ground above the WCAG AA ratio of 4.5:1.
+-->
+<resources>
+    <color name="bg">#121212</color>
+    <color name="secondary_bg">#1E1E1E</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="ink">#ECECEC</color>
+    <color name="muted">#A0A0A0</color>
+    <color name="border">#2E2E2E</color>
+    <color name="accent">#ECECEC</color>
+    <color name="accent_soft">#262626</color>
+
+    <color name="condition_excellent_bg">#1E3A26</color>
+    <color name="condition_excellent_text">#8FD9A8</color>
+    <color name="condition_good_bg">#3A3222</color>
+    <color name="condition_good_text">#E3C173</color>
+
+    <color name="excellent">#6FCF8E</color>
+    <color name="good_condition">#E0B45F</color>
+
+    <color name="good">#6FCF8E</color>
+    <color name="warn">#E0B45F</color>
+    <color name="bad">#E58C7D</color>
+    <color name="info">#7FB3E0</color>
+
+    <color name="error_bg">#3A2320</color>
+</resources>

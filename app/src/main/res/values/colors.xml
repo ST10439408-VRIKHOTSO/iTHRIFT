@@ -21,6 +21,11 @@
     <color name="warn">#B1893E</color>
     <color name="bad">#A14C3E</color>
     <color name="info">#3E7CB1</color>
+
+    <!-- Background behind an inline error message. Overridden in values-night. -->
+    <color name="error_bg">#FBE9E4</color>
+
+    <!-- Fixed values: white stays white in either theme (e.g. the Google mark). -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 </resources>

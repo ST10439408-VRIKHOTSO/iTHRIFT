@@ -8,7 +8,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/** "R1,620" - matches the formatting used on the website and the PWA. */
+/** "R1,620", matching the formatting used on the website and the PWA. */
 fun formatMoney(amount: Double): String {
     return String.format(Locale.US, "R%,.0f", amount)
 }

@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Account tab. Two states share this layout: signed out (sign in,
+  single sign-on, create account) and signed in (who you are, and the way
+  through to Orders, Settings and Help). The server address used to live at
+  the bottom of this screen; it now sits under Settings > Connection with
+  the rest of the things a customer can change.
+-->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -25,14 +32,14 @@
             android:id="@+id/text_error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#FBE9E4"
+            android:background="@color/error_bg"
             android:textColor="@color/bad"
             android:padding="12dp"
             android:textSize="14sp"
             android:visibility="gone"
             android:layout_marginBottom="16dp" />
 
-        <!-- Logged-in state -->
+        <!-- Signed-in state -->
         <LinearLayout
             android:id="@+id/group_logged_in"
             android:layout_width="match_parent"
@@ -51,6 +58,7 @@
                 android:textColor="@color/ink" />
 
             <TextView
+                android:id="@+id/text_account_kind"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Customer account"
@@ -67,6 +75,22 @@
                 android:layout_marginBottom="12dp" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_settings"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/action_settings"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_help"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/action_help"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/button_sign_out"
                 style="@style/Widget.IThrift.Button"
                 android:layout_width="match_parent"
@@ -74,7 +98,7 @@
                 android:text="@string/action_sign_out" />
         </LinearLayout>
 
-        <!-- Logged-out state -->
+        <!-- Signed-out state -->
         <LinearLayout
             android:id="@+id/group_logged_out"
             android:layout_width="match_parent"
@@ -91,7 +115,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Sign in"
+                    android:text="@string/action_sign_in"
                     android:textStyle="bold"
                     android:textSize="16sp"
                     android:textColor="@color/ink" />
@@ -102,8 +126,12 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:hint="@string/hint_email_or_username"
+                    android:importantForAutofill="yes"
+                    android:autofillHints="emailAddress"
                     android:inputType="textEmailAddress"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <EditText
@@ -112,8 +140,12 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="@string/hint_password"
+                    android:importantForAutofill="yes"
+                    android:autofillHints="password"
                     android:inputType="textPassword"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -123,6 +155,40 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
                     android:text="@string/action_sign_in" />
+
+                <!--
+                  Single sign-on. Hidden unless the app has a Google client id
+                  built into it AND the server it is pointed at is configured
+                  to verify tokens. Offering a button that cannot work is
+                  worse than not offering it.
+                -->
+                <LinearLayout
+                    android:id="@+id/group_sso"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center"
+                        android:text="@string/label_or"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_google_sign_in"
+                        style="@style/Widget.IThrift.Button.Secondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/action_continue_with_google"
+                        app:icon="@drawable/ic_google"
+                        app:iconGravity="textStart"
+                        app:iconTint="@null" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
@@ -136,7 +202,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Create account"
+                    android:text="@string/action_create_account"
                     android:textStyle="bold"
                     android:textSize="16sp"
                     android:textColor="@color/ink" />
@@ -147,7 +213,11 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:hint="@string/hint_first_name"
+                    android:autofillHints="personGivenName"
+                    android:inputType="textPersonName"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <EditText
@@ -156,7 +226,11 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="@string/hint_last_name"
+                    android:autofillHints="personFamilyName"
+                    android:inputType="textPersonName"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <EditText
@@ -165,8 +239,11 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="@string/hint_email_or_username"
+                    android:autofillHints="emailAddress"
                     android:inputType="textEmailAddress"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <EditText
@@ -175,15 +252,18 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:hint="@string/hint_password"
+                    android:autofillHints="newPassword"
                     android:inputType="textPassword"
                     android:background="@color/bg"
+                    android:textColor="@color/ink"
+                    android:textColorHint="@color/muted"
                     android:padding="12dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="At least 8 characters, one uppercase letter, one number."
+                    android:text="@string/hint_password_policy"
                     android:textColor="@color/muted"
                     android:textSize="12sp" />
 
@@ -195,43 +275,27 @@
                     android:layout_marginTop="20dp"
                     android:text="@string/action_create_account" />
             </LinearLayout>
-        </LinearLayout>
 
-        <!-- Server address -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/bg"
-            android:padding="20dp"
-            android:layout_marginTop="24dp"
-            android:alpha="0.7">
-
-            <TextView
+            <!--
+              Reachable while signed out too: someone who cannot connect at
+              all needs the server address and the help text more than a
+              signed-in customer does.
+            -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_settings_logged_out"
+                style="@style/Widget.IThrift.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Server address"
-                android:textStyle="bold"
-                android:textColor="@color/ink" />
-
-            <EditText
-                android:id="@+id/input_server_url"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:hint="@string/hint_server_url"
-                android:inputType="textUri"
-                android:background="@color/secondary_bg"
-                android:padding="12dp"
-                android:textSize="14sp" />
+                android:layout_marginTop="24dp"
+                android:text="@string/action_settings" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/button_save_server"
+                android:id="@+id/button_help_logged_out"
                 style="@style/Widget.IThrift.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="@string/action_save_server" />
+                android:text="@string/action_help" />
         </LinearLayout>
 
     </LinearLayout>

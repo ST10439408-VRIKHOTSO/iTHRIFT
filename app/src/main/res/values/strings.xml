@@ -8,14 +8,23 @@
     <string name="tab_orders">Orders</string>
     <string name="tab_account">Account</string>
 
+    <!-- Field hints -->
     <string name="hint_search">Search brand or piece…</string>
     <string name="hint_email_or_username">Email</string>
     <string name="hint_password">Password</string>
     <string name="hint_first_name">First name</string>
     <string name="hint_last_name">Last name</string>
+    <string name="hint_phone">Phone number (optional)</string>
+    <string name="hint_address">Delivery address (optional)</string>
+    <string name="hint_city">City (optional)</string>
+    <string name="hint_postal_code">Postal code (optional)</string>
+    <string name="hint_current_password">Current password</string>
+    <string name="hint_new_password">New password</string>
     <string name="hint_comment">Comment (optional)</string>
     <string name="hint_server_url">Server address, e.g. http://10.0.2.2:3000</string>
+    <string name="hint_password_policy">At least 8 characters, one uppercase letter, one number.</string>
 
+    <!-- Actions -->
     <string name="action_sign_in">Sign in</string>
     <string name="action_create_account">Create account</string>
     <string name="action_sign_out">Sign out</string>
@@ -23,8 +32,47 @@
     <string name="action_checkout">Checkout</string>
     <string name="action_place_order">Place order</string>
     <string name="action_submit_review">Submit review</string>
-    <string name="action_save_server">Save</string>
+    <string name="action_save_server">Save address</string>
+    <string name="action_test_connection">Test connection</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_help">Help</string>
+    <string name="action_save_profile">Save profile</string>
+    <string name="action_change_password">Change password</string>
+    <string name="action_clear_cache">Clear cached data</string>
+    <string name="action_continue_with_google">Continue with Google</string>
+    <string name="label_or">or</string>
 
+    <!-- Settings -->
+    <string name="settings_profile">Your details</string>
+    <string name="settings_profile_hint">Saved to your account, so the website and this app always show the same details.</string>
+    <string name="settings_password">Password</string>
+    <string name="settings_password_hint">Your current password is required, so a borrowed phone cannot lock you out of your own account.</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_hint">Applies immediately, and only on this phone.</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notify_orders">Tell me when an order changes status</string>
+    <string name="settings_notify_promotions">Send me new arrivals and sales</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_connection_hint">Which iTHRIFT server this app talks to. On a real phone this is your computer\'s address on the network, not localhost. On a phone, localhost means the phone itself.</string>
+    <string name="settings_reset">Reset</string>
+    <string name="settings_reset_hint">Clearing cached data empties the saved brand and category lists and forces a fresh fetch. It does not sign you out.</string>
+
+    <string name="settings_signed_in_as">Signed in as %1$s</string>
+    <string name="connection_checking">Checking…</string>
+    <string name="connection_ok">Connected. The server returned %1$d brands.</string>
+    <string name="version_line">iTHRIFT %1$s (build %2$d)</string>
+
+    <string name="theme_system">Follow the system setting</string>
+    <string name="theme_light">Always light</string>
+    <string name="theme_dark">Always dark</string>
+
+    <!-- Help -->
+    <string name="help_title">Help</string>
+    <string name="help_intro">Short answers to the things people ask most. Everything here is also in the user guide in the project repository.</string>
+    <string name="help_still_stuck">Still stuck?</string>
+    <string name="help_support_body">Email support@ithrift.co.za or send a WhatsApp to 012 345 6789, Monday to Friday, 09:00 to 17:00. Quote your order reference (it looks like ORD-0007) so we can find it straight away.</string>
+
+    <!-- Content descriptions -->
     <string name="cd_product_image">Product photo</string>
     <string name="cd_back">Back</string>
 </resources>

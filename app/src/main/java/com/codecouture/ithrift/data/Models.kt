@@ -2,7 +2,7 @@ package com.codecouture.ithrift.data
 
 /**
  * Data classes mirroring the JSON returned by the iTHRIFT Clothes REST API
- * (the same API the desktop website and the PWA call - see server/routes/
+ * (the same API the desktop website and the PWA call; see server/routes/
  * in the Node.js project). Field names match the API's JSON exactly so no
  * Gson @SerializedName annotations are needed.
  */
@@ -19,6 +19,33 @@ data class AuthResponse(
 )
 
 data class MeResponse(val user: AuthUser)
+
+/** GET /api/auth/sso/status: lets the app hide a sign-in button the server cannot honour. */
+data class SsoStatusResponse(
+    val enabled: Boolean,
+    val provider: String?
+)
+
+/**
+ * The customer's own account details, shown on the Settings screen.
+ * `canChangePassword` is false for an account created through single sign-on,
+ * which has no password on this system to change.
+ */
+data class CustomerProfile(
+    val id: Int,
+    val firstName: String,
+    val lastName: String,
+    val email: String,
+    val phone: String?,
+    val address: String?,
+    val city: String?,
+    val postalCode: String?,
+    val authProvider: String,
+    val canChangePassword: Boolean,
+    val createdAt: String?
+)
+
+data class ProfileResponse(val profile: CustomerProfile)
 
 data class OkResponse(
     val ok: Boolean? = null,
@@ -149,6 +176,25 @@ data class RegisterRequest(
 data class LoginRequest(
     val identifier: String,
     val password: String
+)
+
+/** The Google ID token, for the API to verify. The app never inspects it. */
+data class SsoLoginRequest(
+    val idToken: String
+)
+
+data class UpdateProfileRequest(
+    val firstName: String,
+    val lastName: String,
+    val phone: String?,
+    val address: String?,
+    val city: String?,
+    val postalCode: String?
+)
+
+data class ChangePasswordRequest(
+    val currentPassword: String,
+    val newPassword: String
 )
 
 data class AddCartItemRequest(

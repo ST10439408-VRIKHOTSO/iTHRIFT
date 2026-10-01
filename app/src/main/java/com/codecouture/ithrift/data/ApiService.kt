@@ -24,11 +24,29 @@ interface ApiService {
     @POST("auth/login")
     suspend fun login(@Body body: LoginRequest): Response<AuthResponse>
 
+    /** Exchanges a Google ID token for an iTHRIFT session. The API verifies the token. */
+    @POST("auth/sso")
+    suspend fun ssoLogin(@Body body: SsoLoginRequest): Response<AuthResponse>
+
+    @GET("auth/sso/status")
+    suspend fun ssoStatus(): Response<SsoStatusResponse>
+
     @POST("auth/logout")
     suspend fun logout(): Response<OkResponse>
 
     @GET("auth/me")
     suspend fun me(): Response<MeResponse>
+
+    // --- Account settings ---
+
+    @GET("auth/profile")
+    suspend fun getProfile(): Response<ProfileResponse>
+
+    @PUT("auth/profile")
+    suspend fun updateProfile(@Body body: UpdateProfileRequest): Response<MeResponse>
+
+    @POST("auth/change-password")
+    suspend fun changePassword(@Body body: ChangePasswordRequest): Response<OkResponse>
 
     @GET("products")
     suspend fun getProducts(@QueryMap filters: Map<String, String>): Response<ProductListResponse>

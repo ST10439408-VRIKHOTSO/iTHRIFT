@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="8dp"
-                android:text="Payments are simulated for this prototype — no money changes hands."
+                android:text="Payments are simulated for this prototype. No money changes hands."
                 android:textColor="@color/muted"
                 android:textSize="12sp" />
 

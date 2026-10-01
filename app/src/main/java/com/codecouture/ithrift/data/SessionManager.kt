@@ -2,10 +2,11 @@ package com.codecouture.ithrift.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.codecouture.ithrift.util.ApiUrl
 
 /**
  * Persists the signed-in session and the configurable server address using
- * plain SharedPreferences. Kept deliberately simple - same spirit as the
+ * plain SharedPreferences. Kept deliberately simple, in the same spirit as the
  * website's use of localStorage for its token (see public/js/app.js).
  */
 object SessionManager {
@@ -19,7 +20,7 @@ object SessionManager {
 
     // 10.0.2.2 is the special alias the Android Emulator uses to reach
     // "localhost" on the host machine running npm start.
-    const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000"
+    const val DEFAULT_SERVER_URL = ApiUrl.DEFAULT_SERVER_URL
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

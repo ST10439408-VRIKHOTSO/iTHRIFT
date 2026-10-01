@@ -1,6 +1,7 @@
 package com.codecouture.ithrift.data
 
 import android.content.Context
+import com.codecouture.ithrift.util.ApiUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -22,7 +23,7 @@ object ApiClient {
 
     fun getService(context: Context): ApiService {
         val configuredUrl = SessionManager.getServerUrl(context)
-        val normalized = normalizeBaseUrl(configuredUrl)
+        val normalized = ApiUrl.baseUrl(configuredUrl)
 
         if (retrofit == null || cachedBaseUrl != normalized) {
             retrofit = buildRetrofit(context, normalized)
@@ -66,20 +67,6 @@ object ApiClient {
             .build()
     }
 
-    private fun normalizeBaseUrl(raw: String): String {
-        var url = raw.trim()
-        if (url.isEmpty()) url = SessionManager.DEFAULT_SERVER_URL
-        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://$url"
-        while (url.endsWith("/")) url = url.dropLast(1)
-        return "$url/api/"
-    }
-
-    /** The base website origin (no /api suffix) - used to build full image URLs. */
-    fun originUrl(context: Context): String {
-        var url = SessionManager.getServerUrl(context).trim()
-        if (url.isEmpty()) url = SessionManager.DEFAULT_SERVER_URL
-        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://$url"
-        while (url.endsWith("/")) url = url.dropLast(1)
-        return url
-    }
+    /** The base website origin (no /api suffix), used to build full image URLs. */
+    fun originUrl(context: Context): String = ApiUrl.origin(SessionManager.getServerUrl(context))
 }

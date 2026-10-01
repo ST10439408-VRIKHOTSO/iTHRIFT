@@ -10,7 +10,13 @@
         <!-- Status bar color. -->
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <!--
+          Dark status-bar icons read on our white background but disappear
+          on the dark one, so this flips with the theme. It is a bool
+          resource rather than a second copy of this whole style in
+          values-night/, which would have to be kept in step by hand.
+        -->
+        <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
 
         <!-- Customize your theme here. -->
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.IThrift.SmallComponent</item>
@@ -75,6 +81,34 @@
         <item name="backgroundTint">@color/secondary_bg</item>
         <item name="android:textColor">@color/ink</item>
         <item name="rippleColor">@color/border</item>
+    </style>
+
+    <!--
+      Shared appearance for the plain EditText fields on the Settings screen.
+      Pulled out into a style so a field looks the same everywhere and the
+      text colour follows the theme; setting these attributes on each of the
+      eight fields inline is where a dark-mode bug hides.
+    -->
+    <style name="Widget.IThrift.Field" parent="Widget.AppCompat.EditText">
+        <item name="android:background">@color/bg</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textColorHint">@color/muted</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
+    <style name="TextAppearance.IThrift.SectionTitle" parent="TextAppearance.AppCompat.Subhead">
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.IThrift.SectionHint" parent="TextAppearance.AppCompat.Caption">
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:lineSpacingExtra">3dp</item>
     </style>
 
 </resources>
