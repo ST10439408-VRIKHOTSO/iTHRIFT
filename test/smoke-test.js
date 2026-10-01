@@ -81,6 +81,107 @@ async function main() {
     check('GET /auth/me reflects the signed-in customer', me.status === 200 && me.data.user.name.includes('Lerato'));
   }
 
+  // --- Single sign-on ---
+  // The happy path cannot be tested here: it needs a real ID token from
+  // Google, which only a person tapping the button on a handset can produce.
+  // What is testable, and what actually protects the system, is that a token
+  // we did not verify is refused, so that is what is asserted.
+  {
+    const status = await call('/api/auth/sso/status');
+    check('SSO status endpoint reports whether the server is configured',
+      status.status === 200 && typeof status.data.enabled === 'boolean');
+
+    const forged = await call('/api/auth/sso', { method: 'POST', body: { idToken: 'not.a.real.token' } });
+    check('SSO refuses a token it has not verified with Google', forged.status === 401);
+
+    const empty = await call('/api/auth/sso', { method: 'POST', body: {} });
+    check('SSO refuses a request with no token at all', empty.status === 401);
+  }
+
+  // --- Account settings (the app's Settings screen) ---
+  {
+    const anon = await call('/api/auth/profile');
+    check('Profile requires authentication (401 without a token)', anon.status === 401);
+
+    const asStaff = await call('/api/auth/profile', { token: staffToken });
+    check('Profile is a customer route; staff are refused (403)', asStaff.status === 403);
+
+    const profile = await call('/api/auth/profile', { token: customerToken });
+    check('Customer can read their own profile',
+      profile.status === 200 && profile.data.profile.email === 'lerato.m@gmail.com');
+    check('Profile says whether the account has a password to change',
+      profile.data.profile.canChangePassword === true);
+    check('Profile never returns the password hash',
+      !JSON.stringify(profile.data).toLowerCase().includes('passwordhash'));
+
+    const badPostal = await call('/api/auth/profile', {
+      method: 'PUT', token: customerToken,
+      body: { firstName: 'Lerato', lastName: 'Mokoena', postalCode: '12' },
+    });
+    check('Profile update rejects a postal code that is not four digits', badPostal.status === 400);
+
+    const noName = await call('/api/auth/profile', {
+      method: 'PUT', token: customerToken, body: { firstName: '', lastName: 'Mokoena' },
+    });
+    check('Profile update rejects a blank first name', noName.status === 400);
+
+    const updated = await call('/api/auth/profile', {
+      method: 'PUT', token: customerToken,
+      body: { firstName: 'Lerato', lastName: 'Mokoena', phone: '082 555 0199', address: '14 Jacaranda Street', city: 'Pretoria', postalCode: '0181' },
+    });
+    check('Customer can update their own profile', updated.status === 200);
+
+    const reread = await call('/api/auth/profile', { token: customerToken });
+    check('The updated phone number was actually persisted',
+      reread.data.profile.phone === '082 555 0199');
+  }
+
+  // --- Changing a password ---
+  // These get an account of their own rather than reusing the one registered
+  // above. Changing that account's password would leave a later check, the
+  // one that suspends it and confirms it can no longer sign in, failing for
+  // the wrong reason, and a test that fails for the wrong reason is worse
+  // than no test.
+  {
+    const pwEmail = `pwtest.${Date.now()}@example.com`;
+    const created = await call('/api/auth/register', {
+      method: 'POST',
+      body: { firstName: 'Password', lastName: 'Tester', email: pwEmail, password: 'Password9' },
+    });
+    check('A second throwaway account is registered for the password tests', created.status === 201);
+    const pwToken = created.data.token;
+
+    const wrongCurrent = await call('/api/auth/change-password', {
+      method: 'POST', token: pwToken,
+      body: { currentPassword: 'NotMyPassword1', newPassword: 'Password10' },
+    });
+    check('Password change rejects an incorrect current password', wrongCurrent.status === 401);
+
+    const weak = await call('/api/auth/change-password', {
+      method: 'POST', token: pwToken,
+      body: { currentPassword: 'Password9', newPassword: 'weak' },
+    });
+    check('Password change enforces the password policy', weak.status === 400);
+
+    const same = await call('/api/auth/change-password', {
+      method: 'POST', token: pwToken,
+      body: { currentPassword: 'Password9', newPassword: 'Password9' },
+    });
+    check('Password change refuses to reuse the current password', same.status === 400);
+
+    const ok = await call('/api/auth/change-password', {
+      method: 'POST', token: pwToken,
+      body: { currentPassword: 'Password9', newPassword: 'Password10' },
+    });
+    check('Password change succeeds with the correct current password', ok.status === 200);
+
+    const oldPassword = await call('/api/auth/login', { method: 'POST', body: { identifier: pwEmail, password: 'Password9' } });
+    check('The old password no longer works', oldPassword.status === 401);
+
+    const newPassword = await call('/api/auth/login', { method: 'POST', body: { identifier: pwEmail, password: 'Password10' } });
+    check('The new password works', newPassword.status === 200);
+  }
+
   // --- Catalogue: browse, search, filter ---
   {
     const all = await call('/api/products');
@@ -95,11 +196,15 @@ async function main() {
     const search = await call('/api/products?q=Jeans');
     check('Keyword search finds matching products', search.data.products.some(p => p.name.includes('Jeans')));
 
+    // Asserted as "at least ten" rather than an exact count: the module
+    // requires ten rows per table, and pinning the exact number means every
+    // new brand or category added to the catalogue breaks the test for no
+    // reason. server/init-db.js enforces the minimum at seed time as well.
     const brands = await call('/api/products/brands');
-    check('Brand list has the 15 seeded brands', brands.data.brands.length === 15);
+    check('Brand list holds at least ten seeded brands', brands.data.brands.length >= 10);
 
     const categories = await call('/api/products/categories');
-    check('Category list has the 8 seeded categories', categories.data.categories.length === 8);
+    check('Category list holds at least ten seeded categories', categories.data.categories.length >= 10);
 
     const single = await call('/api/products/1');
     check('Single product detail is reachable with a friendly ref', single.status === 200 && single.data.product.ref === 'PRD001');
