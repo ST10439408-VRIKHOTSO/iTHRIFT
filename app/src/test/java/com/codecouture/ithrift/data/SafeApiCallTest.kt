@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Unit tests for safeApiCall, the single funnel every network call in the app
@@ -88,5 +89,19 @@ class SafeApiCallTest {
         val outcome = safeApiCall<OkResponse> { throw IllegalStateException("something odd") }
         assertTrue(outcome is ApiOutcome.Failure)
         assertTrue((outcome as ApiOutcome.Failure).message.isNotBlank())
+    }
+
+    @Test
+    fun `a cancelled call is rethrown so a closed screen stops instead of crashing`() = runTest {
+        // When a screen closes, its pending calls are cancelled. Turning that into
+        // a Failure let the screen carry on and touch views that were already
+        // destroyed, which is what crashed the Shop and Search tabs on a phone.
+        var rethrown = false
+        try {
+            safeApiCall<OkResponse> { throw CancellationException("screen closed") }
+        } catch (e: CancellationException) {
+            rethrown = true
+        }
+        assertTrue("cancellation must reach the caller", rethrown)
     }
 }

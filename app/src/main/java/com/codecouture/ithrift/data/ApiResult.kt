@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import okhttp3.ResponseBody
 import retrofit2.Response
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Every screen calls the API through safeApiCall() so error handling only
@@ -29,6 +30,11 @@ suspend fun <T> safeApiCall(block: suspend () -> Response<T>): ApiOutcome<T> {
         } else {
             ApiOutcome.Failure(parseErrorBody(response.errorBody()))
         }
+    } catch (e: CancellationException) {
+        // A screen that closes cancels its calls. That is not an error to show:
+        // it must be rethrown so the caller stops instead of carrying on and
+        // touching views that no longer exist.
+        throw e
     } catch (e: IOException) {
         ApiOutcome.Failure("Couldn't reach the server. Check the server address in Account, and make sure npm start is running.")
     } catch (e: Exception) {

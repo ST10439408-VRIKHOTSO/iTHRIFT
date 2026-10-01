@@ -33,7 +33,7 @@ class ShopFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        mainActivity().setToolbarTitle("Pastimes", showBack = false)
+        mainActivity().setToolbarTitle("iTHRIFT", showBack = false)
 
         adapter = ProductAdapter { product ->
             mainActivity().openDetail(ProductDetailFragment.newInstance(product.id))
@@ -64,6 +64,7 @@ class ShopFragment : BaseFragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             LookupCache.ensureLoaded(requireContext())
+            if (_binding == null) return@launch
             setupCategoryChips()
             loadProducts()
             refreshCartBadge()
@@ -71,6 +72,7 @@ class ShopFragment : BaseFragment() {
     }
 
     private fun setupCategoryChips() {
+        if (_binding == null) return
         binding.chipGroupCategories.removeAllViews()
 
         val allChip = Chip(requireContext()).apply {
@@ -109,12 +111,15 @@ class ShopFragment : BaseFragment() {
     }
 
     private fun loadProducts() {
+        if (_binding == null) return
         binding.swipeRefresh.isRefreshing = true
         viewLifecycleOwner.lifecycleScope.launch {
             val filters = mutableMapOf<String, String>()
             selectedCategory?.let { filters["category"] = it }
 
-            when (val result = safeApiCall { apiService().getProducts(filters) }) {
+            val result = safeApiCall { apiService().getProducts(filters) }
+            if (_binding == null) return@launch
+            when (result) {
                 is ApiOutcome.Success -> {
                     adapter.submitList(result.data.products)
                     binding.textEmpty.visibility = if (result.data.products.isEmpty()) View.VISIBLE else View.GONE

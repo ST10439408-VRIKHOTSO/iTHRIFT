@@ -54,6 +54,7 @@ class SearchFragment : BaseFragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             LookupCache.ensureLoaded(requireContext())
+            if (_binding == null) return@launch
             setupBrandChips()
             refreshCartBadge()
         }
@@ -86,6 +87,7 @@ class SearchFragment : BaseFragment() {
     }
 
     private fun runSearch() {
+        if (_binding == null) return
         val query = binding.inputSearch.text?.toString()?.trim().orEmpty()
         if (query.isEmpty() && selectedBrand == null) {
             binding.recyclerResults.visibility = View.GONE
@@ -99,7 +101,9 @@ class SearchFragment : BaseFragment() {
             if (query.isNotEmpty()) filters["q"] = query
             selectedBrand?.let { filters["brand"] = it }
 
-            when (val result = safeApiCall { apiService().getProducts(filters) }) {
+            val result = safeApiCall { apiService().getProducts(filters) }
+            if (_binding == null) return@launch
+            when (result) {
                 is ApiOutcome.Success -> {
                     adapter.submitList(result.data.products)
                     if (result.data.products.isEmpty()) {
