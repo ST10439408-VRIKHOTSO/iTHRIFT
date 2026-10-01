@@ -35,7 +35,7 @@ module.exports = {
         'status-info-bg': '#e8eff7',
       },
       
-      // Border radius - rounded everywhere
+      // Border radius: rounded everywhere
       borderRadius: {
         'xs': '4px',
         'sm': '8px',
@@ -46,14 +46,14 @@ module.exports = {
         'full': '999px',
       },
       
-      // Shadows - soft and subtle
+      // Shadows: soft and subtle
       boxShadow: {
         'soft': '0 2px 8px rgba(0, 0, 0, 0.04)',
         'md': '0 4px 12px rgba(0, 0, 0, 0.08)',
         'lg': '0 18px 50px rgba(17, 17, 22, 0.08)',
       },
       
-      // Spacing - generous whitespace
+      // Spacing: generous whitespace
       spacing: {
         'xs': '4px',
         'sm': '8px',
@@ -99,7 +99,7 @@ module.exports = {
         'wide': '1760px',
       },
       
-      // Grid system - 12 columns
+      // Grid system: 12 columns
       gridTemplateColumns: {
         '3': 'repeat(3, minmax(0, 1fr))',
         '4': 'repeat(4, minmax(0, 1fr))',
