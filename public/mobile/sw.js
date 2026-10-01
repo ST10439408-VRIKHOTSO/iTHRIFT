@@ -7,7 +7,7 @@
  * the catalogue, cart and orders must never be served stale.
  */
 
-const CACHE_NAME = 'ithrift-shell-v1';
+const CACHE_NAME = 'ithrift-shell-v2';
 const SHELL_FILES = [
   '/mobile/',
   '/mobile/index.html',

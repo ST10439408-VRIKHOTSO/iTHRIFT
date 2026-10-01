@@ -2,6 +2,7 @@ package com.codecouture.ithrift.ui.shop
 
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -12,7 +13,7 @@ import com.codecouture.ithrift.R
 import com.codecouture.ithrift.data.Product
 import com.codecouture.ithrift.databinding.ItemProductBinding
 import com.codecouture.ithrift.util.conditionColorRes
-import com.codecouture.ithrift.util.formatMoney
+import com.codecouture.ithrift.util.priceText
 import com.codecouture.ithrift.util.resolveImageUrl
 
 /** Two-column product grid, used by both ShopFragment and SearchFragment. */
@@ -35,8 +36,15 @@ class ProductAdapter(
 
             binding.textBrand.text = product.brand
             binding.textName.text = product.name
-            binding.textPrice.text = formatMoney(product.price)
-            binding.textMeta.text = "Size ${product.size}"
+            binding.textPrice.text = priceText(context, product.price, product.originalPrice, product.onSale)
+            binding.textPriceLabel.text = if (product.onSale) "Sale" else "From"
+            if (product.onSale && product.inStock && product.percentOff != null) {
+                binding.textSaleTag.visibility = View.VISIBLE
+                binding.textSaleTag.text = "${product.percentOff}% off"
+            } else {
+                binding.textSaleTag.visibility = View.GONE
+            }
+            binding.textMeta.text = if ((product.sizes?.size ?: 0) > 1) "Sizes ${product.size}" else "Size ${product.size}"
             binding.textQtyLabel.text = "Qty: ${product.stock}"
 
             binding.textCondition.text = if (product.inStock) product.condition else "Out of stock"

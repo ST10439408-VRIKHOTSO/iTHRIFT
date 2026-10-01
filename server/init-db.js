@@ -47,6 +47,8 @@ CREATE TABLE Product (
   Size           TEXT NOT NULL,
   ConditionGrade TEXT NOT NULL CHECK (ConditionGrade IN ('Excellent','Very Good','Good','Fair')),
   Price          NUMERIC NOT NULL CHECK (Price >= 0),
+  -- Set when a piece is marked down: the price it was before the sale.
+  OriginalPrice  NUMERIC CHECK (OriginalPrice IS NULL OR OriginalPrice > Price),
   StockQty       INTEGER NOT NULL DEFAULT 0 CHECK (StockQty >= 0),
   ImageFile      TEXT,
   CreatedAt      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -58,6 +60,17 @@ CREATE TABLE Product (
 -- of the two routes an account uses, and ProviderSubject holds the
 -- provider's own immutable user id ("sub" in the Google ID token), which
 -- is the correct key to match on, because an email address can be reassigned.
+-- Each product's sizes and how many of each are in stock. Product.StockQty
+-- is always the sum of these rows, so a product with two pieces left can
+-- never offer more than two sizes.
+CREATE TABLE ProductSize (
+  ProductSizeID INTEGER PRIMARY KEY AUTOINCREMENT,
+  ProductID     INTEGER NOT NULL REFERENCES Product(ProductID),
+  Size          TEXT NOT NULL,
+  StockQty      INTEGER NOT NULL DEFAULT 0 CHECK (StockQty >= 0),
+  UNIQUE (ProductID, Size)
+);
+
 CREATE TABLE Customer (
   CustomerID      INTEGER PRIMARY KEY AUTOINCREMENT,
   FirstName       TEXT NOT NULL,
@@ -101,14 +114,57 @@ CREATE TABLE CartItem (
   CartItemID INTEGER PRIMARY KEY AUTOINCREMENT,
   CartID     INTEGER NOT NULL REFERENCES Cart(CartID),
   ProductID  INTEGER NOT NULL REFERENCES Product(ProductID),
+  Size       TEXT,
   Quantity   INTEGER NOT NULL CHECK (Quantity > 0),
-  UNIQUE (CartID, ProductID)
+  UNIQUE (CartID, ProductID, Size)
+);
+
+-- Saved delivery addresses. One per customer is the default.
+CREATE TABLE Address (
+  AddressID   INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID  INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Label       TEXT NOT NULL,
+  Recipient   TEXT NOT NULL,
+  Phone       TEXT,
+  Line1       TEXT NOT NULL,
+  Suburb      TEXT,
+  City        TEXT NOT NULL,
+  PostalCode  TEXT NOT NULL CHECK (length(PostalCode) = 4),
+  IsDefault   INTEGER NOT NULL DEFAULT 0 CHECK (IsDefault IN (0,1)),
+  CreatedAt   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Pieces a customer has saved for later.
+CREATE TABLE WishlistItem (
+  WishlistItemID INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID     INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  ProductID      INTEGER NOT NULL REFERENCES Product(ProductID),
+  CreatedAt      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (CustomerID, ProductID)
+);
+
+CREATE TABLE PromoCode (
+  PromoCodeID   INTEGER PRIMARY KEY AUTOINCREMENT,
+  Code          TEXT NOT NULL UNIQUE,
+  Description   TEXT NOT NULL,
+  DiscountType  TEXT NOT NULL CHECK (DiscountType IN ('percent','fixed')),
+  DiscountValue NUMERIC NOT NULL CHECK (DiscountValue > 0),
+  MinSpend      NUMERIC NOT NULL DEFAULT 0 CHECK (MinSpend >= 0),
+  Active        INTEGER NOT NULL DEFAULT 1 CHECK (Active IN (0,1))
 );
 
 CREATE TABLE Orders (
   OrderID     INTEGER PRIMARY KEY AUTOINCREMENT,
   CustomerID  INTEGER NOT NULL REFERENCES Customer(CustomerID),
   Status      TEXT NOT NULL DEFAULT 'Processing' CHECK (Status IN ('Processing','Shipped','Delivered','Cancelled')),
+  -- TotalAmount = Subtotal - DiscountAmount + DeliveryFee, worked out on the server.
+  Subtotal       NUMERIC NOT NULL DEFAULT 0 CHECK (Subtotal >= 0),
+  DiscountAmount NUMERIC NOT NULL DEFAULT 0 CHECK (DiscountAmount >= 0),
+  DeliveryFee    NUMERIC NOT NULL DEFAULT 0 CHECK (DeliveryFee >= 0),
+  DeliveryMethod TEXT NOT NULL DEFAULT 'standard' CHECK (DeliveryMethod IN ('standard','express','collection')),
+  PromoCode      TEXT,
+  DeliveryAddress TEXT,
+  DeliveryInstructions TEXT,
   TotalAmount NUMERIC NOT NULL CHECK (TotalAmount >= 0),
   CourierRef  TEXT,
   CreatedAt   TEXT NOT NULL DEFAULT (datetime('now')),
@@ -119,6 +175,7 @@ CREATE TABLE OrderItem (
   OrderItemID INTEGER PRIMARY KEY AUTOINCREMENT,
   OrderID     INTEGER NOT NULL REFERENCES Orders(OrderID),
   ProductID   INTEGER NOT NULL REFERENCES Product(ProductID),
+  Size        TEXT,
   Quantity    INTEGER NOT NULL CHECK (Quantity > 0),
   UnitPrice   NUMERIC NOT NULL CHECK (UnitPrice >= 0)
 );
@@ -127,9 +184,22 @@ CREATE TABLE Payment (
   PaymentID INTEGER PRIMARY KEY AUTOINCREMENT,
   OrderID   INTEGER NOT NULL UNIQUE REFERENCES Orders(OrderID),
   Method    TEXT NOT NULL CHECK (Method IN ('payfast','card','eft')),
-  Status    TEXT NOT NULL CHECK (Status IN ('pending','paid')),
+  Status    TEXT NOT NULL CHECK (Status IN ('pending','paid','refunded')),
   Amount    NUMERIC NOT NULL CHECK (Amount >= 0),
   CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- A return request for one line of a delivered order.
+CREATE TABLE ReturnRequest (
+  ReturnID     INTEGER PRIMARY KEY AUTOINCREMENT,
+  OrderItemID  INTEGER NOT NULL UNIQUE REFERENCES OrderItem(OrderItemID),
+  CustomerID   INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Reason       TEXT NOT NULL,
+  Comment      TEXT,
+  Status       TEXT NOT NULL DEFAULT 'Requested' CHECK (Status IN ('Requested','Approved','Rejected','Refunded')),
+  RefundAmount NUMERIC NOT NULL DEFAULT 0 CHECK (RefundAmount >= 0),
+  CreatedAt    TEXT NOT NULL DEFAULT (datetime('now')),
+  UpdatedAt    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE Review (
@@ -143,6 +213,7 @@ CREATE TABLE Review (
 
 CREATE INDEX idx_product_brand ON Product(BrandID);
 CREATE INDEX idx_product_category ON Product(CategoryID);
+CREATE INDEX idx_productsize_product ON ProductSize(ProductID);
 CREATE INDEX idx_orderitem_order ON OrderItem(OrderID);
 CREATE INDEX idx_cartitem_cart ON CartItem(CartID);
 CREATE INDEX idx_review_product ON Review(ProductID);
@@ -261,6 +332,51 @@ const CATEGORY_OVERRIDES = {
   'Quilted Puffer Gilet': 'Jackets',
 };
 
+/**
+ * The size range each category is sold in. Shoes run UK 3 to UK 10, tops and
+ * dresses XS to XXL, and trousers and jeans by waist from 28 to 44.
+ */
+const LETTER_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const SIZE_RANGES = {
+  Footwear: ['UK 3', 'UK 4', 'UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10'],
+  Tees: LETTER_SIZES, Shirts: LETTER_SIZES, Polos: LETTER_SIZES, Hoodies: LETTER_SIZES,
+  Knitwear: LETTER_SIZES, Jackets: LETTER_SIZES, Outerwear: LETTER_SIZES, Dresses: LETTER_SIZES,
+  Trousers: ['28', '30', '32', '34', '36', '38', '40', '42', '44'],
+  Jeans: ['28', '30', '32', '34', '36', '38', '40', '42', '44'],
+  Accessories: ['One Size'],
+};
+
+const insertSize = db.prepare('INSERT INTO ProductSize (ProductID, Size, StockQty) VALUES (?, ?, ?)');
+
+/**
+ * Spreads a product's stock across real sizes. Second-hand stock is mostly
+ * one piece per size, so each piece gets its own size until the range runs
+ * out, starting from the size the listing was photographed in and working
+ * outwards. The number of sizes offered can therefore never exceed the number
+ * of pieces in stock.
+ */
+function seedSizes(productId, category, listedSize, stock) {
+  const range = SIZE_RANGES[category] || ['One Size'];
+  if (stock <= 0) return;
+  // Snap the listed size onto the range (e.g. a 33 waist becomes 32).
+  let start = range.indexOf(listedSize);
+  if (start < 0) {
+    const n = parseInt(String(listedSize).replace(/\D/g, ''), 10);
+    const nums = range.map((r) => parseInt(r.replace(/\D/g, ''), 10));
+    start = Number.isNaN(n) ? Math.floor(range.length / 2)
+      : nums.reduce((best, v, i) => (Math.abs(v - n) < Math.abs(nums[best] - n) ? i : best), 0);
+  }
+  const order = [range[start]];
+  for (let step = 1; order.length < range.length; step++) {
+    if (start + step < range.length) order.push(range[start + step]);
+    if (start - step >= 0) order.push(range[start - step]);
+  }
+  const chosen = order.slice(0, Math.min(stock, range.length));
+  const qty = Object.fromEntries(chosen.map((size) => [size, 1]));
+  for (let left = stock - chosen.length, i = 0; left > 0; left--, i++) qty[chosen[i % chosen.length]] += 1;
+  for (const size of range) if (qty[size]) insertSize.run(productId, size, qty[size]);
+}
+
 const productIds = [];
 for (const p of products) {
   const imagePath = '/images/products/' + p.image;
@@ -270,8 +386,25 @@ for (const p of products) {
   );
   const id = Number(info.lastInsertRowid);
   productIds.push({ id, ...p, category, image: imagePath });
+  seedSizes(id, category, p.size, p.stock);
 }
 
+
+/**
+ * Markdowns. Each listed piece keeps its current selling price and gains the
+ * price it was before the sale, so the shop can show the saving honestly.
+ */
+const SALE_ORIGINAL_PRICES = {
+  'Ultraboost Sneakers': 1799, 'Air Max 90 White': 1299, 'Suede Classic Sneakers': 899,
+  'Mohair-Blend Jumper': 699, 'Heritage Crest Sweatshirt': 749, 'Faux-Fur Logo Jacket': 1199,
+  'Slim Fit Jeans Dark Wash': 549, 'Workwear Chino Trousers': 499, 'Green Floral Slip Dress': 699,
+  'Oversized Tee': 349, 'Pique Polo Shirt': 449, 'Silver Cuban Link Bracelet': 399,
+};
+const setOriginalPrice = db.prepare('UPDATE Product SET OriginalPrice = ? WHERE ProductID = ? AND Price < ?');
+for (const p of productIds) {
+  const original = SALE_ORIGINAL_PRICES[p.name];
+  if (original) setOriginalPrice.run(original, p.id, original);
+}
 
 console.log('Seeding customers...');
 
@@ -316,6 +449,40 @@ for (const c of customers) {
   insertCart.run(id); // every customer gets an empty cart on creation
 }
 
+console.log('Seeding addresses...');
+
+const insertAddress = db.prepare(`
+  INSERT INTO Address (CustomerID, Label, Recipient, Phone, Line1, Suburb, City, PostalCode, IsDefault)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+// Every customer's own address becomes their default delivery address.
+customers.forEach((c, i) => {
+  insertAddress.run(customerIds[i], 'Home', `${c.first} ${c.last}`, c.phone, c.address, null, c.city, c.postal, 1);
+});
+// A few customers also deliver to campus or work.
+insertAddress.run(customerIds[0], 'Campus', 'Lerato Mokoena', '082 555 0101', 'IIE Rosebank College, 248 Lynnwood Road', 'Menlo Park', 'Pretoria', '0081', 0);
+insertAddress.run(customerIds[1], 'Work', 'Sipho Ndlovu', '083 555 0202', '1 Centurion Lane', 'Highveld', 'Centurion', '0157', 0);
+insertAddress.run(customerIds[2], 'Res', 'Amahle Dube', '084 555 0303', 'Tuks Res, Lynnwood Road', 'Hatfield', 'Pretoria', '0083', 0);
+
+console.log('Seeding promo codes...');
+
+const insertPromo = db.prepare(`
+  INSERT INTO PromoCode (Code, Description, DiscountType, DiscountValue, MinSpend, Active) VALUES (?, ?, ?, ?, ?, ?)
+`);
+[
+  ['WELCOME10', '10% off your order', 'percent', 10, 0, 1],
+  ['STUDENT15', '15% off orders of R300 or more', 'percent', 15, 300, 1],
+  ['THRIFT50', 'R50 off orders of R500 or more', 'fixed', 50, 500, 1],
+  ['SNEAKER100', 'R100 off orders of R1,000 or more', 'fixed', 100, 1000, 1],
+  ['WINTER20', '20% off orders of R800 or more', 'percent', 20, 800, 1],
+  ['PRELOVED25', 'R25 off orders of R200 or more', 'fixed', 25, 200, 1],
+  ['FIRSTORDER', 'R75 off orders of R400 or more', 'fixed', 75, 400, 1],
+  ['SAVE5', '5% off any order', 'percent', 5, 0, 1],
+  ['BIGSPEND200', 'R200 off orders of R2,000 or more', 'fixed', 200, 2000, 1],
+  ['SPRING12', '12% off orders of R600 or more', 'percent', 12, 600, 1],
+  ['SUMMER30', '30% off (campaign ended)', 'percent', 30, 0, 0],
+].forEach((row) => insertPromo.run(...row));
+
 console.log('Seeding staff and administrator accounts...');
 
 /**
@@ -351,16 +518,22 @@ for (const a of staffAccounts) {
 console.log('Seeding orders, payments and reviews...');
 
 const insertOrder = db.prepare(`
-  INSERT INTO Orders (CustomerID, Status, TotalAmount, CourierRef, CreatedAt, UpdatedAt)
-  VALUES (?, ?, ?, ?, datetime('now', ?), datetime('now', ?))
+  INSERT INTO Orders (CustomerID, Status, Subtotal, DeliveryMethod, DeliveryAddress, TotalAmount, CourierRef, CreatedAt, UpdatedAt)
+  VALUES (?, ?, ?, 'standard', ?, ?, ?, datetime('now', ?), datetime('now', ?))
+`);
+const addressTextFor = db.prepare(`
+  SELECT Recipient || ', ' || Line1 || ', ' || City || ', ' || PostalCode AS text
+  FROM Address WHERE CustomerID = ? AND IsDefault = 1
 `);
 const insertOrderItem = db.prepare(`
-  INSERT INTO OrderItem (OrderID, ProductID, Quantity, UnitPrice) VALUES (?, ?, ?, ?)
+  INSERT INTO OrderItem (OrderID, ProductID, Size, Quantity, UnitPrice) VALUES (?, ?, ?, ?, ?)
 `);
 const insertPayment = db.prepare(`
   INSERT INTO Payment (OrderID, Method, Status, Amount) VALUES (?, ?, ?, ?)
 `);
 const decrementStock = db.prepare('UPDATE Product SET StockQty = StockQty - ? WHERE ProductID = ?');
+const firstSizeWithStock = db.prepare('SELECT Size FROM ProductSize WHERE ProductID = ? AND StockQty >= ? ORDER BY ProductSizeID LIMIT 1');
+const decrementSize = db.prepare('UPDATE ProductSize SET StockQty = StockQty - ? WHERE ProductID = ? AND Size = ?');
 
 function findProduct(name) {
   const p = productIds.find((x) => x.name === name);
@@ -371,15 +544,21 @@ function findProduct(name) {
 function placeSeedOrder({ customerId, items, status, method, paymentStatus, daysAgo }) {
   const total = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
   const offset = `-${daysAgo} days`;
-  const info = insertOrder.run(customerId, status, total, status === 'Shipped' || status === 'Delivered' ? `CR-${1000 + customerId}` : null, offset, offset);
+  const address = addressTextFor.get(customerId);
+  const info = insertOrder.run(customerId, status, total, address ? address.text : null, total,
+    status === 'Shipped' || status === 'Delivered' ? `CR-${1000 + customerId}` : null, offset, offset);
   const orderId = Number(info.lastInsertRowid);
   for (const it of items) {
-    insertOrderItem.run(orderId, it.productId, it.qty, it.unitPrice);
+    const sizeRow = firstSizeWithStock.get(it.productId, it.qty);
+    const size = sizeRow ? sizeRow.Size : null;
+    insertOrderItem.run(orderId, it.productId, size, it.qty, it.unitPrice);
     decrementStock.run(it.qty, it.productId);
+    if (size) decrementSize.run(it.qty, it.productId, size);
   }
   insertPayment.run(orderId, method, paymentStatus, total);
   return orderId;
 }
+const seededOrderIds = [];
 
 /**
  * Twelve orders across four statuses and all three payment methods.
@@ -407,10 +586,23 @@ const seedOrders = [
   { customer: 2, products: ["Air Jordan 1 High '85", 'CK96 Crew Sweater'], status: 'Processing', method: 'eft', payment: 'pending', daysAgo: 3 },
   { customer: 10, products: ['Heritage Polo Shirt', 'Sage Green Chinos'], status: 'Processing', method: 'card', payment: 'paid', daysAgo: 2 },
   { customer: 11, products: ['Speedcat Sneakers'], status: 'Processing', method: 'payfast', payment: 'paid', daysAgo: 1 },
+  // Older delivered orders, so that the returns history has something to show.
+  { customer: 0, products: ['3-Stripe Trefoil Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 150 },
+  { customer: 1, products: ['CK96 Graphic Tee', 'Classic Polo Shirt'], status: 'Delivered', method: 'payfast', payment: 'paid', daysAgo: 132 },
+  { customer: 2, products: ['V-Neck Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 118 },
+  { customer: 3, products: ['Cotton Pique Golfer'], status: 'Delivered', method: 'eft', payment: 'paid', daysAgo: 104 },
+  { customer: 4, products: ['Suede Basket Sneakers'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 96 },
+  { customer: 5, products: ['Long Sleeve Tee', 'Iconic Triangle Logo Tee'], status: 'Delivered', method: 'payfast', payment: 'paid', daysAgo: 20 },
+  { customer: 8, products: ['Tommy Hilfiger Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 14 },
+  { customer: 10, products: ['Money Is The Motive Graphic Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 9 },
+  // Recent deliveries with no return yet, so the demo accounts can try a return.
+  // (Well-stocked pieces, so seeding these does not sell anything out.)
+  { customer: 1, products: ['3-Stripe Trefoil Tee'], status: 'Delivered', method: 'card', payment: 'paid', daysAgo: 8 },
+  { customer: 0, products: ['Suede Classic Sneakers', 'Flag Logo Tee'], status: 'Delivered', method: 'payfast', payment: 'paid', daysAgo: 5 },
 ];
 
 for (const order of seedOrders) {
-  placeSeedOrder({
+  seededOrderIds.push(placeSeedOrder({
     customerId: customerIds[order.customer],
     items: order.products.map((name) => {
       const product = findProduct(name);
@@ -420,7 +612,7 @@ for (const order of seedOrders) {
     method: order.method,
     paymentStatus: order.payment,
     daysAgo: order.daysAgo,
-  });
+  }));
 }
 
 console.log('Seeding open carts...');
@@ -431,7 +623,7 @@ console.log('Seeding open carts...');
  * hand. Each of these customers can sign in and find their basket waiting.
  */
 const insertCartItem = db.prepare(`
-  INSERT INTO CartItem (CartID, ProductID, Quantity) VALUES (?, ?, ?)
+  INSERT INTO CartItem (CartID, ProductID, Size, Quantity) VALUES (?, ?, ?, ?)
 `);
 const cartIdFor = db.prepare('SELECT CartID FROM Cart WHERE CustomerID = ?');
 
@@ -448,9 +640,60 @@ const openCarts = [
 for (const cart of openCarts) {
   const { CartID } = cartIdFor.get(customerIds[cart.customer]);
   for (const name of cart.products) {
-    insertCartItem.run(CartID, findProduct(name).id, 1);
+    const product = findProduct(name);
+    const sizeRow = firstSizeWithStock.get(product.id, 1);
+    insertCartItem.run(CartID, product.id, sizeRow ? sizeRow.Size : null, 1);
   }
 }
+
+console.log('Seeding wishlists...');
+
+const insertWish = db.prepare('INSERT INTO WishlistItem (CustomerID, ProductID) VALUES (?, ?)');
+[
+  [0, 'Ultraboost Sneakers'], [0, 'Faux-Fur Logo Jacket'], [0, 'Green Floral Slip Dress'],
+  [1, 'Air Max 90 White'], [1, 'Mohair-Blend Jumper'], [2, 'Suede Classic Sneakers'],
+  [2, 'Slim Fit Jeans Dark Wash'], [3, 'Heritage Crest Sweatshirt'], [4, 'Pique Polo Shirt'],
+  [5, 'Workwear Chino Trousers'], [6, 'Oversized Tee'], [7, 'Silver Cuban Link Bracelet'],
+  [8, 'Dunk Low'], [9, 'Samba Suede Trainers'],
+].forEach(([customer, name]) => insertWish.run(customerIds[customer], findProduct(name).id));
+
+console.log('Seeding returns...');
+
+/**
+ * Ten return requests on delivered order lines, in every state, so the
+ * customer's returns history and the staff returns queue both have work in
+ * them. A refunded return puts the piece back on sale in its size.
+ */
+const RETURN_REASONS = ["Doesn't fit", 'Not as described', 'Damaged or faulty', 'Changed my mind', 'Wrong item received'];
+const deliveredLines = db.prepare(`
+  SELECT oi.OrderItemID, oi.ProductID, oi.Size, oi.Quantity, oi.UnitPrice, o.CustomerID
+  FROM OrderItem oi JOIN Orders o ON o.OrderID = oi.OrderID
+  WHERE o.Status = 'Delivered' ORDER BY oi.OrderItemID LIMIT 10
+`).all();
+const insertReturn = db.prepare(`
+  INSERT INTO ReturnRequest (OrderItemID, CustomerID, Reason, Comment, Status, RefundAmount, CreatedAt, UpdatedAt)
+  VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))
+`);
+const restockProduct = db.prepare('UPDATE Product SET StockQty = StockQty + ? WHERE ProductID = ?');
+const restockSize = db.prepare(`
+  INSERT INTO ProductSize (ProductID, Size, StockQty) VALUES (?, ?, ?)
+  ON CONFLICT (ProductID, Size) DO UPDATE SET StockQty = StockQty + excluded.StockQty
+`);
+const RETURN_STATUSES = ['Refunded', 'Rejected', 'Approved', 'Requested', 'Refunded', 'Requested', 'Approved', 'Rejected', 'Refunded', 'Requested'];
+const RETURN_COMMENTS = [
+  'Runs a size small.', 'The fade was worse than in the photos.', 'Seam came apart on first wear.', null,
+  'Received a different colourway.', 'Too long in the sleeves.', null, 'Changed my mind after delivery.', 'Sole is separating.', null,
+];
+deliveredLines.forEach((line, i) => {
+  const status = RETURN_STATUSES[i];
+  const refund = status === 'Refunded' || status === 'Approved' ? line.UnitPrice * line.Quantity : 0;
+  const age = `-${40 - i * 3} days`;
+  insertReturn.run(line.OrderItemID, line.CustomerID, RETURN_REASONS[i % RETURN_REASONS.length], RETURN_COMMENTS[i], status, refund, age, age);
+  if (status === 'Refunded') {
+    restockProduct.run(line.Quantity, line.ProductID);
+    if (line.Size) restockSize.run(line.ProductID, line.Size, line.Quantity);
+  }
+});
 
 console.log('Seeding reviews...');
 
@@ -494,7 +737,8 @@ for (const review of reviews) {
 // requires at least ten rows in every table, so that is checked here rather
 // than trusted.
 const MINIMUM_ROWS = 10;
-const tables = ['Brand', 'Category', 'Product', 'Customer', 'Admin', 'Cart', 'CartItem', 'Orders', 'OrderItem', 'Payment', 'Review'];
+const tables = ['Brand', 'Category', 'Product', 'ProductSize', 'Customer', 'Address', 'Admin', 'Cart', 'CartItem',
+  'WishlistItem', 'PromoCode', 'Orders', 'OrderItem', 'Payment', 'ReturnRequest', 'Review'];
 const counts = {};
 const shortfall = [];
 

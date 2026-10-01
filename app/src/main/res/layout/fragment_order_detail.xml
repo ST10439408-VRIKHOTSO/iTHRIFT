@@ -125,6 +125,17 @@
                 android:layout_marginTop="6dp"
                 android:layout_marginBottom="6dp" />
 
+            <!-- Subtotal, promo discount and delivery fee, in that order. -->
+            <TextView
+                android:id="@+id/text_breakdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:lineSpacingExtra="3dp"
+                android:textColor="@color/muted"
+                android:textSize="12.5sp"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -168,7 +179,55 @@
                     android:textSize="12.5sp" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/text_return_window"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/muted"
+                android:textSize="12.5sp"
+                android:visibility="gone" />
+
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_delivery"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginTop="14dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/text_delivery_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Delivery"
+                android:textStyle="bold"
+                android:textColor="@color/ink" />
+
+            <TextView
+                android:id="@+id/text_delivery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:lineSpacingExtra="3dp"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Only while the order is still processing. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_cancel_order"
+            style="@style/Widget.IThrift.Button.Secondary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Cancel this order"
+            android:textColor="@color/bad"
+            android:visibility="gone" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

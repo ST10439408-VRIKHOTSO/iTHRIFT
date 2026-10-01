@@ -95,6 +95,45 @@
             android:textSize="26sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/text_sale_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_badge"
+            android:backgroundTint="@color/bad"
+            android:textColor="@color/on_status"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:visibility="gone" />
+
+        <!-- Only the sizes that are in stock are offered. -->
+        <LinearLayout
+            android:id="@+id/layout_sizes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="20dp">
+
+            <TextView
+                android:id="@+id/text_size_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose a size"
+                android:textColor="@color/ink"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chip_group_sizes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:singleSelection="true"
+                app:selectionRequired="true" />
+        </LinearLayout>
+
         <LinearLayout
             android:id="@+id/layout_qty_row"
             android:layout_width="match_parent"
@@ -163,6 +202,15 @@
             android:paddingTop="16dp"
             android:paddingBottom="16dp"
             app:cornerRadius="16dp" />
+
+        <!-- Save for later. Shown for sold-out pieces too, so a shopper can keep an eye on them. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_wishlist"
+            style="@style/Widget.IThrift.Button.Secondary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Save to wishlist" />
 
         <TextView
             android:id="@+id/text_out_of_stock"

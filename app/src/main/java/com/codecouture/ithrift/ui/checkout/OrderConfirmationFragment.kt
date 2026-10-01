@@ -40,7 +40,9 @@ class OrderConfirmationFragment : BaseFragment() {
                     val order = result.data.order
                     val firstName = order.customer.name.split(" ").firstOrNull().orEmpty()
                     binding.textThanks.text = "Thanks, $firstName!"
-                    binding.textSummary.text = "Order ${order.ref} · ${formatMoney(order.total)}"
+                    val deliveryNote = order.deliveryLabel?.let { "\n$it" } ?: ""
+                    val addressNote = order.deliveryAddress?.let { "\n$it" } ?: ""
+                    binding.textSummary.text = "Order ${order.ref} · ${formatMoney(order.total)}$deliveryNote$addressNote"
                 }
                 is ApiOutcome.Failure -> showToast(result.message)
             }

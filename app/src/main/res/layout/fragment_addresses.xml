@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Delivery addresses"
+            android:textColor="@color/ink"
+            android:textSize="21sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/text_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="No saved addresses yet. Add one below so checkout is quicker."
+            android:textColor="@color/muted"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/layout_addresses"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/text_form_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Add an address"
+                android:textAppearance="@style/TextAppearance.IThrift.SectionTitle" />
+
+            <TextView
+                android:id="@+id/text_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@color/error_bg"
+                android:padding="10dp"
+                android:textColor="@color/bad"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <EditText
+                android:id="@+id/input_label"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Label, for example Home or Work"
+                android:importantForAutofill="no"
+                android:inputType="textCapWords"
+                android:maxLength="30" />
+
+            <EditText
+                android:id="@+id/input_recipient"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="name"
+                android:hint="Recipient name"
+                android:inputType="textPersonName|textCapWords" />
+
+            <EditText
+                android:id="@+id/input_phone"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="phone"
+                android:hint="Phone (optional), for example 082 123 4567"
+                android:inputType="phone" />
+
+            <EditText
+                android:id="@+id/input_line1"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="postalAddress"
+                android:hint="Street address"
+                android:inputType="textPostalAddress|textCapWords" />
+
+            <EditText
+                android:id="@+id/input_suburb"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Suburb (optional)"
+                android:importantForAutofill="no"
+                android:inputType="textCapWords" />
+
+            <EditText
+                android:id="@+id/input_city"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="City or town"
+                android:importantForAutofill="no"
+                android:inputType="textCapWords" />
+
+            <EditText
+                android:id="@+id/input_postal_code"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="postalCode"
+                android:hint="Postal code (4 digits)"
+                android:inputType="number"
+                android:maxLength="4" />
+
+            <CheckBox
+                android:id="@+id/check_default"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="Make this my default address"
+                android:textColor="@color/ink" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_save"
+                style="@style/Widget.IThrift.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Add address" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_cancel_edit"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Cancel"
+                android:visibility="gone" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

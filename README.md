@@ -42,7 +42,7 @@ The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2
 | Database in a DBMS, ≥10 rows per table | [`server/init-db.js`](server/init-db.js); the seed script fails if any table falls short |
 | Input handled without crashing | [`Validators.kt`](app/src/main/java/com/codecouture/ithrift/util/Validators.kt) and [`ApiResult.kt`](app/src/main/java/com/codecouture/ithrift/data/ApiResult.kt) |
 | Help system and user documentation | In-app **Account → Help**, and [`docs/user-guide.md`](docs/user-guide.md) |
-| Automated testing through GitHub Actions | 49 Kotlin unit tests, 9 API unit tests, 70 end-to-end checks. See [Automated testing](#automated-testing) |
+| Automated testing through GitHub Actions | 50 Kotlin unit tests, 18 API unit tests, 131 end-to-end checks. See [Automated testing](#automated-testing) |
 | Logging | Per-request logging in [`server/index.js`](server/index.js); Logcat at the network boundary in the app |
 
 ## What's in here
@@ -55,9 +55,9 @@ The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2
 | REST API | `server/`, served at `/api` | The shared application tier; every business rule lives here |
 | Database | `data/ithrift.db` (generated) | SQLite, built and seeded by `npm run init-db` |
 | MySQL schema | `database/mysql-schema.sql` | Production-equivalent Third Normal Form schema |
-| API unit tests | `test/unit-tests.js` | 9 checks on the business rules (`npm run test:unit`) |
-| Smoke test | `test/smoke-test.js` | 70 end-to-end API checks (`npm test`) |
-| Kotlin unit tests | `app/src/test/` | 49 checks on validation, formatting and error handling |
+| API unit tests | `test/unit-tests.js` | 18 checks on the business rules (`npm run test:unit`) |
+| Smoke test | `test/smoke-test.js` | 131 end-to-end API checks (`npm test`) |
+| Kotlin unit tests | `app/src/test/` | 50 checks on validation, formatting and error handling |
 | User guide | `docs/user-guide.md` | Written user documentation for customers and staff |
 | CI pipelines | `.github/workflows/` | Build and test both clients on every push |
 
@@ -189,14 +189,14 @@ not exist in the application.
 
 ## Automated testing
 
-**128 automated checks across three suites**, all run by GitHub Actions on every
+**199 automated checks across three suites**, all run by GitHub Actions on every
 push and pull request to `main`. A red pipeline blocks the merge.
 
 | Suite | Count | What it covers |
 |---|---|---|
-| Kotlin unit tests (`app/src/test/`) | 49 | Input validation, server-address parsing, money and date formatting, network error handling, the theme setting |
-| API unit tests (`test/unit-tests.js`) | 9 | Password hashing and verification, the password policy, SSO configuration, cart arithmetic |
-| End-to-end smoke test (`test/smoke-test.js`) | 70 | The whole API surface against a running server |
+| Kotlin unit tests (`app/src/test/`) | 50 | Input validation, server-address parsing, money and date formatting, network error handling, the theme setting |
+| API unit tests (`test/unit-tests.js`) | 18 | Password hashing and verification, the password policy, SSO configuration, cart arithmetic, delivery fees and promo codes |
+| End-to-end smoke test (`test/smoke-test.js`) | 131 | The whole API surface against a running server |
 
 ### Workflows
 
@@ -296,7 +296,7 @@ Recorded here for transparency; also explained in the project report.
 - **Sessions are in memory.** Signing in issues a bearer token held in the server's
   memory, so restarting the server signs everyone out. A production build would use a
   persistent session store.
-- **There are no instrumented tests.** The 49 Kotlin unit tests cover the logic that
+- **There are no instrumented tests.** The 50 Kotlin unit tests cover the logic that
   can be tested without a device: validation, parsing, formatting, error handling.
   Screen-level journeys are covered by the manual test pass and the demonstration
   video, not by Espresso. Adding an instrumented suite is the obvious next step.
@@ -309,6 +309,56 @@ Recorded here for transparency; also explained in the project report.
   used to make the catalogue realistic for assessment purposes.
 
 ## Release notes
+
+### 1.2.0: Shopping features (October 2026)
+
+Four groups of shopping features, each working on the website and in the Android
+application against the same API and database.
+
+**Sizes**
+- Every piece is stocked by size. Shoes run from UK 3 to UK 10, tops and dresses from
+  XS to XXL, trousers and jeans from waist 28 to 44. Only sizes that are in stock can be
+  chosen, and the sizes of a piece always add up to its stock.
+- The cart, the order and the stock count all work per size.
+
+**Wishlist**
+- Save a piece for later from the product page. The wishlist is stored on the server,
+  so it is the same on the website and on the phone.
+- Move a saved piece to the cart, or remove it. Sold-out pieces stay on the list.
+
+**Sale prices and promo codes**
+- A piece on sale shows its new price, the old price crossed out and the percentage off.
+  Both clients can filter the catalogue to sale items only.
+- Promo codes at checkout: percentage or fixed amount, with an optional minimum spend.
+  An unknown, expired or under-spend code is refused with a message that says why.
+
+**Delivery and addresses**
+- An address book with a default address, used at checkout.
+- Three delivery methods: standard (R80, free from R1,000), express (R150) and collection
+  from the Pretoria store (free). Optional delivery instructions.
+- The total is worked out on the server in one place (`server/utils/pricing.js`). Both
+  clients ask for a quote and show what comes back.
+
+**Cancelling and returns**
+- A customer can cancel an order while it is still processing. The stock goes back on
+  sale in the right size and a paid order is marked refunded.
+- A delivered item can be returned within 30 days, with a reason. Staff approve, reject
+  and refund returns in a new Returns section of the admin console; a refunded piece
+  goes back on sale.
+
+**Fixes**
+- The Shop and Search tabs no longer crash when a screen closes while it is loading.
+- Dark-mode colours corrected so every block has readable text.
+- The website's pages keep their side margin on every screen.
+
+**Testing**
+- The end-to-end suite grew from 70 checks to 131, and the API unit tests from 9 to 18,
+  covering sizes, the wishlist, addresses, delivery fees, promo codes, cancelling and
+  returns.
+
+**Database**
+- New tables: `ProductSize`, `Address`, `WishlistItem`, `PromoCode`, `ReturnRequest`.
+  Each is seeded with at least ten rows.
 
 ### 1.1.0: Task 2, working prototype (September 2026)
 

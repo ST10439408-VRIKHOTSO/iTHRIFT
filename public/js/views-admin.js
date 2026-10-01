@@ -16,6 +16,7 @@ async function renderAdmin(view, section = 'dashboard', query = {}) {
     { key: 'listings', label: 'Listings' },
     { key: 'inventory', label: 'Inventory' },
     { key: 'orders', label: 'Process orders' },
+    { key: 'returns', label: 'Returns' },
     ...(isAdmin ? [{ key: 'customers', label: 'Customers' }] : []),
   ];
 
@@ -34,6 +35,7 @@ async function renderAdmin(view, section = 'dashboard', query = {}) {
   else if (section === 'listings') await renderAdminListings(main);
   else if (section === 'inventory') await renderAdminInventory(main);
   else if (section === 'orders') await renderAdminOrders(main, query);
+  else if (section === 'returns') await renderAdminReturns(main, query);
   else if (section === 'customers' && isAdmin) await renderAdminCustomers(main);
   else main.innerHTML = `<h2>Not found</h2>`;
 }
@@ -249,6 +251,51 @@ async function renderAdminCustomers(main) {
       await api(`/admin/users/${btn.dataset.toggle}/status`, { method: 'PUT', body: { status: newStatus } });
       toast('Customer account updated.', 'success');
       renderAdminCustomers(main);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }));
+}
+
+async function renderAdminReturns(main, query = {}) {
+  const { returns } = await api('/returns');
+  const shown = query.status ? returns.filter(r => r.status === query.status) : returns;
+  const open = returns.filter(r => r.status === 'Requested').length;
+  const statuses = ['', 'Requested', 'Approved', 'Rejected', 'Refunded'];
+
+  main.innerHTML = `
+    <div class="flex-between"><h1>Returns</h1>
+      <select id="return-filter" aria-label="Filter returns by status">
+        ${statuses.map(s => `<option value="${s}" ${query.status === s ? 'selected' : ''}>${s || 'All statuses'}</option>`).join('')}
+      </select>
+    </div>
+    <p class="small">${open} return${open === 1 ? '' : 's'} waiting for a decision. Approve a return when the parcel is on its way back; refund it once the piece arrives and passes inspection. A refunded piece goes back on sale in its size.</p>
+    <table>
+      <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Item</th><th scope="col">Reason</th><th scope="col">Status</th><th scope="col">Refund</th><th scope="col">Actions</th></tr></thead>
+      <tbody>
+        ${shown.map(r => `
+          <tr>
+            <td style="white-space:nowrap"><a class="muted-link" href="#/orders/${r.orderId}">${r.orderRef}</a></td>
+            <td>${escapeHtml(r.customer)}</td>
+            <td>${escapeHtml(r.productName)}${r.size ? ` (${escapeHtml(r.size)})` : ''}</td>
+            <td>${escapeHtml(r.reason)}${r.comment ? `<br><span class="small">${escapeHtml(r.comment)}</span>` : ''}</td>
+            <td><span class="badge ${statusClass(r.status)}">${r.status}</span></td>
+            <td>${r.refundAmount ? money(r.refundAmount) : '&mdash;'}</td>
+            <td>${r.nextStatuses.map(n => `<button type="button" class="link-btn ${n === 'Rejected' ? 'danger' : ''}" data-return="${r.id}" data-next="${n}" style="margin-right:10px">${n === 'Approved' ? 'Approve' : n === 'Rejected' ? 'Reject' : 'Refund'}</button>`).join('') || '<span class="small">Done</span>'}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="7" class="small">No returns for this filter.</td></tr>'}
+      </tbody>
+    </table>
+  `;
+
+  document.getElementById('return-filter').addEventListener('change', (e) => {
+    location.hash = buildHash('admin/returns', { status: e.target.value });
+  });
+  main.querySelectorAll('[data-return]').forEach(btn => btn.addEventListener('click', async () => {
+    try {
+      await api(`/returns/${btn.dataset.return}`, { method: 'PUT', body: { status: btn.dataset.next } });
+      toast(`Return marked ${btn.dataset.next.toLowerCase()}.`, 'success');
+      renderAdminReturns(main, query);
     } catch (err) {
       toast(err.message, 'error');
     }

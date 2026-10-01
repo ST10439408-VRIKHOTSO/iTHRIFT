@@ -12,17 +12,20 @@ import android.widget.ArrayAdapter
 import com.codecouture.ithrift.R
 import com.codecouture.ithrift.data.AddCartItemRequest
 import com.codecouture.ithrift.data.ApiOutcome
+import com.codecouture.ithrift.data.ProductSize
 import com.codecouture.ithrift.data.Review
 import com.codecouture.ithrift.data.ReviewRequest
+import com.codecouture.ithrift.data.WishlistAddRequest
 import com.codecouture.ithrift.data.safeApiCall
 import com.codecouture.ithrift.databinding.FragmentProductDetailBinding
 import com.codecouture.ithrift.databinding.ItemReviewBinding
 import com.codecouture.ithrift.ui.BaseFragment
 import com.codecouture.ithrift.util.conditionColorRes
-import com.codecouture.ithrift.util.formatMoney
+import com.codecouture.ithrift.util.priceText
 import com.codecouture.ithrift.util.resolveImageUrl
 import com.codecouture.ithrift.util.starString
 import coil.load
+import com.google.android.material.chip.Chip
 import kotlinx.coroutines.launch
 
 class ProductDetailFragment : BaseFragment() {
@@ -33,6 +36,9 @@ class ProductDetailFragment : BaseFragment() {
     private val productId: Int by lazy { requireArguments().getInt(ARG_PRODUCT_ID) }
     private var quantity = 1
     private var stockAvailable = 1
+    private var sizes: List<ProductSize> = emptyList()
+    private var selectedSize: ProductSize? = null
+    private var isSaved = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentProductDetailBinding.inflate(inflater, container, false)
@@ -57,14 +63,23 @@ class ProductDetailFragment : BaseFragment() {
 
     private fun bindProduct(product: com.codecouture.ithrift.data.Product) {
         if (_binding == null) return
-        stockAvailable = product.stock
+        sizes = product.sizes.orEmpty()
+        // With a single size left it is chosen for the customer.
+        selectedSize = sizes.singleOrNull()
+        stockAvailable = if (sizes.isEmpty()) product.stock else (selectedSize?.stock ?: 0)
         quantity = 1
 
         binding.textEyebrow.text = "${product.brand} · ${product.ref}"
         binding.textName.text = product.name
         binding.textDescription.text = product.description
-        binding.textPrice.text = formatMoney(product.price)
-        binding.textMeta.text = "Size ${product.size} · ${product.category}"
+        binding.textPrice.text = priceText(requireContext(), product.price, product.originalPrice, product.onSale)
+        if (product.onSale && product.percentOff != null) {
+            binding.textSaleTag.visibility = View.VISIBLE
+            binding.textSaleTag.text = "Sale: ${product.percentOff}% off"
+        } else {
+            binding.textSaleTag.visibility = View.GONE
+        }
+        binding.textMeta.text = product.category
         binding.textQty.text = quantity.toString()
 
         val conditionLabel = if (product.inStock) product.condition else "Out of stock"
@@ -82,8 +97,11 @@ class ProductDetailFragment : BaseFragment() {
             binding.layoutQtyRow.visibility = View.VISIBLE
             binding.buttonAddToCart.visibility = View.VISIBLE
             binding.textOutOfStock.visibility = View.GONE
-            binding.textStock.text = "${product.stock} in stock"
+            binding.layoutSizes.visibility = if (sizes.isEmpty()) View.GONE else View.VISIBLE
+            bindSizes()
+            updateStockLabel()
         } else {
+            binding.layoutSizes.visibility = View.GONE
             binding.layoutQtyRow.visibility = View.GONE
             binding.buttonAddToCart.visibility = View.GONE
             binding.textOutOfStock.visibility = View.VISIBLE
@@ -102,17 +120,100 @@ class ProductDetailFragment : BaseFragment() {
             }
         }
         binding.buttonAddToCart.setOnClickListener {
+            if (sizes.isNotEmpty() && selectedSize == null) {
+                showToast("Choose a size first.")
+                return@setOnClickListener
+            }
             requireLogin { addToCart(product.id) }
         }
+
+        binding.buttonWishlist.setOnClickListener { requireLogin { toggleWishlist(product.id) } }
+        loadWishlistState(product.id)
 
         setupReviewForm()
     }
 
+    /** Asks the server whether this piece is already saved, so the button shows the right label. */
+    private fun loadWishlistState(productId: Int) {
+        updateWishlistButton()
+        if (!isLoggedIn()) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = safeApiCall { apiService().getWishlist() }
+            if (result is ApiOutcome.Success) {
+                isSaved = result.data.items.any { it.productId == productId }
+                updateWishlistButton()
+            }
+        }
+    }
+
+    private fun toggleWishlist(productId: Int) {
+        binding.buttonWishlist.isEnabled = false
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = if (isSaved) {
+                safeApiCall { apiService().removeFromWishlist(productId) }
+            } else {
+                safeApiCall { apiService().addToWishlist(WishlistAddRequest(productId)) }
+            }
+            if (_binding == null) return@launch
+            binding.buttonWishlist.isEnabled = true
+            when (result) {
+                is ApiOutcome.Success -> {
+                    isSaved = result.data.items.any { it.productId == productId }
+                    updateWishlistButton()
+                    showToast(if (isSaved) "Saved to your wishlist" else "Removed from your wishlist")
+                }
+                is ApiOutcome.Failure -> showToast(result.message)
+            }
+        }
+    }
+
+    private fun updateWishlistButton() {
+        if (_binding == null) return
+        binding.buttonWishlist.text = if (isSaved) "Saved to wishlist (tap to remove)" else "Save to wishlist"
+    }
+
+    /** One chip per size in stock; picking one sets how many can be added. */
+    private fun bindSizes() {
+        binding.chipGroupSizes.setOnCheckedStateChangeListener(null)
+        binding.chipGroupSizes.removeAllViews()
+        for (size in sizes) {
+            val chip = Chip(requireContext()).apply {
+                id = View.generateViewId()
+                text = size.size
+                isCheckable = true
+                isCheckedIconVisible = false
+                isChecked = selectedSize?.size == size.size
+                tag = size
+                contentDescription = "Size ${size.size}, ${size.stock} in stock"
+            }
+            binding.chipGroupSizes.addView(chip)
+        }
+        binding.chipGroupSizes.setOnCheckedStateChangeListener { group, checkedIds ->
+            val chip = checkedIds.firstOrNull()?.let { group.findViewById<Chip>(it) }
+            selectedSize = chip?.tag as? ProductSize
+            stockAvailable = selectedSize?.stock ?: 0
+            quantity = 1
+            binding.textQty.text = quantity.toString()
+            updateStockLabel()
+        }
+    }
+
+    private fun updateStockLabel() {
+        val size = selectedSize
+        binding.textStock.text = when {
+            size != null -> "${size.stock} in size ${size.size}"
+            sizes.isNotEmpty() -> "Pick a size"
+            else -> "$stockAvailable in stock"
+        }
+    }
+
     private fun addToCart(productId: Int) {
         viewLifecycleOwner.lifecycleScope.launch {
-            when (val result = safeApiCall { apiService().addCartItem(AddCartItemRequest(productId, quantity)) }) {
+            val request = AddCartItemRequest(productId, quantity, selectedSize?.size)
+            when (val result = safeApiCall { apiService().addCartItem(request) }) {
                 is ApiOutcome.Success -> {
-                    showToast("Added to cart")
+                    val sizeNote = selectedSize?.let { " (size ${it.size})" } ?: ""
+                    showToast("Added to cart$sizeNote")
                     refreshCartBadge()
                 }
                 is ApiOutcome.Failure -> showToast(result.message)

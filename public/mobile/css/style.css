@@ -151,3 +151,7 @@ p { line-height: 1.5; color: var(--muted2); margin: 0 0 10px; font-size: 14px; }
 .pay-option { display: flex; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px; margin-bottom: 8px; font-size: 13.5px; }
 .pay-option.selected { border-color: var(--ink); background: var(--surface-2); }
 .stars { color: #d6a23a; }
+
+/* Sale prices */
+.was { color: #6b6b6b; font-weight: 500; font-size: 0.8em; }
+.off { display: inline-block; background: #971f1f; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 999px; vertical-align: middle; }

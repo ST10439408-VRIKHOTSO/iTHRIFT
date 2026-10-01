@@ -17,6 +17,9 @@ import com.codecouture.ithrift.data.SsoLoginRequest
 import com.codecouture.ithrift.data.safeApiCall
 import com.codecouture.ithrift.databinding.FragmentAccountBinding
 import com.codecouture.ithrift.ui.BaseFragment
+import com.codecouture.ithrift.ui.addresses.AddressesFragment
+import com.codecouture.ithrift.ui.returns.ReturnsFragment
+import com.codecouture.ithrift.ui.wishlist.WishlistFragment
 import com.codecouture.ithrift.util.Validators
 import kotlinx.coroutines.launch
 
@@ -48,6 +51,9 @@ class AccountFragment : BaseFragment() {
         binding.buttonGoogleSignIn.setOnClickListener { signInWithGoogle() }
         binding.buttonSignOut.setOnClickListener { signOut() }
         binding.buttonMyOrders.setOnClickListener { mainActivity().selectTab(R.id.nav_orders) }
+        binding.buttonWishlist.setOnClickListener { mainActivity().openDetail(WishlistFragment()) }
+        binding.buttonAddresses.setOnClickListener { mainActivity().openDetail(AddressesFragment()) }
+        binding.buttonReturns.setOnClickListener { mainActivity().openDetail(ReturnsFragment()) }
 
         binding.buttonSettings.setOnClickListener { openSettings() }
         binding.buttonSettingsLoggedOut.setOnClickListener { openSettings() }

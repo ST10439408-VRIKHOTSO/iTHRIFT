@@ -93,12 +93,42 @@ where a specific flaw is written down.
 
 ### Buying something
 
-1. Tap a piece to open it. Check the size, the grade and the description.
-2. Tap **Add to cart**.
-3. Open the **Cart** tab and check the total.
-4. Tap **Checkout**, choose a payment method, and tap **Place order**.
-5. You will get a reference like `ORD-0007`. Keep it, because it is what support
+1. Tap a piece to open it. Check the grade and the description.
+2. Tap a **size**. Only sizes that are in stock are shown.
+3. Tap **Add to cart**.
+4. Open the **Cart** tab and check the total.
+5. Tap **Checkout** and choose a **delivery method**:
+
+   | Method | Cost | How long |
+   |---|---|---|
+   | Standard delivery | R80, free from R1,000 | 3 to 5 working days |
+   | Express delivery | R150 | 1 to 2 working days |
+   | Collect from the Pretoria store | Free | Ready in 2 working days |
+
+6. Choose a **delivery address**. Your default address is already selected.
+7. If you have a **promo code**, type it in and tap **Apply**. The discount shows
+   in the summary before you pay.
+8. Choose a payment method and tap **Place order**.
+9. You will get a reference like `ORD-0007`. Keep it, because it is what support
    will ask for.
+
+### Saving a piece for later
+
+Open a piece and tap **Save to wishlist**. Find your saved pieces under
+**Account**, then **My wishlist**. From there you can move a piece to your cart
+or remove it. The same wishlist shows on the website. Saving a piece does not
+reserve it.
+
+### Sale prices
+
+A piece on sale shows its new price with the old price crossed out. Tap the
+**Sale** chip on the Shop tab (or **Sale** in the website menu) to see only
+those pieces.
+
+### Your addresses
+
+**Account**, then **Delivery addresses**. Add an address, edit it, delete it or
+make it your default. You can save up to ten.
 
 > **Adding something to your cart does not hold it for you.** Most pieces are
 > one of a kind. Stock is only reserved when you place the order, so if two
@@ -119,6 +149,23 @@ stage it has reached:
 | **Cancelled** | The order was cancelled. Any payment is refunded. |
 
 Open an order to see what is in it, what you paid, and the courier reference.
+
+### Cancelling an order
+
+Open the order and tap **Cancel this order**. You can do this while the order
+is still **Processing**. Once it has shipped it cannot be cancelled, but you can
+return it after it arrives. If you had already paid, the payment is refunded.
+
+### Returning an item
+
+You have **30 days** from delivery.
+
+1. Open the delivered order.
+2. Tap **Return this item** next to the piece.
+3. Choose a reason and confirm.
+
+Follow the return under **Account**, then **My returns**. It moves from
+**Requested** to **Approved** and then **Refunded**.
 
 ### Changing your settings
 
@@ -176,6 +223,17 @@ Open **Process orders**, find the order, set its new status and, for
 **Shipped**, enter the courier reference. Save. The customer sees the change
 on their phone the next time they open the order; there is nothing to
 synchronise, because both are reading the same database.
+
+### Handling a return
+
+Open **Returns** in the admin console. Each return shows the order, the
+customer, the item and the reason.
+
+| Action | When to use it |
+|---|---|
+| **Approve** | The return is valid and the parcel is on its way back. |
+| **Reject** | The return does not meet the policy. A rejected return can still be approved later. |
+| **Refund** | The piece has arrived and passed inspection. It goes back on sale in its size. |
 
 ### Permissions are enforced on the server
 
@@ -282,4 +340,4 @@ Staff and administrator accounts sign in on the website only.
 6. Set it to **Shipped** and enter a courier reference. On the phone, open
    **Orders**; the tracker now reads **Shipped**.
 
-`npm test` walks this same path automatically, in 70 checks.
+`npm test` walks this same path automatically, in 131 checks.

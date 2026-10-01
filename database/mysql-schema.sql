@@ -33,11 +33,13 @@ CREATE TABLE Product (
   Size           VARCHAR(20) NOT NULL,
   ConditionGrade ENUM('Excellent','Very Good','Good','Fair') NOT NULL,
   Price          DECIMAL(10,2) NOT NULL CHECK (Price >= 0),
+  OriginalPrice  DECIMAL(10,2) NULL,  -- set when the item is on sale; must be above Price
   StockQty       INT NOT NULL DEFAULT 0 CHECK (StockQty >= 0),
   ImageFile      VARCHAR(255),
   CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (BrandID) REFERENCES Brand(BrandID),
   FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
+  CHECK (OriginalPrice IS NULL OR OriginalPrice > Price),
   INDEX idx_product_brand (BrandID),
   INDEX idx_product_category (CategoryID)
 ) ENGINE=InnoDB;
@@ -48,6 +50,16 @@ CREATE TABLE Product (
 -- of the two routes an account uses, and ProviderSubject holds the
 -- provider's own immutable user id ("sub" in the Google ID token), which
 -- is the correct key to match on, because an email address can be reassigned.
+-- Sizes per product and the stock held in each. Product.StockQty is the sum.
+CREATE TABLE ProductSize (
+  ProductSizeID INT AUTO_INCREMENT PRIMARY KEY,
+  ProductID     INT NOT NULL,
+  Size          VARCHAR(20) NOT NULL,
+  StockQty      INT NOT NULL DEFAULT 0 CHECK (StockQty >= 0),
+  UNIQUE KEY uq_product_size (ProductID, Size),
+  FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
+) ENGINE=InnoDB;
+
 CREATE TABLE Customer (
   CustomerID      INT AUTO_INCREMENT PRIMARY KEY,
   FirstName       VARCHAR(60) NOT NULL,
@@ -92,8 +104,9 @@ CREATE TABLE CartItem (
   CartItemID INT AUTO_INCREMENT PRIMARY KEY,
   CartID     INT NOT NULL,
   ProductID  INT NOT NULL,
+  Size       VARCHAR(20),
   Quantity   INT NOT NULL CHECK (Quantity > 0),
-  UNIQUE KEY uq_cart_product (CartID, ProductID),
+  UNIQUE KEY uq_cart_product_size (CartID, ProductID, Size),
   FOREIGN KEY (CartID) REFERENCES Cart(CartID),
   FOREIGN KEY (ProductID) REFERENCES Product(ProductID),
   INDEX idx_cartitem_cart (CartID)
@@ -103,6 +116,13 @@ CREATE TABLE Orders (
   OrderID     INT AUTO_INCREMENT PRIMARY KEY,
   CustomerID  INT NOT NULL,
   Status      ENUM('Processing','Shipped','Delivered','Cancelled') NOT NULL DEFAULT 'Processing',
+  Subtotal       DECIMAL(10,2) NOT NULL DEFAULT 0,
+  DiscountAmount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  DeliveryFee    DECIMAL(10,2) NOT NULL DEFAULT 0,
+  DeliveryMethod ENUM('standard','express','collection') NOT NULL DEFAULT 'standard',
+  PromoCode      VARCHAR(30),
+  DeliveryAddress VARCHAR(255),
+  DeliveryInstructions VARCHAR(200),
   TotalAmount DECIMAL(10,2) NOT NULL CHECK (TotalAmount >= 0),
   CourierRef  VARCHAR(40),
   CreatedAt   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -114,6 +134,7 @@ CREATE TABLE OrderItem (
   OrderItemID INT AUTO_INCREMENT PRIMARY KEY,
   OrderID     INT NOT NULL,
   ProductID   INT NOT NULL,
+  Size        VARCHAR(20),
   Quantity    INT NOT NULL CHECK (Quantity > 0),
   UnitPrice   DECIMAL(10,2) NOT NULL CHECK (UnitPrice >= 0),
   FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
@@ -125,7 +146,7 @@ CREATE TABLE Payment (
   PaymentID INT AUTO_INCREMENT PRIMARY KEY,
   OrderID   INT NOT NULL UNIQUE,
   Method    ENUM('payfast','card','eft') NOT NULL,
-  Status    ENUM('pending','paid') NOT NULL,
+  Status    ENUM('pending','paid','refunded') NOT NULL,
   Amount    DECIMAL(10,2) NOT NULL CHECK (Amount >= 0),
   CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
@@ -141,4 +162,53 @@ CREATE TABLE Review (
   FOREIGN KEY (ProductID) REFERENCES Product(ProductID),
   FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
   INDEX idx_review_product (ProductID)
+) ENGINE=InnoDB;
+
+CREATE TABLE Address (
+  AddressID  INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID INT NOT NULL,
+  Label      VARCHAR(30) NOT NULL DEFAULT 'Home',
+  Recipient  VARCHAR(100) NOT NULL,
+  Phone      VARCHAR(20),
+  Line1      VARCHAR(150) NOT NULL,
+  Suburb     VARCHAR(80),
+  City       VARCHAR(80) NOT NULL,
+  PostalCode CHAR(4) NOT NULL,
+  IsDefault  TINYINT(1) NOT NULL DEFAULT 0,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
+  INDEX idx_address_customer (CustomerID)
+) ENGINE=InnoDB;
+
+CREATE TABLE WishlistItem (
+  WishlistItemID INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID     INT NOT NULL,
+  ProductID      INT NOT NULL,
+  CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (CustomerID, ProductID),
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
+  FOREIGN KEY (ProductID) REFERENCES Product(ProductID) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE PromoCode (
+  PromoCodeID   INT AUTO_INCREMENT PRIMARY KEY,
+  Code          VARCHAR(30) NOT NULL UNIQUE,
+  Description   VARCHAR(150) NOT NULL,
+  DiscountType  ENUM('percent','fixed') NOT NULL,
+  DiscountValue DECIMAL(10,2) NOT NULL CHECK (DiscountValue > 0),
+  MinSpend      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  Active        TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
+
+CREATE TABLE ReturnRequest (
+  ReturnID     INT AUTO_INCREMENT PRIMARY KEY,
+  OrderItemID  INT NOT NULL UNIQUE,  -- one return per order line
+  CustomerID   INT NOT NULL,
+  Reason       VARCHAR(40) NOT NULL,
+  Comment      VARCHAR(300),
+  Status       ENUM('Requested','Approved','Rejected','Refunded') NOT NULL DEFAULT 'Requested',
+  RefundAmount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  CreatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (OrderItemID) REFERENCES OrderItem(OrderItemID),
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID)
 ) ENGINE=InnoDB;

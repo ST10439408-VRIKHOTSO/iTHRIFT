@@ -75,7 +75,8 @@ class CartFragment : BaseFragment() {
 
     private fun bindLine(itemBinding: ItemCartLineBinding, item: CartItem) {
         itemBinding.textName.text = item.name
-        itemBinding.textPriceEach.text = "${formatMoney(item.price)} each"
+        val sizePrefix = item.size?.let { "Size $it · " } ?: ""
+        itemBinding.textPriceEach.text = "$sizePrefix${formatMoney(item.price)} each"
         itemBinding.textQty.text = item.quantity.toString()
         itemBinding.imageThumb.load(resolveImageUrl(requireContext(), item.image)) {
             crossfade(true)

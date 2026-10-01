@@ -144,7 +144,7 @@ function productCardSmall(p) {
       <div class="body">
         <div class="brand">${escapeHtml(p.brand)}</div>
         <div class="name">${escapeHtml(p.name)}</div>
-        <div class="price">${money(p.price)}</div>
+        <div class="price">${money(p.price)}${p.onSale ? ` <s class="was">${money(p.originalPrice)}</s> <span class="off">${p.percentOff}% off</span>` : ''}</div>
       </div>
     </a>
   `;
@@ -218,11 +218,15 @@ async function renderProduct(view, id) {
       <span class="small">Size ${escapeHtml(product.size)}${avg ? ` &middot; <span class="stars">&starf;</span> ${avg} (${reviews.length})` : ''}</span>
     </div>
     <p>${escapeHtml(product.description)}</p>
-    <h2>${money(product.price)}</h2>
+    <h2>${money(product.price)}${product.onSale ? ` <s class="was">${money(product.originalPrice)}</s> <span class="off">${product.percentOff}% off</span>` : ''}</h2>
     ${product.inStock ? `
+      <div class="small" id="size-label" style="margin-top:12px;font-weight:700">Choose a size</div>
+      <div class="chip-row" role="radiogroup" aria-labelledby="size-label" style="flex-wrap:wrap;margin-top:6px">
+        ${product.sizes.map(sz => `<button type="button" class="chip size-chip" role="radio" aria-checked="false" data-size="${escapeHtml(sz.size)}" data-stock="${sz.stock}">${escapeHtml(sz.size)}</button>`).join('')}
+      </div>
       <div class="row-between" style="margin:14px 0">
         <div class="qty-stepper"><button type="button" id="qm">&minus;</button><span id="qv">1</span><button type="button" id="qp">+</button></div>
-        <span class="small">${product.stock} left</span>
+        <span class="small" id="size-stock">${product.sizes.length === 1 ? `${product.sizes[0].stock} in size ${escapeHtml(product.sizes[0].size)}` : 'Pick a size'}</span>
       </div>
       <button class="btn accent" id="add-btn">Add to cart</button>
     ` : `<div class="form-error">Out of stock</div>`}
@@ -248,12 +252,27 @@ async function renderProduct(view, id) {
   `;
 
   let qty = 1;
+  let chosenSize = product.sizes && product.sizes.length === 1 ? product.sizes[0] : null;
+  const chips = view.querySelectorAll('.size-chip');
+  const markSize = () => chips.forEach(c => {
+    const on = chosenSize && c.dataset.size === chosenSize.size;
+    c.classList.toggle('active', !!on);
+    c.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  markSize();
+  chips.forEach(c => c.addEventListener('click', () => {
+    chosenSize = { size: c.dataset.size, stock: Number(c.dataset.stock) };
+    qty = 1; document.getElementById('qv').textContent = qty;
+    document.getElementById('size-stock').textContent = `${chosenSize.stock} in size ${chosenSize.size}`;
+    markSize();
+  }));
   document.getElementById('qm')?.addEventListener('click', () => { qty = Math.max(1, qty - 1); document.getElementById('qv').textContent = qty; });
-  document.getElementById('qp')?.addEventListener('click', () => { qty = Math.min(product.stock, qty + 1); document.getElementById('qv').textContent = qty; });
+  document.getElementById('qp')?.addEventListener('click', () => { qty = Math.min(chosenSize ? chosenSize.stock : 1, qty + 1); document.getElementById('qv').textContent = qty; });
   document.getElementById('add-btn')?.addEventListener('click', async () => {
     if (!requireLogin('/product/' + id)) return;
+    if (!chosenSize) return toast('Choose a size first.', 'error');
     try {
-      await api('/cart/items', { method: 'POST', body: { productId: product.id, quantity: qty } });
+      await api('/cart/items', { method: 'POST', body: { productId: product.id, quantity: qty, size: chosenSize.size } });
       toast('Added to cart', 'success');
       await refreshCartCount();
       updateChrome('shop', 'Product');
@@ -285,7 +304,7 @@ async function renderCart(view) {
           <div class="thumb-sm"><img src="${i.image}" alt=""></div>
           <div style="flex:1">
             <strong style="font-size:13.5px">${escapeHtml(i.name)}</strong>
-            <div class="small">${money(i.price)} each</div>
+            <div class="small">${i.size ? `Size ${escapeHtml(i.size)} &middot; ` : ''}${money(i.price)} each</div>
           </div>
           <div class="qty-stepper"><button data-m="${i.id}">&minus;</button><span>${i.quantity}</span><button data-p="${i.id}">+</button></div>
         </div>
@@ -316,31 +335,91 @@ async function stepCart(itemId, delta, view) {
 
 async function renderCheckout(view) {
   if (!requireLogin('/checkout')) return;
-  const cart = await api('/cart');
+  const [cart, options] = await Promise.all([api('/cart'), api('/orders/options')]);
   if (cart.items.length === 0) { view.innerHTML = '<div class="empty">Your cart is empty.</div>'; return; }
+
+  let deliveryMethod = 'standard';
+  let promoCode = '';
 
   view.innerHTML = `
     <h1>Checkout</h1>
-    <div class="card-panel">
-      <h3>Payment method</h3>
-      <form id="checkout-form">
+    <form id="checkout-form">
+      <div class="card-panel">
+        <h3>Delivery</h3>
+        ${options.deliveryMethods.map(m => `
+          <label class="pay-option ${m.id === deliveryMethod ? 'selected' : ''}" data-delivery><input type="radio" name="deliveryMethod" value="${m.id}" ${m.id === deliveryMethod ? 'checked' : ''}> ${escapeHtml(m.label)} &middot; ${m.fee ? money(m.fee) : 'Free'}</label>`).join('')}
+        <p class="small" id="delivery-note" style="margin-top:6px">Delivered to your default address. Manage addresses on the website or in the Android app.</p>
+      </div>
+      <div class="card-panel">
+        <h3>Payment method</h3>
         <label class="pay-option selected" data-pay><input type="radio" name="method" value="card" checked> Credit / debit card</label>
         <label class="pay-option" data-pay><input type="radio" name="method" value="payfast"> PayFast</label>
         <label class="pay-option" data-pay><input type="radio" name="method" value="eft"> EFT (pending)</label>
-        <div class="row-between" style="margin:10px 0"><span class="small">Total</span><strong>${money(cart.subtotal)}</strong></div>
-        <button class="btn accent" type="submit">Place order</button>
-      </form>
-    </div>
+      </div>
+      <div class="card-panel">
+        <label class="small" for="promo-input"><strong>Promo code</strong></label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="promo-input" type="text" autocomplete="off" maxlength="30" placeholder="e.g. WELCOME10" style="flex:1;min-width:0;text-transform:uppercase;border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:var(--surface);color:var(--ink)">
+          <button class="btn outline sm" type="button" id="promo-apply" style="width:auto;padding:9px 16px">Apply</button>
+        </div>
+        <div class="small" id="promo-msg" aria-live="polite" style="margin-top:6px"></div>
+        <div id="quote-box" style="margin-top:10px"></div>
+        <button class="btn accent" type="submit" id="place-btn">Place order</button>
+      </div>
+    </form>
   `;
+
+  const quoteBox = document.getElementById('quote-box');
+  const promoMsg = document.getElementById('promo-msg');
+
+  async function refreshQuote() {
+    try {
+      const q = await api('/orders/quote', { method: 'POST', body: { deliveryMethod, promoCode: promoCode || undefined } });
+      quoteBox.innerHTML = `
+        <div class="row-between small"><span>Subtotal</span><span>${money(q.subtotal)}</span></div>
+        ${q.discount ? `<div class="row-between small"><span>Promo ${escapeHtml(q.promo.code)}</span><span>&minus;${money(q.discount)}</span></div>` : ''}
+        <div class="row-between small"><span>Delivery</span><span>${q.deliveryFee ? money(q.deliveryFee) : 'Free'}</span></div>
+        <div class="row-between" style="margin:8px 0"><span>Total</span><strong>${money(q.total)}</strong></div>`;
+      return true;
+    } catch (err) {
+      if (promoCode) {
+        promoMsg.textContent = err.message;
+        promoCode = '';
+        await refreshQuote();
+        return false;
+      }
+      quoteBox.textContent = err.message;
+      return false;
+    }
+  }
+
   view.querySelectorAll('[data-pay]').forEach(l => l.addEventListener('click', () => {
     view.querySelectorAll('[data-pay]').forEach(x => x.classList.remove('selected'));
     l.classList.add('selected');
   }));
+  view.querySelectorAll('[data-delivery]').forEach(l => l.addEventListener('change', () => {
+    view.querySelectorAll('[data-delivery]').forEach(x => x.classList.toggle('selected', x.querySelector('input').checked));
+    deliveryMethod = l.querySelector('input').value;
+    document.getElementById('delivery-note').textContent = deliveryMethod === 'collection'
+      ? 'Collect from iTHRIFT Clothes, Hatfield Plaza, Pretoria.'
+      : 'Delivered to your default address. Manage addresses on the website or in the Android app.';
+    refreshQuote();
+  }));
+  document.getElementById('promo-apply').addEventListener('click', async () => {
+    const code = document.getElementById('promo-input').value.trim();
+    if (!code) { promoMsg.textContent = 'Type a promo code first.'; return; }
+    promoCode = code;
+    promoMsg.textContent = '';
+    if (await refreshQuote()) promoMsg.textContent = code.toUpperCase() + ' applied.';
+  });
+
+  await refreshQuote();
+
   document.getElementById('checkout-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const method = new FormData(e.target).get('method');
     try {
-      const { order } = await api('/orders', { method: 'POST', body: { method } });
+      const { order } = await api('/orders', { method: 'POST', body: { method, deliveryMethod, promoCode: promoCode || undefined } });
       await refreshCartCount();
       location.hash = '#/order-confirmation/' + order.id;
     } catch (err) { toast(err.message, 'error'); }
@@ -390,7 +469,7 @@ async function renderOrderDetail(view, id) {
     </div>` : ''}
     <div class="card-panel">
       <h3>Items</h3>
-      ${order.items.map(i => `<div class="order-row"><span>${i.quantity} &times; ${escapeHtml(i.name)}</span><span>${money(i.lineTotal)}</span></div>`).join('')}
+      ${order.items.map(i => `<div class="order-row"><span>${i.quantity} &times; ${escapeHtml(i.name)}${i.size ? ` (${escapeHtml(i.size)})` : ''}</span><span>${money(i.lineTotal)}</span></div>`).join('')}
       <div class="order-row" style="font-weight:800;border-bottom:none"><span>Total</span><span>${money(order.total)}</span></div>
       <div class="order-row" style="border-bottom:none"><span>Payment</span><span>${order.payment.method.toUpperCase()} &middot; ${order.payment.status}</span></div>
     </div>

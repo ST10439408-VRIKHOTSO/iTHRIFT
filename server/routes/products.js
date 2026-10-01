@@ -7,7 +7,21 @@ const { productRef } = require('../utils/refs');
 
 const router = express.Router();
 
-function toPublicProduct(row) {
+/** Sizes per product, in range order, for a list of product ids. */
+function loadSizes(db, productIds) {
+  const map = new Map(productIds.map((id) => [id, []]));
+  if (productIds.length === 0) return map;
+  const rows = db.prepare(`
+    SELECT ProductID, Size, StockQty FROM ProductSize
+    WHERE ProductID IN (${productIds.map(() => '?').join(',')})
+    ORDER BY ProductSizeID
+  `).all(...productIds);
+  for (const r of rows) map.get(r.ProductID).push({ size: r.Size, stock: r.StockQty });
+  return map;
+}
+
+function toPublicProduct(row, sizes = []) {
+  const available = sizes.filter((s) => s.stock > 0);
   return {
     id: row.ProductID,
     ref: productRef(row.ProductID),
@@ -17,9 +31,15 @@ function toPublicProduct(row) {
     brandId: row.BrandID,
     category: row.CategoryName,
     categoryId: row.CategoryID,
-    size: row.Size,
+    // A readable summary of what can be bought ("UK 8, UK 9"); the listing's
+    // original size when nothing is left.
+    size: available.length ? available.map((s) => s.size).join(', ') : row.Size,
+    sizes: available,
     condition: row.ConditionGrade,
     price: row.Price,
+    originalPrice: row.OriginalPrice || null,
+    onSale: row.OriginalPrice != null && row.OriginalPrice > row.Price,
+    percentOff: row.OriginalPrice > row.Price ? Math.round((1 - row.Price / row.OriginalPrice) * 100) : 0,
     stock: row.StockQty,
     inStock: row.StockQty > 0,
     image: row.ImageFile,
@@ -38,7 +58,7 @@ const BASE_SELECT = `
 // category, size, condition and price.
 router.get('/', (req, res) => {
   const db = getDb();
-  const { q, brand, category, size, condition, minPrice, maxPrice, inStock, sort } = req.query;
+  const { q, brand, category, size, condition, minPrice, maxPrice, inStock, onSale, sort } = req.query;
 
   const clauses = [];
   const params = [];
@@ -56,7 +76,7 @@ router.get('/', (req, res) => {
     params.push(category);
   }
   if (size) {
-    clauses.push('p.Size = ?');
+    clauses.push('EXISTS (SELECT 1 FROM ProductSize ps WHERE ps.ProductID = p.ProductID AND ps.Size = ? AND ps.StockQty > 0)');
     params.push(size);
   }
   if (condition) {
@@ -74,6 +94,9 @@ router.get('/', (req, res) => {
   if (inStock === 'true') {
     clauses.push('p.StockQty > 0');
   }
+  if (onSale === 'true') {
+    clauses.push('p.OriginalPrice IS NOT NULL AND p.OriginalPrice > p.Price');
+  }
 
   let sql = BASE_SELECT;
   if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ');
@@ -86,7 +109,8 @@ router.get('/', (req, res) => {
   sql += ' ORDER BY ' + (sortMap[sort] || 'p.ProductID ASC');
 
   const rows = db.prepare(sql).all(...params);
-  res.json({ products: rows.map(toPublicProduct) });
+  const sizes = loadSizes(db, rows.map((r) => r.ProductID));
+  res.json({ products: rows.map((r) => toPublicProduct(r, sizes.get(r.ProductID))) });
 });
 
 router.get('/brands', (_req, res) => {
@@ -105,7 +129,7 @@ router.get('/:id', (req, res) => {
   const db = getDb();
   const row = db.prepare(BASE_SELECT + ' WHERE p.ProductID = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Product not found.' });
-  res.json({ product: toPublicProduct(row) });
+  res.json({ product: toPublicProduct(row, loadSizes(db, [row.ProductID]).get(row.ProductID)) });
 });
 
 // UC13: Leave reviews / read reviews for a product.
@@ -160,6 +184,7 @@ router.post('/', requireRole('admin', 'staff'), (req, res) => {
   `).run(name.trim(), description.trim(), brandId, categoryId, size.trim(), condition, Number(price), Number(stock));
 
   const id = Number(info.lastInsertRowid);
+  db.prepare('INSERT INTO ProductSize (ProductID, Size, StockQty) VALUES (?, ?, ?)').run(id, size.trim(), Number(stock));
 
   // Generate a placeholder image for the new listing.
   const brand = db.prepare('SELECT Name FROM Brand WHERE BrandID = ?').get(brandId);
@@ -169,7 +194,7 @@ router.post('/', requireRole('admin', 'staff'), (req, res) => {
   db.prepare('UPDATE Product SET ImageFile = ? WHERE ProductID = ?').run(imagePath, id);
 
   const row = db.prepare(BASE_SELECT + ' WHERE p.ProductID = ?').get(id);
-  res.status(201).json({ product: toPublicProduct(row) });
+  res.status(201).json({ product: toPublicProduct(row, loadSizes(db, [id]).get(id)) });
 });
 
 router.put('/:id', requireRole('admin', 'staff'), (req, res) => {
@@ -178,6 +203,24 @@ router.put('/:id', requireRole('admin', 'staff'), (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
 
   const { name, description, brandId, categoryId, size, condition, price, stock } = req.body || {};
+
+  // Stock lives per size. A single-size listing (what the console creates)
+  // can still be edited with one stock figure; a listing spread over several
+  // sizes cannot, because the server would have to guess which size changed.
+  if (stock != null) {
+    const sizeRows = db.prepare('SELECT ProductSizeID FROM ProductSize WHERE ProductID = ?').all(req.params.id);
+    if (Number(stock) < 0) return res.status(400).json({ error: 'Stock cannot be negative.' });
+    if (sizeRows.length > 1) {
+      return res.status(400).json({ error: 'This listing is stocked in several sizes, so its stock is changed per size.' });
+    }
+    if (sizeRows.length === 1) {
+      db.prepare('UPDATE ProductSize SET StockQty = ?, Size = COALESCE(?, Size) WHERE ProductSizeID = ?')
+        .run(Number(stock), size ?? null, sizeRows[0].ProductSizeID);
+    } else {
+      db.prepare('INSERT INTO ProductSize (ProductID, Size, StockQty) VALUES (?, ?, ?)')
+        .run(req.params.id, size ?? existing.Size, Number(stock));
+    }
+  }
 
   db.prepare(`
     UPDATE Product SET
@@ -197,7 +240,7 @@ router.put('/:id', requireRole('admin', 'staff'), (req, res) => {
   );
 
   const row = db.prepare(BASE_SELECT + ' WHERE p.ProductID = ?').get(req.params.id);
-  res.json({ product: toPublicProduct(row) });
+  res.json({ product: toPublicProduct(row, loadSizes(db, [row.ProductID]).get(row.ProductID)) });
 });
 
 router.delete('/:id', requireRole('admin', 'staff'), (req, res) => {
@@ -209,11 +252,13 @@ router.delete('/:id', requireRole('admin', 'staff'), (req, res) => {
   if (inOrders.n > 0) {
     // Preserve order history integrity: stop selling it instead of deleting.
     db.prepare('UPDATE Product SET StockQty = 0 WHERE ProductID = ?').run(req.params.id);
+    db.prepare('UPDATE ProductSize SET StockQty = 0 WHERE ProductID = ?').run(req.params.id);
     return res.json({ ok: true, note: 'Product appears in past orders, so it was delisted (stock set to 0) rather than deleted, to keep order history intact.' });
   }
 
   db.prepare('DELETE FROM CartItem WHERE ProductID = ?').run(req.params.id);
   db.prepare('DELETE FROM Review WHERE ProductID = ?').run(req.params.id);
+  db.prepare('DELETE FROM ProductSize WHERE ProductID = ?').run(req.params.id);
   db.prepare('DELETE FROM Product WHERE ProductID = ?').run(req.params.id);
   res.json({ ok: true });
 });

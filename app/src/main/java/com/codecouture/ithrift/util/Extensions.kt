@@ -1,6 +1,12 @@
 package com.codecouture.ithrift.util
 
 import android.content.Context
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StrikethroughSpan
+import androidx.core.content.ContextCompat
 import com.codecouture.ithrift.R
 import com.codecouture.ithrift.data.ApiClient
 import java.text.SimpleDateFormat
@@ -44,7 +50,7 @@ fun timeAgo(sqliteTimestamp: String): String {
     }
 }
 
-/** "★★★☆☆" style star string for a 1-5 rating. */
+/** Star string for a 1 to 5 rating: filled stars then empty ones. */
 fun starString(rating: Int): String {
     val filled = "\u2605".repeat(rating.coerceIn(0, 5))
     val empty = "\u2606".repeat(5 - rating.coerceIn(0, 5))
@@ -62,10 +68,28 @@ fun conditionColorRes(condition: String): Int = when (condition) {
 
 /** Colour resource id for an order status badge ("Processing", "Shipped", "Delivered", "Cancelled"). */
 fun statusColorRes(status: String): Int = when (status) {
-    "Processing" -> R.color.warn
-    "Shipped" -> R.color.info
-    "Delivered" -> R.color.good
-    "Cancelled" -> R.color.bad
+    "Processing", "Requested" -> R.color.warn
+    "Shipped", "Approved" -> R.color.info
+    "Delivered", "Refunded" -> R.color.good
+    "Cancelled", "Rejected" -> R.color.bad
     else -> R.color.muted
+}
+
+/**
+ * The price, followed by the old price struck through in a smaller, muted
+ * style when the piece is on sale: "R1,399  R1,799".
+ */
+fun priceText(context: Context, price: Double, originalPrice: Double?, onSale: Boolean): CharSequence {
+    val builder = SpannableStringBuilder(formatMoney(price))
+    if (onSale && originalPrice != null && originalPrice > price) {
+        builder.append("  ")
+        val start = builder.length
+        builder.append(formatMoney(originalPrice))
+        val end = builder.length
+        builder.setSpan(StrikethroughSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(RelativeSizeSpan(0.72f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(ForegroundColorSpan(ContextCompat.getColor(context, R.color.muted)), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    return builder
 }
 

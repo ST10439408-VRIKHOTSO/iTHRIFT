@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
 const { hashPassword, verifyPassword, isPasswordStrong } = require('../server/utils/password');
 const { productRef, orderRef } = require('../server/utils/refs');
 const { allowedAudiences, isSsoConfigured } = require('../server/utils/sso');
+const { computeTotals, promoDiscount, FREE_DELIVERY_THRESHOLD } = require('../server/utils/pricing');
 
 // ---------------------------------------------------------------------------
 // Password storage: the rule with the highest cost of failure
@@ -132,4 +133,58 @@ test('the cart subtotal multiplies each line by its quantity', () => {
 test('an empty cart totals zero rather than failing', () => {
   assert.equal(subtotalOf([]), 0);
   assert.equal(itemCountOf([]), 0);
+});
+
+// ---------------------------------------------------------------------------
+// Checkout pricing: delivery fees and promo codes (server/utils/pricing.js)
+// ---------------------------------------------------------------------------
+
+const promo = (over) => ({ Code: 'TEST', DiscountType: 'percent', DiscountValue: 10, MinSpend: 0, Active: 1, ...over });
+
+test('standard delivery costs R80 below the free-delivery threshold', () => {
+  const t = computeTotals({ subtotal: 500, deliveryMethod: 'standard' });
+  assert.equal(t.deliveryFee, 80);
+  assert.equal(t.total, 580);
+  assert.equal(t.freeDeliveryRemaining, FREE_DELIVERY_THRESHOLD - 500);
+});
+
+test('standard delivery is free from the threshold upwards', () => {
+  const t = computeTotals({ subtotal: FREE_DELIVERY_THRESHOLD, deliveryMethod: 'standard' });
+  assert.equal(t.deliveryFee, 0);
+  assert.equal(t.freeDeliveryRemaining, 0);
+});
+
+test('express delivery is never free and collection always is', () => {
+  assert.equal(computeTotals({ subtotal: 5000, deliveryMethod: 'express' }).deliveryFee, 150);
+  assert.equal(computeTotals({ subtotal: 10, deliveryMethod: 'collection' }).deliveryFee, 0);
+});
+
+test('an unknown delivery method is refused', () => {
+  assert.ok(computeTotals({ subtotal: 100, deliveryMethod: 'drone' }).error);
+});
+
+test('a percentage code takes its share off the subtotal, rounded to cents', () => {
+  assert.equal(promoDiscount(promo({ DiscountValue: 15 }), 333.33).discount, 50);
+});
+
+test('a fixed code can never take the goods below zero', () => {
+  assert.equal(promoDiscount(promo({ DiscountType: 'fixed', DiscountValue: 200 }), 150).discount, 150);
+});
+
+test('a code below its minimum spend says how much more to add', () => {
+  const r = promoDiscount(promo({ MinSpend: 500 }), 420);
+  assert.equal(r.discount, 0);
+  assert.match(r.error, /Add R80 more/);
+});
+
+test('an inactive code is reported as expired', () => {
+  assert.match(promoDiscount(promo({ Active: 0 }), 999).error, /expired/);
+});
+
+test('free delivery is judged on the price after the discount', () => {
+  // R1 050 less 10% is R945, which is under the threshold, so delivery is charged.
+  const t = computeTotals({ subtotal: 1050, deliveryMethod: 'standard', promo: promo() });
+  assert.equal(t.discount, 105);
+  assert.equal(t.deliveryFee, 80);
+  assert.equal(t.total, 1025);
 });

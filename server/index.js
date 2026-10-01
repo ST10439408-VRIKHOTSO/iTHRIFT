@@ -55,6 +55,9 @@ apiRouter.use('/products', require('./routes/products'));
 apiRouter.use('/cart', require('./routes/cart'));
 apiRouter.use('/orders', require('./routes/orders'));
 apiRouter.use('/admin', require('./routes/admin'));
+apiRouter.use('/wishlist', require('./routes/wishlist'));
+apiRouter.use('/addresses', require('./routes/addresses'));
+apiRouter.use('/returns', require('./routes/returns'));
 apiRouter.get('/', (_req, res) => {
   res.json({
     name: 'iTHRIFT Clothes API',
@@ -68,6 +71,10 @@ apiRouter.get('/', (_req, res) => {
       'POST /api/products', 'PUT /api/products/:id', 'DELETE /api/products/:id',
       'GET /api/cart', 'POST /api/cart/items', 'PUT /api/cart/items/:id', 'DELETE /api/cart/items/:id',
       'POST /api/orders', 'GET /api/orders', 'GET /api/orders/:id', 'PUT /api/orders/:id/status',
+      'GET /api/orders/options', 'POST /api/orders/quote', 'PUT /api/orders/:id/cancel', 'POST /api/orders/:id/returns',
+      'GET /api/wishlist', 'POST /api/wishlist', 'DELETE /api/wishlist/:productId',
+      'GET /api/addresses', 'POST /api/addresses', 'PUT /api/addresses/:id', 'PUT /api/addresses/:id/default', 'DELETE /api/addresses/:id',
+      'GET /api/returns', 'PUT /api/returns/:id',
       'GET /api/admin/users', 'PUT /api/admin/users/:id/status', 'GET /api/admin/reports/sales', 'GET /api/admin/reports/inventory',
     ],
   });

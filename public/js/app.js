@@ -12,6 +12,7 @@ const state = {
   token: localStorage.getItem('ithrift_token') || null,
   user: JSON.parse(localStorage.getItem('ithrift_user') || 'null'),
   cartCount: 0,
+  wishlist: new Set(),
   brands: [],
   categories: [],
 };
@@ -44,6 +45,50 @@ function escapeHtml(str) {
 
 function money(n) {
   return 'R' + Number(n).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+/** The price, with the old price struck through when the piece is on sale. */
+function priceHtml(p, cls = 'price') {
+  return `<span class="${cls}">${money(p.price)}</span>${p.onSale ? `<span class="price-was"><span class="visually-hidden">Was </span>${money(p.originalPrice)}</span>` : ''}`;
+}
+
+const HEART_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.1 4.3 2.4.7-1.3 2.2-2.4 4.3-2.4 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+
+/** A Save button for the wishlist. Wired up by bindWishButtons(). */
+function wishButton(productId, compact = false) {
+  const saved = state.wishlist.has(Number(productId));
+  return `<button type="button" class="wish-btn" data-wish="${productId}" aria-pressed="${saved}" aria-label="${saved ? 'Remove from wishlist' : 'Save to wishlist'}">${HEART_SVG}${compact ? '' : `<span>${saved ? 'Saved' : 'Save'}</span>`}</button>`;
+}
+
+function bindWishButtons(root, onChange) {
+  root.querySelectorAll('[data-wish]').forEach(btn => btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!requireLogin(location.hash.replace(/^#/, '') || '/shop')) return;
+    if (state.user.type !== 'customer') return toast('Only customer accounts have a wishlist.', 'error');
+    const id = Number(btn.dataset.wish);
+    const saved = state.wishlist.has(id);
+    btn.disabled = true;
+    try {
+      const data = saved
+        ? await api(`/wishlist/${id}`, { method: 'DELETE' })
+        : await api('/wishlist', { method: 'POST', body: { productId: id } });
+      state.wishlist = new Set(data.items.map(i => i.productId));
+      const now = state.wishlist.has(id);
+      root.querySelectorAll(`[data-wish="${id}"]`).forEach(b => {
+        b.setAttribute('aria-pressed', String(now));
+        b.setAttribute('aria-label', now ? 'Remove from wishlist' : 'Save to wishlist');
+        const label = b.querySelector('span');
+        if (label) label.textContent = now ? 'Saved' : 'Save';
+      });
+      toast(now ? 'Saved to your wishlist.' : 'Removed from your wishlist.', 'success');
+      renderNav();
+      if (onChange) onChange();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }));
 }
 
 function conditionClass(condition) {
@@ -99,10 +144,11 @@ function buildHash(route, query = {}) {
 }
 
 async function refreshCartCount() {
-  if (!state.user || state.user.type !== 'customer') { state.cartCount = 0; return; }
+  if (!state.user || state.user.type !== 'customer') { state.cartCount = 0; state.wishlist = new Set(); return; }
   try {
-    const data = await api('/cart');
-    state.cartCount = data.itemCount;
+    const [cart, wish] = await Promise.all([api('/cart'), api('/wishlist')]);
+    state.cartCount = cart.itemCount;
+    state.wishlist = new Set(wish.items.map(i => i.productId));
   } catch (_) {
     state.cartCount = 0;
   }
@@ -116,6 +162,7 @@ function renderNav() {
 
   const links = `
     <a href="${buildHash('shop')}" data-route="shop">Shop</a>
+    <a href="${buildHash('shop', { onSale: 'true' })}" data-route="sale">Sale</a>
     <a href="#/about" data-route="about">About Us</a>
     ${isStaff ? `<a href="#/admin" data-route="admin">Admin</a>` : ''}
   `;
@@ -123,6 +170,7 @@ function renderNav() {
   const actions = state.user
     ? `
       ${state.user.type === 'customer' ? `
+        <a class="pill-btn" href="#/wishlist">Wishlist${state.wishlist.size ? `<span class="cart-badge">${state.wishlist.size}</span>` : ''}</a>
         <a class="pill-btn" href="#/orders">My Orders</a>
         <a class="pill-btn dark" href="#/cart">Cart${state.cartCount ? `<span class="cart-badge">${state.cartCount}</span>` : ''}</a>
       ` : `<span class="small">Signed in as <strong>${escapeHtml(state.user.name)}</strong> &middot; <span class="badge role-${state.user.type}">${state.user.type}</span></span>`}
@@ -139,7 +187,8 @@ function renderNav() {
     <div class="nav-actions">${actions}</div>
   `;
 
-  const currentRoute = (location.hash.replace(/^#\/?/, '').split(/[?/]/)[0]) || 'shop';
+  let currentRoute = (location.hash.replace(/^#\/?/, '').split(/[?/]/)[0]) || 'shop';
+  if (currentRoute === 'shop' && parseHashQuery().onSale === 'true') currentRoute = 'sale';
   nav.querySelectorAll('[data-route]').forEach((a) => {
     if (a.dataset.route === currentRoute) a.classList.add('active');
   });
@@ -176,6 +225,9 @@ async function router() {
     else if (parts[0] === 'login') renderLogin(view, query.next);
     else if (parts[0] === 'register') renderRegister(view, query.next);
     else if (parts[0] === 'account') renderAccount(view);
+    else if (parts[0] === 'wishlist') await renderWishlist(view);
+    else if (parts[0] === 'addresses') await renderAddresses(view);
+    else if (parts[0] === 'returns') await renderMyReturns(view);
     else if (parts[0] === 'about') renderAbout(view);
     else if (parts[0] === 'admin') await renderAdmin(view, parts[1], query);
     else view.innerHTML = `<div class="container section center"><h2>Page not found</h2><a class="pill-btn dark" href="#/shop">Back to shop</a></div>`;

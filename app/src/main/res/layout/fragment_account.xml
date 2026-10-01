@@ -75,6 +75,30 @@
                 android:layout_marginBottom="12dp" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_wishlist"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="My wishlist"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_addresses"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Delivery addresses"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_returns"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="My returns"
+                android:layout_marginBottom="12dp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/button_settings"
                 style="@style/Widget.IThrift.Button.Secondary"
                 android:layout_width="match_parent"

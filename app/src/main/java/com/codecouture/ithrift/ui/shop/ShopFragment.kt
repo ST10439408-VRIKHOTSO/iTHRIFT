@@ -87,6 +87,19 @@ class ShopFragment : BaseFragment() {
         }
         binding.chipGroupCategories.addView(allChip)
 
+        // "Sale" sits next to "All" and shows only the pieces with a reduced price.
+        val saleChip = Chip(requireContext()).apply {
+            text = "Sale"
+            isCheckable = true
+            isChecked = selectedCategory == SALE_FILTER
+            tag = SALE_FILTER
+            setChipBackgroundColorResource(if (isChecked) R.color.inverse_surface else R.color.surface)
+            setTextColor(ContextCompat.getColor(context, if (isChecked) R.color.on_inverse else R.color.ink))
+            chipStrokeWidth = if (isChecked) 0f else 1f
+            setChipStrokeColorResource(R.color.border)
+        }
+        binding.chipGroupCategories.addView(saleChip)
+
         for (category in LookupCache.categories) {
             val chip = Chip(requireContext()).apply {
                 text = category.name
@@ -115,7 +128,11 @@ class ShopFragment : BaseFragment() {
         binding.swipeRefresh.isRefreshing = true
         viewLifecycleOwner.lifecycleScope.launch {
             val filters = mutableMapOf<String, String>()
-            selectedCategory?.let { filters["category"] = it }
+            when (val selected = selectedCategory) {
+                null -> { /* everything */ }
+                SALE_FILTER -> filters["onSale"] = "true"
+                else -> filters["category"] = selected
+            }
 
             val result = safeApiCall { apiService().getProducts(filters) }
             if (_binding == null) return@launch
@@ -133,5 +150,10 @@ class ShopFragment : BaseFragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        /** Stands in for a category name when the Sale chip is selected. */
+        const val SALE_FILTER = "__sale__"
     }
 }

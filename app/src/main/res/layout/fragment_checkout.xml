@@ -21,6 +21,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="10dp" />
 
+        <!-- 1. Delivery method. The options and fees come from the server. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -31,7 +32,95 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Payment method"
+                android:text="1. Delivery method"
+                android:textStyle="bold"
+                android:textColor="@color/ink" />
+
+            <RadioGroup
+                android:id="@+id/radio_group_delivery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- 2. Where it goes. Hidden when the customer collects from the store. -->
+        <LinearLayout
+            android:id="@+id/layout_address_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2. Delivery address"
+                android:textStyle="bold"
+                android:textColor="@color/ink" />
+
+            <TextView
+                android:id="@+id/text_no_address"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="You have no saved addresses yet. Add one, or we will use the address on your profile."
+                android:textColor="@color/muted"
+                android:textSize="12.5sp"
+                android:visibility="gone" />
+
+            <RadioGroup
+                android:id="@+id/radio_group_address"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_manage_addresses"
+                style="@style/Widget.IThrift.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Add or edit addresses" />
+
+            <EditText
+                android:id="@+id/input_instructions"
+                style="@style/Widget.IThrift.Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Delivery instructions (optional)"
+                android:importantForAutofill="no"
+                android:inputType="textCapSentences|textMultiLine"
+                android:maxLength="200" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/text_collection_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:lineSpacingExtra="3dp"
+            android:text="Collect from iTHRIFT Clothes, Hatfield Plaza, Pretoria. We will let you know when your order is ready, usually within 2 working days. Bring your order number."
+            android:textColor="@color/ink"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <!-- 3. Payment -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3. Payment method"
                 android:textStyle="bold"
                 android:textColor="@color/ink" />
 
@@ -54,6 +143,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Credit / debit card"
+                    android:textColor="@color/ink"
                     android:checked="true"
                     android:padding="8dp" />
 
@@ -62,6 +152,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="PayFast"
+                    android:textColor="@color/ink"
                     android:padding="8dp" />
 
                 <RadioButton
@@ -69,8 +160,140 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="EFT (pending until confirmed)"
+                    android:textColor="@color/ink"
                     android:padding="8dp" />
             </RadioGroup>
+        </LinearLayout>
+
+        <!-- Promo code and the order summary -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Promo code"
+                android:textStyle="bold"
+                android:textColor="@color/ink" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/input_promo"
+                    style="@style/Widget.IThrift.Field"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="For example WELCOME10"
+                    android:importantForAutofill="no"
+                    android:inputType="textCapCharacters|textNoSuggestions"
+                    android:maxLength="30" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_apply_promo"
+                    style="@style/Widget.IThrift.Button.Secondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Apply" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_promo_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="12.5sp"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="10dp"
+                android:background="@color/border" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Subtotal"
+                    android:textColor="@color/muted" />
+
+                <TextView
+                    android:id="@+id/text_subtotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/ink" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/layout_discount_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text_discount_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Promo"
+                    android:textColor="@color/muted" />
+
+                <TextView
+                    android:id="@+id/text_discount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/good"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Delivery"
+                    android:textColor="@color/muted" />
+
+                <TextView
+                    android:id="@+id/text_delivery_fee"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/ink" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_free_delivery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/muted"
+                android:textSize="12sp"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -83,7 +306,8 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Total"
-                    android:textColor="@color/muted" />
+                    android:textStyle="bold"
+                    android:textColor="@color/ink" />
 
                 <TextView
                     android:id="@+id/text_total"

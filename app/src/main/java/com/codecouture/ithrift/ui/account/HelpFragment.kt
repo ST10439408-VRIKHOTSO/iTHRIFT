@@ -82,8 +82,47 @@ class HelpFragment : BaseFragment() {
             "Buy something",
             "Open a piece, check the size and grade, then tap Add to cart. Most items are one-of-a-kind, so " +
                 "adding to the cart does not hold it for you. The stock is only reserved when you place the " +
-                "order. Open the Cart tab, check the total, tap Checkout, choose how you want to pay and " +
-                "tap Place order. You will get an order reference like ORD-0007."
+                "order. Open the Cart tab, check the total and tap Checkout. Choose how you want it delivered, " +
+                "where to, and how you want to pay, then tap Place order. You will get an order reference " +
+                "like ORD-0007."
+        ),
+        Topic(
+            "Choose a size",
+            "Open a piece and tap one of the size chips. Only sizes that are in stock are shown, and the " +
+                "number next to the quantity tells you how many are left in that size. Shoes run from UK 3 " +
+                "to UK 10, tops and dresses from XS to XXL, and trousers and jeans from waist 28 to 44."
+        ),
+        Topic(
+            "Save a piece for later",
+            "Open a piece and tap Save to wishlist. Your saved pieces are under Account, then My wishlist, " +
+                "and the same list shows on the website. From there you can move a piece to your cart or " +
+                "remove it. Saving does not reserve the piece."
+        ),
+        Topic(
+            "Sale prices and promo codes",
+            "A piece on sale shows its new price with the old price crossed out. Tap the Sale chip on the " +
+                "Shop tab to see only those. If you have a promo code, type it at checkout and tap Apply. " +
+                "The discount shows in the summary before you pay. Some codes need a minimum spend, and " +
+                "the app tells you how much more to add."
+        ),
+        Topic(
+            "Delivery options and addresses",
+            "Standard delivery is R80 and takes 3 to 5 working days. It is free when your order is R1,000 " +
+                "or more. Express delivery is R150 and takes 1 to 2 working days. Collecting from the " +
+                "Pretoria store is free. Save your addresses under Account, then Delivery addresses, and " +
+                "pick one at checkout. Your default address is chosen for you."
+        ),
+        Topic(
+            "Cancel an order",
+            "Open the order from the Orders tab and tap Cancel this order. You can cancel while the order " +
+                "is still Processing. Once it has shipped it cannot be cancelled, but you can return it " +
+                "after it arrives. A paid order is refunded when you cancel."
+        ),
+        Topic(
+            "Return an item",
+            "You have 30 days from delivery. Open the delivered order, tap Return this item next to the " +
+                "piece and choose a reason. Follow the return under Account, then My returns: it moves " +
+                "from Requested to Approved and then Refunded."
         ),
         Topic(
             "Track an order",
@@ -93,7 +132,7 @@ class HelpFragment : BaseFragment() {
         ),
         Topic(
             "Change your details or your password",
-            "Account → Settings. Your name, phone number and delivery address are saved to your account, so " +
+            "Go to Account, then Settings. Your name, phone number and delivery address are saved to your account, so " +
                 "the website shows the same details. Changing your password asks for your current one first. " +
                 "If you signed in with Google there is no password section, because Google holds your " +
                 "password, not us."

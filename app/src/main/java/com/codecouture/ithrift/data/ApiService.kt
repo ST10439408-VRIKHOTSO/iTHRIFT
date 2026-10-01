@@ -86,4 +86,49 @@ interface ApiService {
 
     @GET("orders/{id}")
     suspend fun getOrder(@Path("id") id: Int): Response<OrderDetailResponse>
+
+    // --- Delivery, promo codes, cancelling and returns ---
+
+    @GET("orders/options")
+    suspend fun getOrderOptions(): Response<OrderOptionsResponse>
+
+    @POST("orders/quote")
+    suspend fun getQuote(@Body body: QuoteRequest): Response<QuoteResponse>
+
+    @PUT("orders/{id}/cancel")
+    suspend fun cancelOrder(@Path("id") id: Int): Response<OrderDetailResponse>
+
+    @POST("orders/{id}/returns")
+    suspend fun requestReturn(@Path("id") id: Int, @Body body: ReturnRequestBody): Response<OrderDetailResponse>
+
+    @GET("returns")
+    suspend fun getReturns(): Response<ReturnListResponse>
+
+    // --- Wishlist ---
+
+    @GET("wishlist")
+    suspend fun getWishlist(): Response<WishlistResponse>
+
+    @POST("wishlist")
+    suspend fun addToWishlist(@Body body: WishlistAddRequest): Response<WishlistResponse>
+
+    @DELETE("wishlist/{productId}")
+    suspend fun removeFromWishlist(@Path("productId") productId: Int): Response<WishlistResponse>
+
+    // --- Address book ---
+
+    @GET("addresses")
+    suspend fun getAddresses(): Response<AddressListResponse>
+
+    @POST("addresses")
+    suspend fun addAddress(@Body body: AddressRequest): Response<AddressListResponse>
+
+    @PUT("addresses/{id}")
+    suspend fun updateAddress(@Path("id") id: Int, @Body body: AddressRequest): Response<AddressListResponse>
+
+    @PUT("addresses/{id}/default")
+    suspend fun makeDefaultAddress(@Path("id") id: Int): Response<AddressListResponse>
+
+    @DELETE("addresses/{id}")
+    suspend fun deleteAddress(@Path("id") id: Int): Response<AddressListResponse>
 }
