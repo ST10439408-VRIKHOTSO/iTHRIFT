@@ -6,7 +6,7 @@ const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// UC11: Manage users - the administrator suspends or reactivates customer
+// UC11: Manage users. The administrator suspends or reactivates customer
 // accounts. Reserved for the administrator role only (role-based access).
 router.get('/users', requireRole('admin'), (_req, res) => {
   const db = getDb();
@@ -31,7 +31,7 @@ router.put('/users/:id/status', requireRole('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
-// UC12: View reports - sales dashboard, revenue by brand and by category.
+// UC12: View reports. Sales dashboard, revenue by brand and by category.
 router.get('/reports/sales', requireRole('admin', 'staff'), (_req, res) => {
   const db = getDb();
 
@@ -65,7 +65,7 @@ router.get('/reports/sales', requireRole('admin', 'staff'), (_req, res) => {
   res.json({ totals, byBrand, byCategory, byStatus });
 });
 
-// UC12: Inventory snapshot - flags low stock and out of stock items.
+// UC12: Inventory snapshot. Flags low stock and out of stock items.
 router.get('/reports/inventory', requireRole('admin', 'staff'), (_req, res) => {
   const db = getDb();
   const LOW_STOCK_THRESHOLD = 3;

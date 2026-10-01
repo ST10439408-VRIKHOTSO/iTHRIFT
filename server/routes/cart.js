@@ -29,7 +29,7 @@ function loadCart(db, customerId) {
   return { cartId, items, subtotal, itemCount: items.reduce((n, it) => n + it.quantity, 0) };
 }
 
-// UC5: Manage cart - view current cart.
+// UC5: Manage cart. View current cart.
 router.get('/', (req, res) => {
   const db = getDb();
   res.json(loadCart(db, req.user.id));

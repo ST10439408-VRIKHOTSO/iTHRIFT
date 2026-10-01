@@ -20,6 +20,34 @@ app.disable('x-powered-by');
 app.use(express.json());
 app.use(attachUser);
 
+/**
+ * Request logging for the API.
+ *
+ * One line per API call, written when the response finishes so the status
+ * code and the duration are known. This is what turns "the app said it
+ * failed" into something we can actually diagnose: the line records who was
+ * signed in, what they asked for, what they got back and how long it took.
+ *
+ * Static files are skipped, because every page load pulls in dozens of them and
+ * they would bury the calls that matter. Nothing from the request body is
+ * logged, because that is where passwords and ID tokens travel.
+ */
+app.use('/api', (req, res, next) => {
+  const startedAt = process.hrtime.bigint();
+
+  res.on('finish', () => {
+    const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const who = req.user ? `${req.user.type}#${req.user.id}` : 'anonymous';
+    const line = `[api] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms.toFixed(1)}ms) [${who}]`;
+    // 4xx and 5xx go to stderr so a CI run or a log viewer can filter for
+    // the failures without reading every successful request.
+    if (res.statusCode >= 400) console.error(line);
+    else console.log(line);
+  });
+
+  next();
+});
+
 // ---- REST API (the shared "link" between the website and the mobile app) ----
 const apiRouter = express.Router();
 apiRouter.use('/auth', require('./routes/auth'));
@@ -33,6 +61,8 @@ apiRouter.get('/', (_req, res) => {
     status: 'ok',
     endpoints: [
       'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me',
+      'POST /api/auth/sso', 'GET /api/auth/sso/status',
+      'GET /api/auth/profile', 'PUT /api/auth/profile', 'POST /api/auth/change-password',
       'GET /api/products', 'GET /api/products/:id', 'GET /api/products/brands', 'GET /api/products/categories',
       'GET /api/products/:id/reviews', 'POST /api/products/:id/reviews',
       'POST /api/products', 'PUT /api/products/:id', 'DELETE /api/products/:id',

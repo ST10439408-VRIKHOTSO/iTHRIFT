@@ -1,5 +1,5 @@
 -- =============================================================================
--- iTHRIFT Clothes - MySQL 8.x production schema
+-- iTHRIFT Clothes: MySQL 8.x production schema
 -- =============================================================================
 -- This is the production-equivalent of the SQLite schema the prototype
 -- actually runs on (see server/init-db.js). It is kept here for traceability
@@ -7,7 +7,7 @@
 -- tier. The table shapes, keys and Third Normal Form structure are
 -- identical; only SQLite-specific syntax (AUTOINCREMENT, CHECK placement)
 -- is adjusted for MySQL. Note: SQLite treats the word ORDER as reserved,
--- so the prototype names the table `Orders` - this MySQL schema keeps the
+-- so the prototype names the table `Orders`, and this MySQL schema keeps the
 -- same name for consistency between the two.
 -- =============================================================================
 
@@ -42,19 +42,33 @@ CREATE TABLE Product (
   INDEX idx_product_category (CategoryID)
 ) ENGINE=InnoDB;
 
+-- PasswordHash/PasswordSalt are nullable because a customer who signs in
+-- through single sign-on never chooses a password on this system; their
+-- identity is proved by the provider instead. AuthProvider records which
+-- of the two routes an account uses, and ProviderSubject holds the
+-- provider's own immutable user id ("sub" in the Google ID token), which
+-- is the correct key to match on, because an email address can be reassigned.
 CREATE TABLE Customer (
-  CustomerID   INT AUTO_INCREMENT PRIMARY KEY,
-  FirstName    VARCHAR(60) NOT NULL,
-  LastName     VARCHAR(60) NOT NULL,
-  Email        VARCHAR(120) NOT NULL UNIQUE,
-  PasswordHash CHAR(128) NOT NULL,
-  PasswordSalt CHAR(32) NOT NULL,
-  Phone        VARCHAR(30),
-  AddressLine  VARCHAR(150),
-  City         VARCHAR(60),
-  PostalCode   VARCHAR(10),
-  Status       ENUM('active','suspended') NOT NULL DEFAULT 'active',
-  CreatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  CustomerID      INT AUTO_INCREMENT PRIMARY KEY,
+  FirstName       VARCHAR(60) NOT NULL,
+  LastName        VARCHAR(60) NOT NULL,
+  Email           VARCHAR(120) NOT NULL UNIQUE,
+  PasswordHash    CHAR(128),
+  PasswordSalt    CHAR(32),
+  AuthProvider    ENUM('password','google') NOT NULL DEFAULT 'password',
+  ProviderSubject VARCHAR(255) UNIQUE,
+  Phone           VARCHAR(30),
+  AddressLine     VARCHAR(150),
+  City            VARCHAR(60),
+  PostalCode      VARCHAR(10),
+  Status          ENUM('active','suspended') NOT NULL DEFAULT 'active',
+  CreatedAt       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- A password account must carry a hash; an SSO account must carry a subject.
+  CONSTRAINT chk_customer_credentials CHECK (
+    (AuthProvider = 'password' AND PasswordHash IS NOT NULL AND PasswordSalt IS NOT NULL)
+    OR
+    (AuthProvider = 'google' AND ProviderSubject IS NOT NULL)
+  )
 ) ENGINE=InnoDB;
 
 CREATE TABLE Admin (

@@ -10,7 +10,7 @@ let db = null;
 /**
  * Returns a singleton synchronous SQLite connection.
  * Node's built-in node:sqlite module (stable as of Node 22.5+) is used so the
- * prototype has zero external database dependencies - just `npm install` and go.
+ * prototype has zero external database dependencies: just `npm install` and go.
  */
 function getDb() {
   if (!db) {

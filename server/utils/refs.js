@@ -3,7 +3,7 @@
 /**
  * The database uses plain integer primary keys throughout (see the ERD in
  * the System Design document). These helpers format those integers into the
- * friendly references shown in the interface - e.g. PRD010, ORD-0003 - at
+ * friendly references shown in the interface, for example PRD010 and ORD-0003, at
  * the display layer only. The underlying key never changes.
  */
 function productRef(id) {

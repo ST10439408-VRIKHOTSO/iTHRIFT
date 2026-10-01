@@ -7,7 +7,7 @@ const KEY_LEN = 64;
 /**
  * Hashes a plaintext password with a random salt using scrypt.
  * Returns { hash, salt } both as hex strings, ready to store in the database.
- * Passwords are never stored in plain text - this satisfies the
+ * Passwords are never stored in plain text, which satisfies the
  * "security of credentials" non-functional requirement in the System Design.
  */
 function hashPassword(password) {

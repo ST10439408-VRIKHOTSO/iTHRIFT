@@ -138,7 +138,7 @@ router.post('/:id/reviews', requireRole('customer'), (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-// UC9: Manage listings - staff/admin add, edit and remove products.
+// UC9: Manage listings. Staff and admin add, edit and remove products.
 router.post('/', requireRole('admin', 'staff'), (req, res) => {
   const db = getDb();
   const { name, description, brandId, categoryId, size, condition, price, stock } = req.body || {};

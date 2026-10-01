@@ -40,7 +40,7 @@ function loadOrderDetail(db, orderId) {
   };
 }
 
-// UC6 / UC7: Place order and pay. The server - not the client - locks
+// UC6 / UC7: Place order and pay. The server, not the client, locks
 // stock and recalculates the total, then records the payment.
 router.post('/', requireRole('customer'), (req, res) => {
   const db = getDb();
@@ -151,7 +151,7 @@ router.get('/:id', requireAuth, (req, res) => {
   res.json({ order: detail });
 });
 
-// UC10: Process orders - staff/admin update status and add a courier reference.
+// UC10: Process orders. Staff and admin update status and add a courier reference.
 router.put('/:id/status', requireRole('admin', 'staff'), (req, res) => {
   const db = getDb();
   const { status, courierRef } = req.body || {};
