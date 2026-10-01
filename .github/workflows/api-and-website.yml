@@ -30,6 +30,11 @@ jobs:
       - name: Install dependencies from the lock file
         run: npm ci
 
+      # Unit tests need no server, so they run first: if a business rule is
+      # broken there is no point spending a minute booting the API to find out.
+      - name: Run the unit tests
+        run: npm run test:unit
+
       - name: Build and seed the database
         run: npm run init-db
 

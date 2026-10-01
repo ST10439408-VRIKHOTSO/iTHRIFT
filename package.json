@@ -1,7 +1,7 @@
 {
   "name": "ithrift-clothes-prototype",
   "version": "1.0.0",
-  "description": "iTHRIFT Clothes - functioning prototype (website + installable mobile PWA + shared REST API + database) for XISD5319 Work Integrated Learning 3A, Task 3.",
+  "description": "iTHRIFT Clothes: functioning prototype (website + installable mobile PWA + shared REST API + database) for XISD5319 Work Integrated Learning 3A, Task 3.",
   "main": "server/index.js",
   "type": "commonjs",
   "engines": {
@@ -10,7 +10,8 @@
   "scripts": {
     "init-db": "node server/init-db.js",
     "start": "node server/index.js",
-    "test": "node test/smoke-test.js"
+    "test": "node test/smoke-test.js",
+    "test:unit": "node --test test/unit-tests.js"
   },
   "license": "UNLICENSED",
   "dependencies": {
