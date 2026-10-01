@@ -115,16 +115,16 @@ function renderNav() {
   const isStaff = state.user && (state.user.type === 'admin' || state.user.type === 'staff');
 
   const links = `
-    <a href="${buildHash('shop')}" data-route="shop">&#x1F6CD; Shop</a>
-    <a href="#/about" data-route="about">&#x2139; About Us</a>
-    ${isStaff ? `<a href="#/admin" data-route="admin">&#x2699; Admin</a>` : ''}
+    <a href="${buildHash('shop')}" data-route="shop">Shop</a>
+    <a href="#/about" data-route="about">About Us</a>
+    ${isStaff ? `<a href="#/admin" data-route="admin">Admin</a>` : ''}
   `;
 
   const actions = state.user
     ? `
       ${state.user.type === 'customer' ? `
         <a class="pill-btn" href="#/orders">My Orders</a>
-        <a class="pill-btn dark" href="#/cart">&#128722; Cart${state.cartCount ? `<span class="cart-badge">${state.cartCount}</span>` : ''}</a>
+        <a class="pill-btn dark" href="#/cart">Cart${state.cartCount ? `<span class="cart-badge">${state.cartCount}</span>` : ''}</a>
       ` : `<span class="small">Signed in as <strong>${escapeHtml(state.user.name)}</strong> &middot; <span class="badge role-${state.user.type}">${state.user.type}</span></span>`}
       <a class="pill-btn" href="#/account">Account</a>
     `

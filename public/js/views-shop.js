@@ -30,8 +30,8 @@ async function renderShop(view, query) {
     </div>
     <div class="container">
       <div class="select-bar">
-        <span>&#128717; Select items below and add them to your cart</span>
-        <a class="pill-btn dark" href="#/cart">&#128722; Show Cart${state.cartCount ? `<span class="cart-badge">${state.cartCount}</span>` : ''}</a>
+        <span>Select items below and add them to your cart</span>
+        <a class="pill-btn dark" href="#/cart">Show Cart${state.cartCount ? `<span class="cart-badge">${state.cartCount}</span>` : ''}</a>
       </div>
     </div>` : ''}
 
@@ -45,7 +45,7 @@ async function renderShop(view, query) {
       </div>
 
       <details style="margin-bottom:18px">
-        <summary class="small" style="cursor:pointer;font-weight:700;color:var(--ink);user-select:none">&#9881; More filters (brand, condition, price, sort)</summary>
+        <summary class="small" style="cursor:pointer;font-weight:700;color:var(--ink);user-select:none">More filters (brand, condition, price, sort)</summary>
         <form id="filter-form" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;padding:16px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--surface)">
           <input type="hidden" name="q" value="${escapeHtml(query.q || '')}">
           ${query.category ? `<input type="hidden" name="category" value="${escapeHtml(query.category)}">` : ''}
@@ -111,7 +111,7 @@ async function renderShop(view, query) {
       toast('Added to your cart.', 'success');
       await refreshCartCount();
       renderNav();
-      btn.innerHTML = '&#10003; Added';
+      btn.innerHTML = 'Added';
       setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 1200);
     } catch (err) {
       toast(err.message, 'error');
@@ -139,7 +139,7 @@ function productCard(p) {
         </div>
       </div>
       <div style="display:flex;gap:8px;padding:0 16px 14px">
-        <a class="pill-btn" href="#/product/${p.id}" style="flex:1;justify-content:center;padding:9px;font-size:13px">&#128065; Details</a>
+        <a class="pill-btn" href="#/product/${p.id}" style="flex:1;justify-content:center;padding:9px;font-size:13px">Details</a>
         ${p.inStock
           ? `<button type="button" class="pill-btn quick-add-btn" data-quick-add="${p.id}" style="flex:1;justify-content:center;padding:9px;font-size:13px;color:var(--muted2)">Add to Cart</button>`
           : `<button type="button" class="pill-btn" disabled style="flex:1;justify-content:center;padding:9px;font-size:13px;opacity:0.4;cursor:not-allowed">Sold out</button>`
@@ -169,11 +169,11 @@ async function renderProductDetail(view, id) {
         <p>${escapeHtml(product.description)}</p>
 
         <div class="spec-list">
-          <div class="spec-row"><span class="spec-label">&#128476; Size</span><span class="spec-value">${escapeHtml(product.size)}</span></div>
-          <div class="spec-row"><span class="spec-label">&#9733; Condition</span><span class="badge ${product.inStock ? conditionClass(product.condition) : 'out'}">${escapeHtml(product.condition)}</span></div>
-          <div class="spec-row"><span class="spec-label">&#127991; Category</span><span class="spec-value">${escapeHtml(product.category)}</span></div>
-          <div class="spec-row"><span class="spec-label">&#128230; Stock</span><span class="spec-value">${product.inStock ? `${product.stock} available` : 'Sold out'}</span></div>
-          ${avgRating ? `<div class="spec-row"><span class="spec-label">&#9733; Rating</span><span class="spec-value stars">${avgRating}</span><span class="small">(${reviews.length} review${reviews.length === 1 ? '' : 's'})</span></div>` : ''}
+          <div class="spec-row"><span class="spec-label">Size</span><span class="spec-value">${escapeHtml(product.size)}</span></div>
+          <div class="spec-row"><span class="spec-label">Condition</span><span class="badge ${product.inStock ? conditionClass(product.condition) : 'out'}">${escapeHtml(product.condition)}</span></div>
+          <div class="spec-row"><span class="spec-label">Category</span><span class="spec-value">${escapeHtml(product.category)}</span></div>
+          <div class="spec-row"><span class="spec-label">Stock</span><span class="spec-value">${product.inStock ? `${product.stock} available` : 'Sold out'}</span></div>
+          ${avgRating ? `<div class="spec-row"><span class="spec-label">Rating</span><span class="spec-value stars">${avgRating}</span><span class="small">(${reviews.length} review${reviews.length === 1 ? '' : 's'})</span></div>` : ''}
         </div>
 
         ${product.inStock ? `
@@ -186,7 +186,7 @@ async function renderProductDetail(view, id) {
             <span class="small">${product.stock} in stock</span>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button type="button" class="pill-btn dark" id="add-to-cart-btn">&#128722; Add to Cart: ${money(product.price)}</button>
+            <button type="button" class="pill-btn dark" id="add-to-cart-btn">Add to Cart: ${money(product.price)}</button>
             <a class="pill-btn" href="#/shop">&#8592; Back</a>
           </div>
         ` : `

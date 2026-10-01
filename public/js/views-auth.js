@@ -114,8 +114,8 @@ function renderLogin(view, next) {
         <p class="small">Sign in to your iTHRIFT account. Customers sign in with their email; staff and the administrator sign in with a username.</p>
         <div id="login-error"></div>
         <form id="login-form">
-          <div class="field"><label>&#128100; Email or username <span class="req">*</span></label><input type="text" name="identifier" required autofocus></div>
-          <div class="field"><label>&#128274; Password <span class="req">*</span></label><input type="password" name="password" required></div>
+          <div class="field"><label>Email or username <span class="req">*</span></label><input type="text" name="identifier" required autofocus></div>
+          <div class="field"><label>Password <span class="req">*</span></label><input type="password" name="password" required></div>
           <button class="pill-btn dark full-btn" type="submit">&#8594; Sign In</button>
         </form>
         <div class="spacer-sm"></div>
@@ -156,20 +156,20 @@ function renderRegister(view, next) {
         <div id="register-error"></div>
         <form id="register-form">
           <div class="form-row">
-            <div class="field"><label>&#128100; First name <span class="req">*</span></label><input type="text" name="firstName" required></div>
-            <div class="field"><label>&#128100; Last name <span class="req">*</span></label><input type="text" name="lastName" required></div>
+            <div class="field"><label>First name <span class="req">*</span></label><input type="text" name="firstName" required></div>
+            <div class="field"><label>Last name <span class="req">*</span></label><input type="text" name="lastName" required></div>
           </div>
-          <div class="field"><label>&#9993; Email <span class="req">*</span></label><input type="email" name="email" required placeholder="e.g. thabo@gmail.com"></div>
+          <div class="field"><label>Email <span class="req">*</span></label><input type="email" name="email" required placeholder="e.g. thabo@gmail.com"></div>
           <div class="form-row">
-            <div class="field"><label>&#128274; Password <span class="req">*</span></label><input type="password" name="password" required></div>
-            <div class="field"><label>&#9742; Phone (optional)</label><input type="text" name="phone" placeholder="e.g. 082 123 4567"></div>
+            <div class="field"><label>Password <span class="req">*</span></label><input type="password" name="password" required></div>
+            <div class="field"><label>Phone (optional)</label><input type="text" name="phone" placeholder="e.g. 082 123 4567"></div>
           </div>
           <p class="small" style="margin-top:-8px">Password needs at least 8 characters, with one uppercase letter and one number.</p>
           <div class="form-row">
-            <div class="field"><label>&#128205; City (optional)</label><input type="text" name="city"></div>
+            <div class="field"><label>City (optional)</label><input type="text" name="city"></div>
             <div class="field"><label>Postal code (optional)</label><input type="text" name="postalCode"></div>
           </div>
-          <div class="field"><label>&#128205; Delivery address (optional)</label><input type="text" name="address" placeholder="e.g. 12 Mandela Ave, Soweto, 1804"></div>
+          <div class="field"><label>Delivery address (optional)</label><input type="text" name="address" placeholder="e.g. 12 Mandela Ave, Soweto, 1804"></div>
           <button class="pill-btn dark full-btn" type="submit">Create account</button>
         </form>
         <div class="spacer-sm"></div>
@@ -238,7 +238,7 @@ function renderAbout(view) {
               <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">300+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Happy buyers</div></div>
               <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">620+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Pieces sold</div></div>
               <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">60+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Verified sellers</div></div>
-              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">4.8&#9733;</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Average rating</div></div>
+              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">4.8 / 5</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Average rating</div></div>
             </div>
           </div>
         </div>
@@ -246,7 +246,6 @@ function renderAbout(view) {
 
       <div style="background:var(--surface-2);border-radius:var(--radius);padding:28px;margin:24px 0;border:1.5px solid var(--border)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <span style="font-size:18px">&#x1F6E1;</span>
           <h3 style="margin:0;font-size:16px">Staying Safe on iTHRIFT</h3>
         </div>
         <p style="font-size:12px;color:var(--muted2);margin:0 0 16px">Last updated: June 2026</p>

@@ -171,7 +171,7 @@ async function renderShop(view, query) {
 
 async function renderSearch(view, query) {
   view.innerHTML = `
-    <div class="search-bar"><span>&#128269;</span><input id="search-input" type="text" placeholder="Search brand, item..." value="${escapeHtml(query.q || '')}"></div>
+    <div class="search-bar"><input id="search-input" type="text" placeholder="Search brand, item..." value="${escapeHtml(query.q || '')}"></div>
     <div class="chip-row">
       ${state.brands.map(b => `<span class="chip ${query.brand === b.name ? 'active' : ''}" data-brand="${escapeHtml(b.name)}">${escapeHtml(b.name)}</span>`).join('')}
     </div>
