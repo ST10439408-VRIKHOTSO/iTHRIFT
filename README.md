@@ -42,7 +42,7 @@ The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2
 | Database in a DBMS, ≥10 rows per table | [`server/init-db.js`](server/init-db.js); the seed script fails if any table falls short |
 | Input handled without crashing | [`Validators.kt`](app/src/main/java/com/codecouture/ithrift/util/Validators.kt) and [`ApiResult.kt`](app/src/main/java/com/codecouture/ithrift/data/ApiResult.kt) |
 | Help system and user documentation | In-app **Account → Help**, and [`docs/user-guide.md`](docs/user-guide.md) |
-| Automated testing through GitHub Actions | 50 Kotlin unit tests, 18 API unit tests, 131 end-to-end checks. See [Automated testing](#automated-testing) |
+| Automated testing through GitHub Actions | 50 Kotlin unit tests, 22 API unit tests, 131 end-to-end checks. See [Automated testing](#automated-testing) |
 | Logging | Per-request logging in [`server/index.js`](server/index.js); Logcat at the network boundary in the app |
 
 ## What's in here
@@ -55,7 +55,7 @@ The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2
 | REST API | `server/`, served at `/api` | The shared application tier; every business rule lives here |
 | Database | `data/ithrift.db` (generated) | SQLite, built and seeded by `npm run init-db` |
 | MySQL schema | `database/mysql-schema.sql` | Production-equivalent Third Normal Form schema |
-| API unit tests | `test/unit-tests.js` | 18 checks on the business rules (`npm run test:unit`) |
+| API unit tests | `test/unit-tests.js` | 22 checks on the business rules (`npm run test:unit`) |
 | Smoke test | `test/smoke-test.js` | 131 end-to-end API checks (`npm test`) |
 | Kotlin unit tests | `app/src/test/` | 50 checks on validation, formatting and error handling |
 | User guide | `docs/user-guide.md` | Written user documentation for customers and staff |
@@ -189,13 +189,13 @@ not exist in the application.
 
 ## Automated testing
 
-**199 automated checks across three suites**, all run by GitHub Actions on every
+**203 automated checks across three suites**, all run by GitHub Actions on every
 push and pull request to `main`. A red pipeline blocks the merge.
 
 | Suite | Count | What it covers |
 |---|---|---|
 | Kotlin unit tests (`app/src/test/`) | 50 | Input validation, server-address parsing, money and date formatting, network error handling, the theme setting |
-| API unit tests (`test/unit-tests.js`) | 18 | Password hashing and verification, the password policy, SSO configuration, cart arithmetic, delivery fees and promo codes |
+| API unit tests (`test/unit-tests.js`) | 22 | Password hashing and verification, the password policy, SSO configuration and token verification, cart arithmetic, delivery fees and promo codes |
 | End-to-end smoke test (`test/smoke-test.js`) | 131 | The whole API surface against a running server |
 
 ### Workflows
@@ -352,11 +352,13 @@ application against the same API and database.
 - The website's pages keep their side margin on every screen.
 - The app signs out cleanly when the server no longer recognises its session, instead of
   repeating "Sign in is required" on every action.
+- Google sign-in no longer fails on a slow connection. The server waits up to ten seconds
+  for Google, and says whether Google was unreachable or rejected the token.
 
 **Testing**
-- The end-to-end suite grew from 70 checks to 131, and the API unit tests from 9 to 18,
-  covering sizes, the wishlist, addresses, delivery fees, promo codes, cancelling and
-  returns.
+- The end-to-end suite grew from 70 checks to 131, and the API unit tests from 9 to 22,
+  covering sizes, the wishlist, addresses, delivery fees, promo codes, cancelling,
+  returns and the Google sign-in check.
 
 **Database**
 - New tables: `ProductSize`, `Address`, `WishlistItem`, `PromoCode`, `ReturnRequest`.

@@ -19,7 +19,7 @@ const assert = require('node:assert/strict');
 
 const { hashPassword, verifyPassword, isPasswordStrong } = require('../server/utils/password');
 const { productRef, orderRef } = require('../server/utils/refs');
-const { allowedAudiences, isSsoConfigured } = require('../server/utils/sso');
+const { allowedAudiences, isSsoConfigured, verifyGoogleIdToken } = require('../server/utils/sso');
 const { computeTotals, promoDiscount, FREE_DELIVERY_THRESHOLD } = require('../server/utils/pricing');
 
 // ---------------------------------------------------------------------------
@@ -104,6 +104,61 @@ test('single sign-on is off unless a client id is configured', () => {
     else process.env.GOOGLE_CLIENT_ID = original;
   }
 });
+
+// ---------------------------------------------------------------------------
+// Single sign-on: verifying the Google token
+// ---------------------------------------------------------------------------
+// verifyGoogleIdToken() takes the function that asks Google as a parameter, so
+// these tests can stand in for Google's reply without any network.
+
+const CLIENT_ID = 'ithrift-test.apps.googleusercontent.com';
+const genuineToken = () => ({
+  iss: 'https://accounts.google.com',
+  aud: CLIENT_ID,
+  exp: String(Math.floor(Date.now() / 1000) + 600),
+  email: 'Lerato.M@gmail.com',
+  email_verified: 'true',
+  sub: '1045',
+  given_name: 'Lerato',
+  family_name: 'Mokoena',
+});
+const googleSays = (status, body) => async () => ({ status, body: JSON.stringify(body) });
+
+async function withClientId(run) {
+  const original = process.env.GOOGLE_CLIENT_ID;
+  process.env.GOOGLE_CLIENT_ID = CLIENT_ID;
+  try {
+    await run();
+  } finally {
+    if (original === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = original;
+  }
+}
+
+test('a token Google confirms is turned into an identity', () => withClientId(async () => {
+  const identity = await verifyGoogleIdToken('token', { get: googleSays(200, genuineToken()) });
+  assert.deepEqual(identity, {
+    subject: '1045',
+    email: 'lerato.m@gmail.com',
+    firstName: 'Lerato',
+    lastName: 'Mokoena',
+  }, 'the email address is lower-cased so it matches however it was typed');
+}));
+
+test('a token Google rejects signs nobody in', () => withClientId(async () => {
+  const get = googleSays(400, { error: 'invalid_token', error_description: 'Invalid Value' });
+  await assert.rejects(verifyGoogleIdToken('token', { get }), /Google did not accept that sign-in/);
+}));
+
+test('Google being unreachable is reported as a connection problem, not a bad sign-in', () => withClientId(async () => {
+  const get = async () => { throw Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }); };
+  await assert.rejects(verifyGoogleIdToken('token', { get }), /could not reach Google/);
+}));
+
+test('a genuine Google token issued to another application is refused', () => withClientId(async () => {
+  const get = googleSays(200, { ...genuineToken(), aud: 'someone-else.apps.googleusercontent.com' });
+  await assert.rejects(verifyGoogleIdToken('token', { get }), /different application/);
+}));
 
 // ---------------------------------------------------------------------------
 // Cart arithmetic
