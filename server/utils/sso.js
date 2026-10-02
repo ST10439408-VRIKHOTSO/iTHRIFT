@@ -20,6 +20,8 @@
  * https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
  */
 
+const https = require('node:https');
+
 const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 const VALID_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 
@@ -42,6 +44,38 @@ function isSsoConfigured() {
 }
 
 /**
+ * GETs a URL and resolves to { status, body }.
+ *
+ * This uses node:https rather than fetch, with a ten-second timeout. Node's
+ * fetch tries each address of a host for only a quarter of a second before
+ * moving on, which is too impatient on a slow connection and made a genuine
+ * sign-in fail with nothing more than "fetch failed". `family` picks IPv4 (4)
+ * or lets the system decide (0).
+ */
+function httpsGet(url, family) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, { family, timeout: 10000, headers: { Accept: 'application/json' } }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode, body }));
+    });
+    request.on('timeout', () => request.destroy(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' })));
+    request.on('error', reject);
+  });
+}
+
+/** Asks Google about a token: IPv4 first, then whatever the system prefers. */
+async function askGoogle(url) {
+  try {
+    return await httpsGet(url, 4);
+  } catch (firstError) {
+    console.warn('[sso] could not reach Google over IPv4:', firstError.code || firstError.message);
+    return httpsGet(url, 0);
+  }
+}
+
+/**
  * Verifies a Google ID token and returns the identity it carries.
  *
  * Resolves to { subject, email, firstName, lastName } on success, or
@@ -49,7 +83,7 @@ function isSsoConfigured() {
  * what to do with the identity; this function only answers "is this really
  * who the phone says it is?".
  */
-async function verifyGoogleIdToken(idToken) {
+async function verifyGoogleIdToken(idToken, { get = askGoogle } = {}) {
   const audiences = allowedAudiences();
   if (audiences.length === 0) {
     throw new Error('Single sign-on is not configured on this server.');
@@ -58,15 +92,27 @@ async function verifyGoogleIdToken(idToken) {
     throw new Error('No sign-in token was supplied.');
   }
 
+  // Two different things can go wrong here and they need different advice:
+  // Google can be unreachable from this computer, or Google can say the token
+  // is not valid. Neither is a reason to sign anyone in.
+  let reply;
+  try {
+    reply = await get(`${TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`);
+  } catch (err) {
+    console.warn('[sso] could not reach Google to verify a token:', err.code || err.message);
+    throw new Error('The server could not reach Google to check that sign-in. Check the internet connection on the computer running the server, then try again.');
+  }
+
   let payload;
   try {
-    const response = await fetch(`${TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`);
-    if (!response.ok) throw new Error('rejected');
-    payload = await response.json();
+    payload = JSON.parse(reply.body);
   } catch {
-    // Covers both a rejected token and Google being unreachable. We cannot
-    // tell the two apart from here, and neither is a reason to sign anyone in.
-    throw new Error('That Google sign-in could not be verified. Please try again.');
+    payload = null;
+  }
+  if (reply.status !== 200 || !payload) {
+    const reason = payload && (payload.error_description || payload.error);
+    console.warn(`[sso] Google rejected a token (HTTP ${reply.status}):`, reason || 'no reason given');
+    throw new Error('Google did not accept that sign-in. Please try again.');
   }
 
   if (!VALID_ISSUERS.has(payload.iss)) {
