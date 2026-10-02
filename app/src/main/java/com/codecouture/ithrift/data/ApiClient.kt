@@ -1,6 +1,7 @@
 package com.codecouture.ithrift.data
 
 import android.content.Context
+import android.util.Log
 import com.codecouture.ithrift.util.ApiUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -17,6 +18,11 @@ import java.util.concurrent.TimeUnit
  * changes.
  */
 object ApiClient {
+
+    private const val TAG = "ApiClient"
+
+    /** Routes where a 401 means "wrong password", not "your session has gone". */
+    private val CREDENTIAL_ROUTES = listOf("/auth/login", "/auth/register", "/auth/sso", "/auth/change-password")
 
     private var retrofit: Retrofit? = null
     private var cachedBaseUrl: String? = null
@@ -46,7 +52,20 @@ object ApiClient {
             } else {
                 chain.request()
             }
-            chain.proceed(request)
+            val response = chain.proceed(request)
+
+            // The server no longer recognises the saved session, for example
+            // because it was restarted. Forget the token so the app asks for a
+            // fresh sign-in instead of failing every request with the same
+            // message. Sign-in and password routes answer 401 for a wrong
+            // password, which is not a lost session, so they are left alone.
+            val path = request.url.encodedPath
+            val isCredentialRoute = CREDENTIAL_ROUTES.any { path.endsWith(it) }
+            if (token != null && response.code == 401 && !isCredentialRoute) {
+                Log.i(TAG, "The server rejected the saved session; signing out on this phone")
+                SessionManager.clearSession(context)
+            }
+            response
         }
 
         val logging = HttpLoggingInterceptor().apply {

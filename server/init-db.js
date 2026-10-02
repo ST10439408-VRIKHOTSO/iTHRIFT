@@ -20,9 +20,35 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DATA_DIR, 'ithrift.db');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
-if (fs.existsSync(DB_PATH)) fs.rmSync(DB_PATH);
+
+// Start from an empty database. Deleting the file is the simple way, but
+// Windows refuses to delete a file that another program still has open (a
+// server left running, or a database viewer). In that case the file is kept
+// and emptied instead, which gives the same result.
+let emptyInPlace = process.env.INIT_DB_IN_PLACE === '1';
+if (fs.existsSync(DB_PATH) && !emptyInPlace) {
+  try {
+    fs.rmSync(DB_PATH);
+  } catch (err) {
+    console.log(`The database file is open in another program (${err.code}); emptying it in place instead.`);
+    emptyInPlace = true;
+  }
+}
 
 const db = new DatabaseSync(DB_PATH);
+if (emptyInPlace) {
+  db.exec('PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = OFF;');
+  const leftovers = db.prepare(
+    "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND type IN ('table', 'view', 'trigger')"
+  ).all();
+  // Views and triggers first, so no table is dropped while something still refers to it.
+  for (const kind of ['trigger', 'view', 'table']) {
+    for (const row of leftovers.filter((r) => r.type === kind)) {
+      db.exec(`DROP ${kind.toUpperCase()} IF EXISTS "${row.name}";`);
+    }
+  }
+  db.exec('VACUUM;');
+}
 db.exec('PRAGMA foreign_keys = ON;');
 
 console.log('Creating schema...');

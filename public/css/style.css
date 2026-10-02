@@ -292,7 +292,9 @@ p {
    HERO / CATALOGUE HEADER
    ================================================================ */
 .hero {
-  padding: 44px 0 24px;
+  /* Vertical only, so a .container.hero keeps its side gutter. */
+  padding-top: 44px;
+  padding-bottom: 24px;
 }
 .hero h1 {
   font-size: 44px;
@@ -539,7 +541,8 @@ p {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 52px;
-  padding: 36px 0;
+  padding-top: 36px;
+  padding-bottom: 36px;
 }
 .product-detail .thumb-lg {
   background: var(--surface-2);
@@ -1046,7 +1049,7 @@ hr.divider {
    ================================================================ */
 @media (max-width: 1080px) {
   .footer-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
-  .container { padding: 0 28px; }
+  .container { padding-left: 28px; padding-right: 28px; }
   .topnav-inner { padding: 0 28px; }
 }
 
@@ -1076,7 +1079,7 @@ hr.divider {
   .admin-sidebar a.active,
   .admin-sidebar a:hover { background: var(--surface-2); }
 
-  .container { padding: 0 20px; }
+  .container { padding-left: 20px; padding-right: 20px; }
   .topnav-inner { padding: 0 20px; }
   .footer-inner { grid-template-columns: 1fr; gap: 24px; padding: 36px 20px 28px; }
   .footer-bottom { padding: 16px 20px; flex-direction: column; gap: 12px; text-align: center; }
@@ -1210,3 +1213,6 @@ main#view:focus { outline: none; }
 
 .card a.pill-btn { display: inline-flex; }
 .pill-btn:not(.dark):not(.accent) .cart-badge { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* The hidden attribute must win over the grid display of the return form. */
+.return-form[hidden] { display: none; }

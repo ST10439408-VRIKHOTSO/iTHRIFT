@@ -350,6 +350,8 @@ application against the same API and database.
 - The Shop and Search tabs no longer crash when a screen closes while it is loading.
 - Dark-mode colours corrected so every block has readable text.
 - The website's pages keep their side margin on every screen.
+- The app signs out cleanly when the server no longer recognises its session, instead of
+  repeating "Sign in is required" on every action.
 
 **Testing**
 - The end-to-end suite grew from 70 checks to 131, and the API unit tests from 9 to 18,
