@@ -190,7 +190,7 @@ not exist in the application.
 ## Automated testing
 
 **203 automated checks across three suites**, all run by GitHub Actions on every
-push and pull request to `main`. A red pipeline blocks the merge.
+push and pull request to `main`. A red run is fixed before any further work is pushed.
 
 | Suite | Count | What it covers |
 |---|---|---|
