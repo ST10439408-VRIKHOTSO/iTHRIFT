@@ -28,7 +28,7 @@ The Task 1 document, together with all fifteen figures at full resolution, is in
 
 The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2/).
 
-**Demonstration video:** _add the unlisted YouTube link here_
+**Demonstration video:** recorded; the unlisted YouTube link will be added here once it is uploaded.
 
 ## Task 2 at a glance
 
