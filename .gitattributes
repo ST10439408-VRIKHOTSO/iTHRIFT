@@ -1,0 +1,24 @@
+# Normalise line endings so the repository is identical on Windows, macOS and the
+# Linux runners the GitHub Actions workflows use.
+* text=auto eol=lf
+
+# The Gradle wrapper is executed by a Linux shell in CI and must stay LF.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows scripts need CRLF.
+*.bat text eol=crlf
+
+# Binary assets: never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.apk binary
+*.aab binary
+*.keystore binary
+*.docx binary
+*.pdf binary
+*.db binary
