@@ -36,11 +36,11 @@ The Task 2 report and its evidence screenshots are in [`docs/task2/`](docs/task2
 |---|---|
 | Android app that runs on a handset | [`app/`](app/): Kotlin, `minSdk` 24, built by CI on every push |
 | Register and sign in, password encrypted | [`server/routes/auth.js`](server/routes/auth.js); salted scrypt in [`server/utils/password.js`](server/utils/password.js) |
-| Single sign-on | Google, verified server-side in [`server/utils/sso.js`](server/utils/sso.js); client in [`GoogleSignIn.kt`](app/src/main/java/com/codecouture/ithrift/data/GoogleSignIn.kt) |
-| Settings the user can change | [`SettingsFragment`](app/src/main/java/com/codecouture/ithrift/ui/account/SettingsFragment.kt): profile, password, theme, notifications, connection |
+| Single sign-on | Google, verified server-side in [`server/utils/sso.js`](server/utils/sso.js); client in [`GoogleSignIn.kt`](app/src/main/java/com/ithrift/app/data/GoogleSignIn.kt) |
+| Settings the user can change | [`SettingsFragment`](app/src/main/java/com/ithrift/app/ui/account/SettingsFragment.kt): profile, password, theme, notifications, connection |
 | REST API used by both clients | [`server/routes/`](server/routes/) |
 | Database in a DBMS, ≥10 rows per table | [`server/init-db.js`](server/init-db.js); the seed script fails if any table falls short |
-| Input handled without crashing | [`Validators.kt`](app/src/main/java/com/codecouture/ithrift/util/Validators.kt) and [`ApiResult.kt`](app/src/main/java/com/codecouture/ithrift/data/ApiResult.kt) |
+| Input handled without crashing | [`Validators.kt`](app/src/main/java/com/ithrift/app/util/Validators.kt) and [`ApiResult.kt`](app/src/main/java/com/ithrift/app/data/ApiResult.kt) |
 | Help system and user documentation | In-app **Account → Help**, and [`docs/user-guide.md`](docs/user-guide.md) |
 | Automated testing through GitHub Actions | 50 Kotlin unit tests, 22 API unit tests, 131 end-to-end checks. See [Automated testing](#automated-testing) |
 | Logging | Per-request logging in [`server/index.js`](server/index.js); Logcat at the network boundary in the app |
@@ -134,7 +134,7 @@ client id from a Google Cloud project, and neither the id nor anything derived
 from it is committed.
 
 1. In the Google Cloud console, create an OAuth 2.0 **Web application** client
-   id, and an **Android** client id for `com.codecouture.ithrift` with your
+   id, and an **Android** client id for `com.ithrift.app` with your
    signing certificate's SHA-1.
 2. Put the *web* client id in `local.properties` (which is git-ignored):
    ```properties
@@ -250,7 +250,7 @@ ithrift/
 │   ├── images/                 brand/ and products/
 │   └── mobile/                 installable web app build
 ├── app/                        Android application (Kotlin)
-│   ├── src/main/java/com/codecouture/ithrift/
+│   ├── src/main/java/com/ithrift/app/
 │   │   ├── data/               API client, models, session, settings, Google sign-in
 │   │   ├── ui/                 shop/ search/ cart/ orders/ account/ (settings, help)
 │   │   └── util/               validators, URL parsing, formatting

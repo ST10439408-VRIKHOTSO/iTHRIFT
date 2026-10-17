@@ -28,11 +28,11 @@ val googleWebClientId: String = run {
 }
 
 android {
-    namespace = "com.codecouture.ithrift"
+    namespace = "com.ithrift.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.codecouture.ithrift"
+        applicationId = "com.ithrift.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 3
