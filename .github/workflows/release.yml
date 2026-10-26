@@ -31,6 +31,9 @@ jobs:
   release:
     name: Assemble and sign the release build
     runs-on: ubuntu-latest
+    # Writing a GitHub release (and attaching the files to it) needs write access to contents.
+    permissions:
+      contents: write
 
     steps:
       - name: Check out the repository
@@ -81,6 +84,19 @@ jobs:
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
+      # An artefact expires after 90 days and needs a GitHub sign-in to download,
+      # so a tagged build is also published as a release that anyone can open.
+      # Reference: https://github.com/softprops/action-gh-release
+      - name: Publish the GitHub release with the signed files
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: iTHRIFT ${{ github.ref_name }}
+          body_path: docs/task3/release-notes.md
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
 
       - name: Remove the keystore from the runner
         if: always()
