@@ -161,4 +161,28 @@ class ValidatorsTest {
         assertNull(Validators.phone(""))
         assertNull(Validators.phone("  "))
     }
+
+    @Test
+    fun `an account's cellphone number is required and must be a mobile number`() {
+        assertNotNull(Validators.cellphone(""))
+        assertNotNull(Validators.cellphone("012 345 6789"))
+        assertNull(Validators.cellphone("+27 82 555 0101"))
+        assertEquals("0825550101", Validators.nationalCellphone("+27 82 555 0101"))
+        assertEquals("0825550101", Validators.nationalCellphone("082-555-0101"))
+    }
+
+    @Test
+    fun `the confirmation must match the password`() {
+        assertNotNull(Validators.confirmPassword("Password9", ""))
+        assertNotNull(Validators.confirmPassword("Password9", "Password8"))
+        assertNull(Validators.confirmPassword("Password9", "Password9"))
+    }
+
+    @Test
+    fun `people sign in with an email or a cellphone number, not a username`() {
+        assertNull(Validators.signInIdentifier("lerato.m@gmail.com"))
+        assertNull(Validators.signInIdentifier("082 555 0101"))
+        assertNotNull(Validators.signInIdentifier("admin"))
+        assertNotNull(Validators.signInIdentifier(""))
+    }
 }

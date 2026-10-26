@@ -243,3 +243,31 @@ test('free delivery is judged on the price after the discount', () => {
   assert.equal(t.deliveryFee, 80);
   assert.equal(t.total, 1025);
 });
+
+/* ----- Cellphone numbers and the app's Google sign-in codes ----- */
+
+const { normalisePhone } = require('../server/utils/phone');
+const appCodes = require('../server/utils/app-codes');
+
+test('a cellphone number is the same however it is typed', () => {
+  assert.equal(normalisePhone('082 555 0101'), '0825550101');
+  assert.equal(normalisePhone('+27 82 555 0101'), '0825550101');
+  assert.equal(normalisePhone('27825550101'), '0825550101');
+  assert.equal(normalisePhone('012 345 6789'), null, 'a landline is not a cellphone');
+  assert.equal(normalisePhone('admin'), null);
+});
+
+test('an app sign-in code works once, and only with the secret behind its challenge', () => {
+  const verifier = 'a-secret-the-app-keeps-to-itself-0123456789';
+  const code = appCodes.issue({ type: 'customer', id: 7, name: 'Test' }, appCodes.challengeFor(verifier));
+  assert.ok(appCodes.isChallenge(appCodes.challengeFor(verifier)));
+  assert.ok(appCodes.redeem(code, 'some-other-secret').error, 'the wrong secret is refused');
+  assert.equal(appCodes.redeem(code, verifier).user.id, 7);
+  assert.ok(appCodes.redeem(code, verifier).error, 'a second use is refused');
+});
+
+test('an app sign-in code expires', () => {
+  const verifier = 'another-secret-0123456789';
+  const code = appCodes.issue({ id: 1 }, appCodes.challengeFor(verifier), 0);
+  assert.ok(appCodes.redeem(code, verifier, appCodes.TTL_MS + 1).error);
+});

@@ -33,7 +33,18 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run the unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee build.log
+
+      # Compiler errors as annotations, so they show on the run's summary
+      # page without opening the full log. Ten errors per annotation.
+      - name: Report compiler errors
+        if: failure()
+        run: |
+          grep -E "^e: " build.log | sed 's#file:///home/runner/work/iTHRIFT/iTHRIFT/app/src/main/java/com/ithrift/app/##' | head -100 > errors.txt || true
+          split -l 10 errors.txt chunk_ || true
+          for f in chunk_*; do [ -f "$f" ] && echo "::error title=Kotlin::$(sed ':a;N;$!ba;s/\n/%0A/g' "$f")"; done
 
       - name: Assemble the debug build
         run: ./gradlew assembleDebug --no-daemon --stacktrace
@@ -52,3 +63,72 @@ jobs:
           name: unit-test-reports
           path: app/build/reports/tests/
           if-no-files-found: ignore
+
+  # Only on a manual run of a branch other than main: renders the screens
+  # against the real API and database (ScreenshotTest) and publishes the
+  # images to the "screens" branch, so the design can be checked against the
+  # website without an emulator.
+  screens:
+    name: Render the screens against a local server
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Build the database and start the server
+        run: |
+          npm ci
+          npm run init-db
+          nohup npm start > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api > /dev/null && break; sleep 2; done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Render the screens
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew testDebugUnitTest --tests "com.ithrift.app.ScreenshotTest" -Pscreens=true assembleDebug --no-daemon 2>&1 | tee build.log
+
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E "^e: |FAILED|Exception|Error" build.log | head -60 > errors.txt || true
+          split -l 10 errors.txt chunk_ || true
+          for f in chunk_*; do [ -f "$f" ] && echo "::error title=Screens::$(sed ':a;N;$!ba;s/\n/%0A/g' "$f")"; done
+
+      - name: Publish the images to the screens branch
+        if: always()
+        run: |
+          mkdir -p /tmp/shots
+          cp app/screens/*.png app/screens/*.txt /tmp/shots/ 2>/dev/null || true
+          cp app/build/outputs/apk/debug/*.apk /tmp/shots/ 2>/dev/null || true
+          cp build.log /tmp/shots/ 2>/dev/null || true
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          rm -rf /tmp/out && mkdir /tmp/out && cd /tmp/out
+          git init -q && git checkout -q -b screens
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          cp /tmp/shots/* . 2>/dev/null || true
+          git remote add origin "$(cd $GITHUB_WORKSPACE && git remote get-url origin)"
+          git add -A
+          git commit -qm "Screens from ${GITHUB_SHA}" || true
+          git -c http.extraheader="$(cd $GITHUB_WORKSPACE && git config --get http.https://github.com/.extraheader)" push -f origin HEAD:refs/heads/screens

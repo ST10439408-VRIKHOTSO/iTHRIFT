@@ -38,6 +38,13 @@ async function call(path, { method = 'GET', body, token } = {}) {
   return { status: res.status, data };
 }
 
+// A cellphone number no other test account has used, as registration needs one.
+let phoneSeq = 0;
+function freshPhone() {
+  phoneSeq += 1;
+  return '06' + String((Date.now() + phoneSeq * 7919) % 100000000).padStart(8, '0');
+}
+
 async function main() {
   console.log(`\nRunning iTHRIFT Clothes smoke test against ${BASE}\n`);
 
@@ -46,17 +53,30 @@ async function main() {
 
   // --- Registration ---
   const newEmail = `test.${Date.now()}@example.com`;
+  const newPhone = freshPhone();
   let newCustomerToken;
   {
-    const weak = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, password: 'weak' } });
+    const noPhone = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, password: 'Password9' } });
+    check('Registration requires a cellphone number', noPhone.status === 400);
+
+    const badPhone = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, phone: '12345', password: 'Password9' } });
+    check('Registration rejects a number that is not a cellphone number', badPhone.status === 400);
+
+    const mismatch = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, phone: newPhone, password: 'Password9', confirmPassword: 'Password8' } });
+    check('Registration rejects passwords that do not match', mismatch.status === 400);
+
+    const weak = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, phone: newPhone, password: 'weak' } });
     check('Registration rejects a weak password', weak.status === 400);
 
-    const r = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, password: 'Password9' } });
+    const r = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, phone: newPhone, password: 'Password9', confirmPassword: 'Password9' } });
     check('Registration succeeds with a valid password', r.status === 201 && r.data.token);
     newCustomerToken = r.data.token;
 
-    const dup = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, password: 'Password9' } });
+    const dup = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: newEmail, phone: freshPhone(), password: 'Password9' } });
     check('Registration rejects a duplicate email', dup.status === 409);
+
+    const dupPhone = await call('/api/auth/register', { method: 'POST', body: { firstName: 'Test', lastName: 'User', email: `other.${Date.now()}@example.com`, phone: newPhone.replace(/^0/, '+27'), password: 'Password9' } });
+    check('Registration rejects a cellphone number already in use, however it is typed', dupPhone.status === 409);
   }
 
   // --- Login ---
@@ -69,11 +89,20 @@ async function main() {
     check('Seeded customer (Lerato) can log in', cust.status === 200 && cust.data.user.type === 'customer');
     customerToken = cust.data.token;
 
-    const admin = await call('/api/auth/login', { method: 'POST', body: { identifier: 'admin', password: 'Admin@123' } });
+    const byPhone = await call('/api/auth/login', { method: 'POST', body: { identifier: '082 555 0101', password: 'Password1' } });
+    check('Customer can sign in with their cellphone number', byPhone.status === 200 && byPhone.data.user.id === cust.data.user.id);
+
+    const byIntl = await call('/api/auth/login', { method: 'POST', body: { identifier: '+27825550101', password: 'Password1' } });
+    check('Cellphone sign-in accepts the +27 form', byIntl.status === 200);
+
+    const byUsername = await call('/api/auth/login', { method: 'POST', body: { identifier: 'admin', password: 'ithrift@2025' } });
+    check('Usernames are no longer accepted for sign-in', byUsername.status === 400);
+
+    const admin = await call('/api/auth/login', { method: 'POST', body: { identifier: 'vukosir@icloud.com', password: 'ithrift@2025' } });
     check('Administrator can log in', admin.status === 200 && admin.data.user.type === 'admin');
     adminToken = admin.data.token;
 
-    const staff = await call('/api/auth/login', { method: 'POST', body: { identifier: 'staff01', password: 'Staff@123' } });
+    const staff = await call('/api/auth/login', { method: 'POST', body: { identifier: 'kabelo.tau@ithrift.co.za', password: 'Staff@123' } });
     check('Staff member can log in', staff.status === 200 && staff.data.user.type === 'staff');
     staffToken = staff.data.token;
 
@@ -125,6 +154,16 @@ async function main() {
     });
     check('Profile update rejects a blank first name', noName.status === 400);
 
+    const noPhoneUpdate = await call('/api/auth/profile', {
+      method: 'PUT', token: customerToken, body: { firstName: 'Lerato', lastName: 'Mokoena', phone: '' },
+    });
+    check('Profile update keeps the cellphone number required', noPhoneUpdate.status === 400);
+
+    const takenPhone = await call('/api/auth/profile', {
+      method: 'PUT', token: customerToken, body: { firstName: 'Lerato', lastName: 'Mokoena', phone: '083 555 0202' },
+    });
+    check('Profile update refuses a number another customer uses', takenPhone.status === 409);
+
     const updated = await call('/api/auth/profile', {
       method: 'PUT', token: customerToken,
       body: { firstName: 'Lerato', lastName: 'Mokoena', phone: '082 555 0199', address: '14 Jacaranda Street', city: 'Pretoria', postalCode: '0181' },
@@ -146,7 +185,7 @@ async function main() {
     const pwEmail = `pwtest.${Date.now()}@example.com`;
     const created = await call('/api/auth/register', {
       method: 'POST',
-      body: { firstName: 'Password', lastName: 'Tester', email: pwEmail, password: 'Password9' },
+      body: { firstName: 'Password', lastName: 'Tester', email: pwEmail, phone: freshPhone(), password: 'Password9' },
     });
     check('A second throwaway account is registered for the password tests', created.status === 201);
     const pwToken = created.data.token;

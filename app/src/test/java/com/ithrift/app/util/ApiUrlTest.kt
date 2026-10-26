@@ -45,10 +45,10 @@ class ApiUrlTest {
     }
 
     @Test
-    fun `a blank address falls back to the emulator default`() {
+    fun `a blank address falls back to the hosted server`() {
         // Better than building "http:///api/" and crashing Retrofit.
-        assertEquals("http://10.0.2.2:3000/api/", ApiUrl.baseUrl(""))
-        assertEquals("http://10.0.2.2:3000/api/", ApiUrl.baseUrl("   "))
+        assertEquals("https://ithrift-api.onrender.com/api/", ApiUrl.baseUrl(""))
+        assertEquals("https://ithrift-api.onrender.com/api/", ApiUrl.baseUrl("   "))
     }
 
     @Test

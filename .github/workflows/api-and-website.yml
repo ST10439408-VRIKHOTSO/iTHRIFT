@@ -12,7 +12,7 @@ on:
 
 jobs:
   smoke-test:
-    name: Seed the database and run the end-to-end smoke test
+    name: Seed the database and run the end-to-end and feature tests
     runs-on: ubuntu-latest
 
     steps:
@@ -60,6 +60,12 @@ jobs:
           set +e
           npm test
           STATUS=$?
+          # The 1.3.0 features (points, alerts, collection slots, selling,
+          # support, analytics) run against the same server afterwards.
+          if [ "$STATUS" -eq 0 ]; then
+            npm run test:features
+            STATUS=$?
+          fi
           set -e
 
           kill "$SERVER_PID" 2>/dev/null || true
