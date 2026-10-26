@@ -18,7 +18,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 | Source code | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT> |
 | Hosted website | <https://ithrift-api.onrender.com/> |
 | Hosted REST API | <https://ithrift-api.onrender.com/api> |
-| Demonstration video (unlisted on YouTube) | <https://youtu.be/7wly_1Y31v8> |
+| Demonstration video, prototype (unlisted on YouTube) | <https://youtu.be/7wly_1Y31v8> |
 | Pipeline runs | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/actions> |
 | Releases (signed APK and App Bundle) | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases> |
 | Azure DevOps board | <https://dev.azure.com/ST10439408/iTHRIFT/_boards/board/t/iTHRIFT%20Team/Issues> |
@@ -269,11 +269,15 @@ hosted server by default, so it works on any phone with no set-up.
 
 ## Demonstration video
 
-**<https://youtu.be/7wly_1Y31v8>** (unlisted on YouTube, with a voice-over)
+**Prototype (version 1.2.0): <https://youtu.be/7wly_1Y31v8>** (unlisted on YouTube, with a voice-over)
 
-The video shows the app running on a physical Android phone, the website, Google
-single sign-on, and the data behind them: the OAuth clients in the Google Cloud
+The prototype video shows the app running on a physical Android phone, the website,
+Google single sign-on, and the data behind them: the OAuth clients in the Google Cloud
 console, the REST API's JSON and the stored rows in the database.
+
+The walk-through of the final version, 1.3.4, follows the scene-by-scene script in
+[`docs/task3/video-script.md`](docs/task3/video-script.md): every feature on the phone,
+the staff console, the data behind the screens and the privacy controls.
 
 ## Requirements
 
@@ -403,7 +407,7 @@ Actions so the code is proven on a clean machine and not only on ours.
 | API unit tests (`test/unit-tests.js`) | 25 | Password hashing and the password policy, SSO configuration and token verification, the app sign-in codes, cart arithmetic, delivery fees, promo codes, cellphone numbers |
 | End-to-end smoke test (`test/smoke-test.js`) | 150 | The whole API surface against a running server, every role, account deletion, and the cross-client database link |
 | Feature test (`test/feature-test.js`) | 95 | Thrift Points, alerts and notifications, saved searches, the working-day calendar, collection slots, gift orders, selling to the shop, support messages, bulk markdowns, promo limits, analytics and the CSV export |
-| Screenshot test (`app/src/test/.../ScreenshotTest.kt`) | 32 screens and 4 journeys | Every main app screen, light and dark, rendered with Robolectric against the seeded server; runs on a manual branch build |
+| Screenshot test (`app/src/test/.../ScreenshotTest.kt`) | 33 screens and 4 journeys | Every main app screen, light and dark, rendered with Robolectric against the seeded server; runs on a manual branch build |
 
 ### Running them locally
 

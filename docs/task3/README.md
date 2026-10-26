@@ -4,6 +4,7 @@ Everything for XISD6329 Task 3 that lives in the repository.
 
 | What | Where |
 |---|---|
+| Script for the final demonstration video | [`video-script.md`](video-script.md) |
 | Release notes for the final version, 1.3.4 | [`release-notes.md`](release-notes.md) and the [GitHub release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.3.4) |
 | Google Play listing, graphics and upload steps | [`play-store/`](play-store/) |
 | Screenshots of the app and the website (version 1.3.4) | [`figures/`](figures/), captioned below |
