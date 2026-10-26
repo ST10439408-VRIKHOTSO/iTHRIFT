@@ -92,4 +92,40 @@ object Validators {
         }
         return if (looksLikeSaNumber) null else "Enter a South African number, for example 082 123 4567."
     }
+
+    /**
+     * A cellphone number in its national ten-digit form ("0825550101"), or
+     * null when it is not one. Mirrors normalisePhone() in server/utils/phone.js.
+     */
+    fun nationalCellphone(value: String): String? {
+        var d = value.trim().filterNot { it == ' ' || it == '-' || it == '(' || it == ')' }
+        if (d.startsWith("+27")) d = "0" + d.drop(3)
+        else if (d.startsWith("27") && d.length == 11) d = "0" + d.drop(2)
+        return if (Regex("^0[6-8]\\d{8}$").matches(d)) d else null
+    }
+
+    /** The cellphone number an account must have: required, and a real South African mobile number. */
+    fun cellphone(value: String): String? = when {
+        value.isBlank() -> "Enter your cellphone number."
+        nationalCellphone(value) == null -> "Enter a South African cellphone number, for example 082 123 4567."
+        else -> null
+    }
+
+    /** The second password box on a form that sets a password. */
+    fun confirmPassword(password: String, confirm: String): String? = when {
+        confirm.isEmpty() -> "Enter the password again."
+        confirm != password -> "The two passwords do not match."
+        else -> null
+    }
+
+    /** What a person signs in with: an email address or a cellphone number, never a username. */
+    fun signInIdentifier(value: String): String? {
+        val v = value.trim()
+        return when {
+            v.isEmpty() -> "Enter your email address or cellphone number."
+            v.contains('@') -> email(v)
+            Regex("^[+\\d][\\d\\s\\-()]*$").matches(v) -> if (nationalCellphone(v) == null) "Enter a South African cellphone number, for example 082 123 4567." else null
+            else -> "Enter an email address or a cellphone number, for example 082 123 4567."
+        }
+    }
 }

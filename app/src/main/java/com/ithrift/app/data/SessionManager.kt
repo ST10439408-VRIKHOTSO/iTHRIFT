@@ -18,8 +18,7 @@ object SessionManager {
     private const val KEY_USER_NAME = "user_name"
     private const val KEY_SERVER_URL = "server_url"
 
-    // 10.0.2.2 is the special alias the Android Emulator uses to reach
-    // "localhost" on the host machine running npm start.
+    // The hosted server on Render, the same one the website uses.
     const val DEFAULT_SERVER_URL = ApiUrl.DEFAULT_SERVER_URL
 
     private fun prefs(context: Context): SharedPreferences =

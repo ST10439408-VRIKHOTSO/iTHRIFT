@@ -13,8 +13,16 @@ package com.ithrift.app.util
  */
 object ApiUrl {
 
+    /**
+     * The hosted server on Render, the same one the website runs on, so the
+     * app works out of the box on any phone. For a server running on your own
+     * computer, enter http://10.0.2.2:3000 (the emulator's name for that
+     * computer) or the computer's network address in Settings.
+     */
+    const val DEFAULT_SERVER_URL = "https://ithrift-api.onrender.com"
+
     /** The emulator's alias for "localhost on the machine running npm start". */
-    const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000"
+    const val EMULATOR_SERVER_URL = "http://10.0.2.2:3000"
 
     /**
      * The origin the server is reachable at: scheme and host, no path, no

@@ -7,11 +7,11 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.http.QueryMap
 
 /**
- * The same REST API the desktop website (public/js) and the mobile PWA
- * (public/mobile/js) call. This native app talks to it too, proving the
+ * The same REST API the website (public/js) calls. This native app talks to it too, proving the
  * one-database, multiple-clients architecture described in the System
  * Design document. Base path is configured per-environment in ApiClient
  * (it ends in "/api/", so paths below are relative to that, e.g. "auth/login").
@@ -27,6 +27,10 @@ interface ApiService {
     /** Exchanges a Google ID token for an iTHRIFT session. The API verifies the token. */
     @POST("auth/sso")
     suspend fun ssoLogin(@Body body: SsoLoginRequest): Response<AuthResponse>
+
+    /** Swaps the code from the website's Google sign-in for a session. */
+    @POST("auth/sso/exchange")
+    suspend fun ssoExchange(@Body body: SsoExchangeRequest): Response<AuthResponse>
 
     @GET("auth/sso/status")
     suspend fun ssoStatus(): Response<SsoStatusResponse>
@@ -60,6 +64,28 @@ interface ApiService {
     @GET("products/categories")
     suspend fun getCategories(): Response<CategoryListResponse>
 
+    @GET("products/sizes")
+    suspend fun getSizes(): Response<SizeListResponse>
+
+    @GET("products/suggest")
+    suspend fun suggest(@Query("q") q: String): Response<SuggestResponse>
+
+    /** Several products in the order asked for: recently viewed, compare, for you. */
+    @GET("products/by-ids")
+    suspend fun productsByIds(@Query("ids") ids: String): Response<ProductListResponse>
+
+    @GET("products/{id}/similar")
+    suspend fun similar(@Path("id") id: Int): Response<ProductListResponse>
+
+    @GET("products/{id}/questions")
+    suspend fun getQuestions(@Path("id") id: Int): Response<QuestionListResponse>
+
+    @POST("products/{id}/questions")
+    suspend fun askQuestion(@Path("id") id: Int, @Body body: QuestionRequest): Response<OkResponse>
+
+    @POST("products/{id}/alerts")
+    suspend fun addStockAlert(@Path("id") id: Int, @Body body: StockAlertRequest): Response<OkResponse>
+
     @GET("products/{id}/reviews")
     suspend fun getReviews(@Path("id") id: Int): Response<ReviewListResponse>
 
@@ -82,7 +108,7 @@ interface ApiService {
     suspend fun checkout(@Body body: CheckoutRequest): Response<OrderDetailResponse>
 
     @GET("orders")
-    suspend fun getOrders(): Response<OrderListResponse>
+    suspend fun getOrders(@QueryMap filters: Map<String, String> = emptyMap()): Response<OrderListResponse>
 
     @GET("orders/{id}")
     suspend fun getOrder(@Path("id") id: Int): Response<OrderDetailResponse>
@@ -131,4 +157,140 @@ interface ApiService {
 
     @DELETE("addresses/{id}")
     suspend fun deleteAddress(@Path("id") id: Int): Response<AddressListResponse>
+
+    // --- Account hub (release 1.3.0) ---
+
+    @GET("account/overview")
+    suspend fun accountOverview(): Response<AccountOverview>
+
+    @PUT("account/preferences")
+    suspend fun updatePreferences(@Body body: PreferencesRequest): Response<OkResponse>
+
+    @PUT("account/style")
+    suspend fun updateStyle(@Body body: StyleRequest): Response<OkResponse>
+
+    @GET("account/for-you")
+    suspend fun forYou(): Response<ForYouResponse>
+
+    @GET("account/points")
+    suspend fun points(): Response<PointsSummary>
+
+    @GET("account/impact")
+    suspend fun impact(): Response<Impact>
+
+    @GET("account/saved-searches")
+    suspend fun savedSearches(): Response<SavedSearchListResponse>
+
+    @POST("account/saved-searches")
+    suspend fun saveSearch(@Body body: SavedSearchRequest): Response<SavedSearchListResponse>
+
+    @DELETE("account/saved-searches/{id}")
+    suspend fun deleteSavedSearch(@Path("id") id: Int): Response<SavedSearchListResponse>
+
+    @GET("account/alerts")
+    suspend fun stockAlerts(): Response<StockAlertListResponse>
+
+    @DELETE("account/alerts/{id}")
+    suspend fun deleteStockAlert(@Path("id") id: Int): Response<StockAlertListResponse>
+
+    // --- Notifications ---
+
+    @GET("notifications")
+    suspend fun notifications(): Response<NotificationListResponse>
+
+    @GET("notifications/unread-count")
+    suspend fun unreadCount(): Response<UnreadResponse>
+
+    @PUT("notifications/read-all")
+    suspend fun markAllRead(): Response<NotificationListResponse>
+
+    @PUT("notifications/{id}/read")
+    suspend fun markRead(@Path("id") id: Int): Response<NotificationListResponse>
+
+    @DELETE("notifications/{id}")
+    suspend fun deleteNotification(@Path("id") id: Int): Response<NotificationListResponse>
+
+    // --- Selling to the shop ---
+
+    @GET("sell")
+    suspend fun sellSubmissions(@QueryMap filters: Map<String, String> = emptyMap()): Response<SellListResponse>
+
+    @POST("sell")
+    suspend fun sell(@Body body: SellRequest): Response<SellListResponse>
+
+    @PUT("sell/{id}/respond")
+    suspend fun respondToOffer(@Path("id") id: Int, @Body body: SellRespondRequest): Response<SellListResponse>
+
+    // --- Support messages ---
+
+    @GET("support")
+    suspend fun tickets(@QueryMap filters: Map<String, String> = emptyMap()): Response<SupportListResponse>
+
+    @POST("support")
+    suspend fun createTicket(@Body body: SupportCreateRequest): Response<SupportTicketResponse>
+
+    @GET("support/{id}")
+    suspend fun ticket(@Path("id") id: Int): Response<SupportTicketResponse>
+
+    @POST("support/{id}/messages")
+    suspend fun reply(@Path("id") id: Int, @Body body: SupportMessageRequest): Response<SupportTicketResponse>
+
+    @PUT("support/{id}/status")
+    suspend fun setTicketStatus(@Path("id") id: Int, @Body body: StatusRequest): Response<SupportTicketResponse>
+
+    // --- Staff console ---
+
+    @GET("admin/reports/analytics")
+    suspend fun analytics(): Response<Analytics>
+
+    @GET("admin/reports/inventory")
+    suspend fun inventory(): Response<InventoryReport>
+
+    @GET("admin/collections")
+    suspend fun collections(): Response<CollectionListResponse>
+
+    @PUT("orders/{id}/status")
+    suspend fun setOrderStatus(@Path("id") id: Int, @Body body: OrderStatusRequest): Response<OrderDetailResponse>
+
+    @PUT("returns/{id}")
+    suspend fun setReturnStatus(@Path("id") id: Int, @Body body: StatusRequest): Response<OkResponse>
+
+    @GET("admin/questions")
+    suspend fun staffQuestions(@Query("status") status: String): Response<StaffQuestionListResponse>
+
+    @PUT("admin/questions/{id}")
+    suspend fun answerQuestion(@Path("id") id: Int, @Body body: AnswerRequest): Response<StaffQuestionListResponse>
+
+    @PUT("sell/{id}")
+    suspend fun updateSell(@Path("id") id: Int, @Body body: SellUpdateRequest): Response<OkResponse>
+
+    @GET("admin/promos")
+    suspend fun promos(): Response<PromoListResponse>
+
+    @POST("admin/promos")
+    suspend fun createPromo(@Body body: PromoRequest): Response<PromoListResponse>
+
+    @PUT("admin/promos/{id}")
+    suspend fun updatePromo(@Path("id") id: Int, @Body body: PromoRequest): Response<PromoListResponse>
+
+    @PUT("admin/promos/{id}")
+    suspend fun setPromoActive(@Path("id") id: Int, @Body body: PromoActiveRequest): Response<PromoListResponse>
+
+    @GET("admin/users")
+    suspend fun users(): Response<UserListResponse>
+
+    @PUT("admin/users/{id}/status")
+    suspend fun setUserStatus(@Path("id") id: Int, @Body body: StatusRequest): Response<OkResponse>
+
+    @POST("products")
+    suspend fun createProduct(@Body body: ProductRequest): Response<ProductSaveResponse>
+
+    @PUT("products/{id}")
+    suspend fun updateProduct(@Path("id") id: Int, @Body body: ProductRequest): Response<ProductSaveResponse>
+
+    @DELETE("products/{id}")
+    suspend fun deleteProduct(@Path("id") id: Int): Response<OkResponse>
+
+    @POST("products/bulk-price")
+    suspend fun bulkPrice(@Body body: BulkPriceRequest): Response<BulkPriceResponse>
 }

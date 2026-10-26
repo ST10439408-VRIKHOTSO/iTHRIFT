@@ -1,30 +1,6 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-}
-
-/**
- * The Google OAuth *web* client id used for single sign-on.
- *
- * It is read from local.properties, which is not committed, so the id never
- * reaches the repository and a checkout on a clean machine (or on the CI
- * runner) still builds. It just builds without single sign-on, and the app
- * hides the button rather than offering one that cannot work.
- *
- * The environment variable is the escape hatch for a build server that has
- * no local.properties at all.
- */
-val googleWebClientId: String = run {
-    val local = rootProject.file("local.properties")
-    if (local.exists()) {
-        val properties = Properties()
-        local.inputStream().use { properties.load(it) }
-        properties.getProperty("GOOGLE_WEB_CLIENT_ID")
-    } else {
-        null
-    } ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""
 }
 
 android {
@@ -35,10 +11,8 @@ android {
         applicationId = "com.ithrift.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
-
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        versionCode = 6
+        versionName = "1.3.3"
     }
 
     /**
@@ -50,6 +24,20 @@ android {
      * skipped so a debug build still works with no set-up.
      */
     signingConfigs {
+        /**
+         * A fixed debug key, committed on purpose. A debug key is not a
+         * secret (every Android SDK makes one with the same public password),
+         * but each machine makes a different one, and Android refuses to
+         * install an update signed with a different key over the old app.
+         * Every APK built on GitHub shares this one, so each installs over
+         * the last.
+         */
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             val keystorePath = System.getenv("KEYSTORE_FILE")
             if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {
@@ -83,9 +71,16 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
-        // Needed for GOOGLE_WEB_CLIENT_ID above; AGP 8 turns BuildConfig off by default.
+        // The screens are written in Jetpack Compose so they can match the
+        // website's design system closely (see ui/theme/ and ui/components/).
+        compose = true
+        // The version shown in Settings comes from BuildConfig, which AGP 8 turns off by default.
         buildConfig = true
+    }
+
+    composeOptions {
+        // The Compose compiler release that pairs with Kotlin 1.9.24.
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
 
     testOptions {
@@ -95,6 +90,14 @@ android {
             // src/test are written against framework-free code, so this only
             // guards against an accidental dependency taking the suite down.
             isReturnDefaultValues = true
+            // Robolectric needs the app's resources and fonts for the screenshot test.
+            isIncludeAndroidResources = true
+            all {
+                // The screenshot test only runs when asked for (-Pscreens=true),
+                // because it needs the Node.js server running on this machine.
+                it.systemProperty("screens", project.findProperty("screens") ?: "false")
+                it.systemProperty("roborazzi.test.record", "true")
+            }
         }
     }
 }
@@ -104,11 +107,18 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.fragment:fragment-ktx:1.8.2")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
+    // --- Jetpack Compose: every screen is a composable ---
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 
     // --- Networking: Retrofit + OkHttp talk to the same REST API the website and PWA use ---
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -120,19 +130,28 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // --- Coil: loads the product images (originally generated SVGs) straight from the API ---
-    implementation("io.coil-kt:coil:2.7.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
 
     // --- Single sign-on: Credential Manager is the supported route on
     //     Android 14+, back-ported to older versions through Play Services.
     //     The older GoogleSignInClient API is deprecated. ---
-    implementation("androidx.credentials:credentials:1.3.0")
-    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
-    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    // Google sign-in opens the website in a browser tab (see data/GoogleSignIn.kt).
+    implementation("androidx.browser:browser:1.8.0")
 
     // --- Unit tests. These run on the JVM with no emulator, which is what
     //     lets ./gradlew testDebugUnitTest finish in seconds on the CI
     //     runner. See app/src/test/. ---
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
+    // --- Screenshot test: renders real screens on the JVM with Robolectric
+    //     and saves them as images with Roborazzi. See ScreenshotTest. ---
+    testImplementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.20.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.20.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

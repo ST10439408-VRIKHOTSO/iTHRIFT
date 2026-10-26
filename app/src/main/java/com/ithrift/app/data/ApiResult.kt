@@ -36,7 +36,7 @@ suspend fun <T> safeApiCall(block: suspend () -> Response<T>): ApiOutcome<T> {
         // touching views that no longer exist.
         throw e
     } catch (e: IOException) {
-        ApiOutcome.Failure("Couldn't reach the server. Check the server address in Account, and make sure npm start is running.")
+        ApiOutcome.Failure("Couldn't reach iTHRIFT. Check your connection and try again. The server can take up to a minute to wake up after a quiet spell.")
     } catch (e: Exception) {
         ApiOutcome.Failure(e.message ?: "Something went wrong.")
     }
