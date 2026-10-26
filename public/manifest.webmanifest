@@ -1,0 +1,24 @@
+{
+  "name": "iTHRIFT Clothes",
+  "short_name": "iTHRIFT",
+  "description": "Pre-loved branded clothing, graded and sized by hand at our Hatfield store in Pretoria.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f4",
+  "theme_color": "#1e5a43",
+  "icons": [
+    {
+      "src": "/images/brand/icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/brand/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

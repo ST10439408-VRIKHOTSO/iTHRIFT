@@ -1,439 +1,566 @@
 'use strict';
 
-/* ----------------------------- Orders (customer) ----------------------------- */
+/* =========================================================================
+   Sign in, register, welcome onboarding, orders (list, tracking, receipt),
+   returns and the About page.
+   ========================================================================= */
 
-async function renderOrdersList(view) {
-  if (!requireLogin('/orders')) return;
+/* ----------------------------- Sign in and register ----------------------------- */
 
-  const { orders } = await api('/orders');
-  const isStaff = state.user.type !== 'customer';
-
-  view.innerHTML = `
-    <div class="container section">
-      <h1>${isStaff ? 'All orders' : 'My orders'}</h1>
-      ${orders.length === 0 ? `<div class="empty-state"><h3>No orders yet</h3><a class="pill-btn dark" href="#/shop">Start shopping</a></div>` : `
-      <table>
-        <thead><tr><th scope="col">Order</th>${isStaff ? '<th scope="col">Customer</th>' : ''}<th scope="col">Date</th><th scope="col">Status</th><th scope="col">Total</th><th scope="col"></th></tr></thead>
-        <tbody>
-          ${orders.map(o => `
-            <tr>
-              <td><strong>${o.ref}</strong></td>
-              ${isStaff ? `<td>${escapeHtml(o.customer)}</td>` : ''}
-              <td>${timeAgo(o.createdAt)}</td>
-              <td><span class="badge ${statusClass(o.status)}">${o.status}</span></td>
-              <td>${money(o.total)}</td>
-              <td><a class="muted-link" href="#/orders/${o.id}">View</a></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>`}
-    </div>
-  `;
+/** A South African cellphone number in any common form, as ten digits, or null. */
+function saPhone(value) {
+  let d = String(value || '').replace(/[\s\-()]/g, '');
+  if (d.startsWith('+27')) d = '0' + d.slice(3);
+  else if (d.startsWith('27') && d.length === 11) d = '0' + d.slice(2);
+  return /^0[6-8]\d{8}$/.test(d) ? d : null;
 }
 
-const STATUS_FLOW = ['Processing', 'Shipped', 'Delivered'];
+function afterSignIn(user, next) {
+  if (next) return go('#' + next);
+  go(user.type === 'customer' ? '#/' : '#/admin');
+}
 
-async function renderOrderDetail(view, id) {
-  if (!requireLogin('/orders/' + id)) return;
-  const [{ order }, options] = await Promise.all([api(`/orders/${id}`), api('/orders/options')]);
-  const isStaff = state.user.type !== 'customer';
-  const stepIndex = STATUS_FLOW.indexOf(order.status);
+/**
+ * Single sign-on on the website.
+ *
+ * Draws Google's own "Continue with Google" button when the server reports
+ * that single sign-on is configured, and hides it otherwise. Google hands
+ * the page an ID token, and the page only passes it on to POST /api/auth/sso:
+ * the server verifies the token with Google before any session is issued,
+ * exactly as it does for the Android app.
+ *
+ * Reference: Google. 2025. Display the Sign in with Google button.
+ * https://developers.google.com/identity/gsi/web/guides/display-button
+ */
+let googleScriptPromise = null;
 
-  view.innerHTML = `
-    <div class="container section">
-      <a class="muted-link" href="#/orders">&larr; Back to orders</a>
-      <div class="flex-between" style="margin-top:10px">
-        <h1 style="margin:0">${order.ref}</h1>
-        <span class="badge ${statusClass(order.status)}">${order.status}</span>
-      </div>
-      <p class="small">Placed ${timeAgo(order.createdAt)} by ${escapeHtml(order.customer.name)} (${escapeHtml(order.customer.email)})</p>
-
-      ${order.status !== 'Cancelled' ? `
-      <div class="panel" style="margin:18px 0">
-        <div class="flex-between">
-          ${STATUS_FLOW.map((s, i) => `<span class="small" style="font-weight:${i <= stepIndex ? 700 : 400};color:${i <= stepIndex ? 'var(--accent)' : 'var(--muted2)'}">${s}</span>`).join('<span class="small">&rarr;</span>')}
-        </div>
-        ${order.courierRef ? `<p class="small" style="margin-top:10px">Courier reference: <strong>${escapeHtml(order.courierRef)}</strong></p>` : ''}
-      </div>` : ''}
-
-      <div class="two-col">
-        <div class="panel">
-          <h3>Items</h3>
-          ${order.items.map(i => `
-            <div class="summary-row" style="flex-wrap:wrap">
-              <span>${i.quantity} &times; ${escapeHtml(i.name)}${i.size ? `, size ${escapeHtml(i.size)}` : ''} (${i.productRef})
-                ${i.returnStatus ? `<br><span class="badge ${statusClass(i.returnStatus)}" style="margin-top:4px">Return ${i.returnStatus.toLowerCase()}</span> <span class="small">${escapeHtml(i.returnReason || '')}</span>` : ''}
-                ${!isStaff && i.canReturn ? `<br><button type="button" class="link-btn" data-return-open="${i.orderItemId}" style="margin-top:4px">Return this item</button>` : ''}
-              </span>
-              <span>${money(i.lineTotal)}</span>
-              ${!isStaff && i.canReturn ? `
-              <form class="return-form" data-return-form="${i.orderItemId}" hidden style="flex-basis:100%">
-                <label class="small" for="reason-${i.orderItemId}"><strong>Why are you returning it?</strong></label>
-                <select id="reason-${i.orderItemId}" name="reason" required>
-                  <option value="">Choose a reason</option>
-                  ${options.returnReasons.map(r => `<option>${escapeHtml(r)}</option>`).join('')}
-                </select>
-                <textarea name="comment" maxlength="300" rows="2" aria-label="More detail (optional)" placeholder="More detail (optional)"></textarea>
-                <div style="display:flex;gap:8px"><button class="pill-btn dark" type="submit">Request return</button><button class="pill-btn" type="button" data-return-cancel>Cancel</button></div>
-              </form>` : ''}
-            </div>`).join('')}
-          ${orderTotalsHtml(order)}
-          <div class="summary-row"><span>Payment</span><span>${order.payment.method.toUpperCase()} &middot; ${order.payment.status}</span></div>
-          ${!isStaff && order.returnWindowOpen ? `<p class="small" style="margin-top:10px">You can return items for ${order.returnDaysLeft} more day${order.returnDaysLeft === 1 ? '' : 's'}.</p>` : ''}
-          ${!isStaff && order.canCancel ? `
-            <div class="spacer-sm"></div>
-            <button type="button" class="pill-btn full-btn" id="cancel-order-btn" style="color:var(--bad);border-color:var(--bad)">Cancel this order</button>
-            <p class="small" style="margin-top:6px">You can cancel until the order is shipped. Paid orders are refunded.</p>` : ''}
-        </div>
-
-        ${isStaff ? `
-        <div class="panel">
-          <h3>Process order</h3>
-          <form id="status-form">
-            <div class="field">
-              <label>Status</label>
-              <select name="status">
-                ${['Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => `<option value="${s}" ${s === order.status ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
-            </div>
-            <div class="field">
-              <label>Courier reference</label>
-              <input type="text" name="courierRef" value="${escapeHtml(order.courierRef || '')}" placeholder="e.g. CR-1042">
-            </div>
-            <button class="pill-btn dark full-btn" type="submit">Save</button>
-          </form>
-          <div class="spacer-sm"></div>
-          <p class="small"><strong>${escapeHtml(order.deliveryLabel || 'Standard delivery')}</strong><br>${escapeHtml(order.deliveryAddress || '')}</p>
-          ${order.deliveryInstructions ? `<p class="small">Instructions: ${escapeHtml(order.deliveryInstructions)}</p>` : ''}
-        </div>` : `
-        <div class="panel">
-          <h3>${order.deliveryMethod === 'collection' ? 'Collection' : 'Delivery'}</h3>
-          <p class="small"><strong>${escapeHtml(order.deliveryLabel || 'Standard delivery')}</strong><br>${escapeHtml(order.deliveryAddress || order.customer.name)}</p>
-          ${order.deliveryInstructions ? `<p class="small">Instructions: ${escapeHtml(order.deliveryInstructions)}</p>` : ''}
-          <p class="small">This prototype simulates courier delivery; no live courier integration is included.</p>
-        </div>`}
-      </div>
-    </div>
-  `;
-
-  document.getElementById('cancel-order-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    if (btn.dataset.confirm !== 'yes') {
-      // A second press confirms, so a stray tap never cancels an order.
-      btn.dataset.confirm = 'yes';
-      btn.textContent = 'Press again to confirm cancelling';
-      return;
-    }
-    btn.disabled = true;
-    try {
-      await api(`/orders/${id}/cancel`, { method: 'PUT' });
-      toast('Your order has been cancelled.', 'success');
-      renderOrderDetail(view, id);
-    } catch (err) {
-      toast(err.message, 'error');
-      btn.disabled = false;
-    }
-  });
-
-  view.querySelectorAll('[data-return-open]').forEach(btn => btn.addEventListener('click', () => {
-    const form = view.querySelector(`[data-return-form="${btn.dataset.returnOpen}"]`);
-    form.hidden = false;
-    btn.hidden = true;
-    form.querySelector('select').focus();
-  }));
-  view.querySelectorAll('[data-return-form]').forEach(form => {
-    form.querySelector('[data-return-cancel]').addEventListener('click', () => {
-      form.hidden = true;
-      view.querySelector(`[data-return-open="${form.dataset.returnForm}"]`).hidden = false;
+function loadGoogleScript() {
+  if (window.google && window.google.accounts) return Promise.resolve();
+  if (!googleScriptPromise) {
+    googleScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = () => { googleScriptPromise = null; reject(new Error('Google sign-in could not be loaded.')); };
+      document.head.appendChild(script);
     });
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(form);
-      try {
-        await api(`/orders/${id}/returns`, { method: 'POST', body: { orderItemId: Number(form.dataset.returnForm), reason: fd.get('reason'), comment: fd.get('comment') || undefined } });
-        toast('Return requested. We will email you once it is approved.', 'success');
-        renderOrderDetail(view, id);
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
-  });
-
-  document.getElementById('status-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    try {
-      await api(`/orders/${id}/status`, { method: 'PUT', body: { status: fd.get('status'), courierRef: fd.get('courierRef') } });
-      toast('Order updated.', 'success');
-      renderOrderDetail(view, id);
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  });
+  }
+  return googleScriptPromise;
 }
 
-/* ----------------------------- Auth views ----------------------------- */
-
-function renderLogin(view, next) {
-  if (state.user) { location.hash = next ? '#' + next : '#/account'; return; }
-
-  view.innerHTML = `
-    <div class="container section">
-      <div class="form-card">
-        <h2>Welcome back</h2>
-        <p class="small">Sign in to your iTHRIFT account. Customers sign in with their email; staff and the administrator sign in with a username.</p>
-        <div id="login-error"></div>
-        <form id="login-form">
-          <div class="field"><label>Email or username <span class="req">*</span></label><input type="text" name="identifier" required autofocus></div>
-          <div class="field"><label>Password <span class="req">*</span></label><input type="password" name="password" required></div>
-          <button class="pill-btn dark full-btn" type="submit">&#8594; Sign In</button>
-        </form>
-        <div class="spacer-sm"></div>
-        <p class="small center">Don&rsquo;t have an account? <a href="#/register${next ? '?next=' + encodeURIComponent(next) : ''}"><strong>Register here</strong></a></p>
-        <div class="spacer-sm"></div>
-        <p class="small"><strong>Demo accounts</strong><br>
-          Customer: lerato.m@gmail.com / Password1<br>
-          Administrator: admin / Admin@123<br>
-          Staff: staff01 / Staff@123</p>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const errBox = document.getElementById('login-error');
-    errBox.innerHTML = '';
-    try {
-      const { token, user } = await api('/auth/login', { method: 'POST', body: { identifier: fd.get('identifier'), password: fd.get('password') } });
-      setSession(token, user);
-      await refreshCartCount();
-      location.hash = next ? '#' + next : (user.type === 'customer' ? '#/shop' : '#/admin');
-    } catch (err) {
-      errBox.innerHTML = `<div class="form-error">${escapeHtml(err.message)}</div>`;
-    }
-  });
-}
-
-function renderRegister(view, next) {
-  if (state.user) { location.hash = next ? '#' + next : '#/account'; return; }
-
-  view.innerHTML = `
-    <div class="container section">
-      <div class="form-card">
-        <h2>Create account</h2>
-        <p class="small">Join iTHRIFT. Complete all required fields.</p>
-        <div id="register-error"></div>
-        <form id="register-form">
-          <div class="form-row">
-            <div class="field"><label>First name <span class="req">*</span></label><input type="text" name="firstName" required></div>
-            <div class="field"><label>Last name <span class="req">*</span></label><input type="text" name="lastName" required></div>
-          </div>
-          <div class="field"><label>Email <span class="req">*</span></label><input type="email" name="email" required placeholder="e.g. thabo@gmail.com"></div>
-          <div class="form-row">
-            <div class="field"><label>Password <span class="req">*</span></label><input type="password" name="password" required></div>
-            <div class="field"><label>Phone (optional)</label><input type="text" name="phone" placeholder="e.g. 082 123 4567"></div>
-          </div>
-          <p class="small" style="margin-top:-8px">Password needs at least 8 characters, with one uppercase letter and one number.</p>
-          <div class="form-row">
-            <div class="field"><label>City (optional)</label><input type="text" name="city"></div>
-            <div class="field"><label>Postal code (optional)</label><input type="text" name="postalCode"></div>
-          </div>
-          <div class="field"><label>Delivery address (optional)</label><input type="text" name="address" placeholder="e.g. 12 Mandela Ave, Soweto, 1804"></div>
-          <button class="pill-btn dark full-btn" type="submit">Create account</button>
-        </form>
-        <div class="spacer-sm"></div>
-        <p class="small center">Already have an account? <a href="#/login${next ? '?next=' + encodeURIComponent(next) : ''}"><strong>Sign in</strong></a></p>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const errBox = document.getElementById('register-error');
-    errBox.innerHTML = '';
-    try {
-      const { token, user } = await api('/auth/register', {
-        method: 'POST',
-        body: Object.fromEntries(fd.entries()),
-      });
-      setSession(token, user);
-      await refreshCartCount();
-      toast('Welcome to iTHRIFT, ' + user.name.split(' ')[0] + '!', 'success');
-      location.hash = next ? '#' + next : '#/shop';
-    } catch (err) {
-      errBox.innerHTML = `<div class="form-error">${escapeHtml(err.message)}</div>`;
-    }
-  });
-}
-
-function renderAccount(view) {
-  if (!requireLogin('/account')) return;
-  const u = state.user;
-
-  view.innerHTML = `
-    <div class="container section">
-      <div class="form-card">
-        <h2>My account</h2>
-        <p><strong>${escapeHtml(u.name)}</strong><br><span class="small">Account type: <span class="badge role-${u.type === 'customer' ? 'staff' : u.type}" style="background:${u.type === 'customer' ? 'var(--ink)' : ''}">${u.type}</span></span></p>
-        ${u.type === 'customer' ? `
-          <a class="pill-btn dark full-btn" href="#/orders">View my orders</a><div class="spacer-sm"></div>
-          <a class="pill-btn full-btn" href="#/wishlist">My wishlist</a><div class="spacer-sm"></div>
-          <a class="pill-btn full-btn" href="#/addresses">Delivery addresses</a><div class="spacer-sm"></div>
-          <a class="pill-btn full-btn" href="#/returns">My returns</a><div class="spacer-sm"></div>` : `<a class="pill-btn dark full-btn" href="#/admin">Go to admin console</a><div class="spacer-sm"></div>`}
-        <button type="button" class="pill-btn full-btn" id="logout-btn">Sign out</button>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    try { await api('/auth/logout', { method: 'POST' }); } catch (_) { /* ignore */ }
-    setSession(null, null);
-    toast('Signed out.');
-    location.hash = '#/shop';
-  });
-}
-
-/* ----------------------------- Address book ----------------------------- */
-
-async function renderAddresses(view, editing = null) {
-  if (!requireLogin('/addresses')) return;
-  if (state.user.type !== 'customer') {
-    view.innerHTML = `<div class="container section center"><h2>Customer accounts only</h2></div>`;
+async function mountGoogleSignIn(container, form, next, onCredential = null) {
+  if (!container) return;
+  let status;
+  try {
+    status = await api('/auth/sso/status');
+  } catch (_) {
+    return; // No status means no button; email and password still work.
+  }
+  if (!status.enabled || !status.clientId) {
+    if (onCredential) container.innerHTML = '<div class="callout warn">Google sign-in is not set up on this server.</div>';
     return;
   }
-  const { addresses } = await api('/addresses');
-  const current = editing ? addresses.find(a => a.id === editing) : null;
-  const val = (k) => escapeHtml(current ? (current[k] || '') : '');
+  try {
+    await loadGoogleScript();
+  } catch (err) {
+    console.warn('[sso]', err.message);
+    return;
+  }
+  // The page may have changed while the script was loading.
+  if (!document.body.contains(container)) return;
 
+  container.innerHTML = (onCredential ? '' : '<div class="sso-divider"><span>or</span></div>') + '<div class="sso-button"></div>';
+  google.accounts.id.initialize({
+    client_id: status.clientId,
+    callback: async (response) => {
+      clearErrors(form);
+      if (onCredential) return onCredential(response.credential);
+      try {
+        const { token, user } = await api('/auth/sso', { method: 'POST', body: { idToken: response.credential } });
+        setSession(token, user);
+        await refreshCounts();
+        toast(`Signed in as ${user.name.split(' ')[0]}.`, 'success');
+        afterSignIn(user, next);
+      } catch (err) { formError(form, err.message); }
+    },
+  });
+  google.accounts.id.renderButton(container.querySelector('.sso-button'), {
+    theme: document.documentElement.dataset.theme === 'dark' ? 'filled_black' : 'outline',
+    size: 'large',
+    shape: 'pill',
+    text: 'continue_with',
+    width: Math.min(container.clientWidth || 360, 400),
+  });
+}
+
+route(/^\/login$/, async (view, _p, query) => {
+  setTitle('Sign in');
+  if (state.user) { afterSignIn(state.user, query.next); return; }
   view.innerHTML = `
-    <div class="container section">
-      <a class="muted-link" href="#/account">&larr; Back to account</a>
-      <h1>Delivery addresses</h1>
-      <div class="two-col">
-        <div>
-          ${addresses.length === 0 ? `<div class="empty-state"><h3>No saved addresses</h3><p>Add one so checkout is quicker.</p></div>` : addresses.map(a => `
-            <div class="address-card ${a.isDefault ? 'is-default' : ''}">
-              <div class="flex-between"><strong>${escapeHtml(a.label)}</strong>${a.isDefault ? '<span class="badge status-delivered">Default</span>' : ''}</div>
-              <div class="small">${escapeHtml(a.recipient)}${a.phone ? ` &middot; ${escapeHtml(a.phone)}` : ''}<br>${escapeHtml([a.line1, a.suburb, a.city, a.postalCode].filter(Boolean).join(', '))}</div>
-              <div class="actions">
-                <button type="button" class="link-btn" data-edit="${a.id}">Edit</button>
-                ${a.isDefault ? '' : `<button type="button" class="link-btn" data-default="${a.id}">Make default</button>`}
-                <button type="button" class="link-btn danger" data-delete="${a.id}">Delete</button>
-              </div>
-            </div>`).join('')}
-        </div>
-        <div class="panel">
-          <h3>${current ? 'Edit address' : 'Add an address'}</h3>
-          <div id="address-error"></div>
-          <form id="address-form">
-            <div class="field"><label for="a-label">Label</label><input id="a-label" name="label" maxlength="30" placeholder="Home, Work, Res" value="${val('label')}"></div>
-            <div class="field"><label for="a-recipient">Recipient name</label><input id="a-recipient" name="recipient" required value="${val('recipient')}"></div>
-            <div class="field"><label for="a-phone">Phone (optional)</label><input id="a-phone" name="phone" inputmode="tel" placeholder="082 123 4567" value="${val('phone')}"></div>
-            <div class="field"><label for="a-line1">Street address</label><input id="a-line1" name="line1" required placeholder="12 Jacaranda Street" value="${val('line1')}"></div>
-            <div class="field"><label for="a-suburb">Suburb (optional)</label><input id="a-suburb" name="suburb" value="${val('suburb')}"></div>
-            <div class="field"><label for="a-city">City or town</label><input id="a-city" name="city" required value="${val('city')}"></div>
-            <div class="field"><label for="a-postal">Postal code</label><input id="a-postal" name="postalCode" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" value="${val('postalCode')}"></div>
-            ${current ? '' : `<label class="small" style="display:flex;gap:6px;align-items:center;margin-bottom:12px"><input type="checkbox" name="isDefault"> Make this my default address</label>`}
-            <button class="pill-btn dark full-btn" type="submit">${current ? 'Save changes' : 'Add address'}</button>
-            ${current ? `<div class="spacer-sm"></div><button class="pill-btn full-btn" type="button" id="cancel-edit">Cancel</button>` : ''}
-          </form>
-        </div>
+    <div class="container">
+      <div class="auth">
+        <h1>Sign in</h1>
+        <p class="muted">Use the email address or cellphone number on your account.</p>
+        <form id="login" novalidate style="margin-top:24px">
+          <div data-form-error></div>
+          <div class="field"><label for="identifier">Email or cellphone number</label><input class="input" id="identifier" name="identifier" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+          <div class="field"><div class="label-row"><label for="password">Password</label><button type="button" class="link small" id="show-pw" aria-controls="password">Show</button></div><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Sign in</button>
+        </form>
+        <div id="google-signin"></div>
+        <p class="small" style="margin-top:20px;text-align:center">New to iTHRIFT? <a class="link" href="#/register${query.next ? '?next=' + encodeURIComponent(query.next) : ''}">Create an account</a></p>
       </div>
-    </div>
-  `;
-
-  document.getElementById('address-form').addEventListener('submit', async (e) => {
+    </div>`;
+  const form = document.getElementById('login');
+  mountGoogleSignIn(document.getElementById('google-signin'), form, query.next);
+  document.getElementById('show-pw').addEventListener('click', (e) => {
+    const pw = form.password;
+    pw.type = pw.type === 'password' ? 'text' : 'password';
+    e.currentTarget.textContent = pw.type === 'password' ? 'Show' : 'Hide';
+  });
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const body = Object.fromEntries(fd.entries());
-    body.isDefault = fd.get('isDefault') === 'on';
+    clearErrors(form);
+    const id = form.identifier.value.trim();
+    if (!id) return fieldError(form, 'identifier', 'Enter your email address or cellphone number.');
+    if (!id.includes('@') && !/^[+\d][\d\s\-()]*$/.test(id)) return fieldError(form, 'identifier', 'Enter an email address or a cellphone number, like 082 123 4567.');
+    if (!form.password.value) return fieldError(form, 'password', 'Enter your password.');
+    busy(form.querySelector('button[type="submit"]'), async () => {
+      try {
+        const { token, user } = await api('/auth/login', { method: 'POST', body: { identifier: form.identifier.value.trim(), password: form.password.value } });
+        setSession(token, user);
+        await refreshCounts();
+        toast(`Signed in as ${user.name.split(' ')[0]}.`, 'success');
+        afterSignIn(user, query.next);
+      } catch (err) { formError(form, err.message); }
+    }, 'Signing in');
+  });
+});
+
+/**
+ * Google sign-in for the Android app. The app opens this page in a browser
+ * tab with a challenge; after Google signs the customer in, the server gives
+ * a single-use code that only the app can swap for a session, and the page
+ * hands that code back to the app through an ithrift:// link. See
+ * server/utils/app-codes.js for why it is a code and not a token.
+ */
+route(/^\/app-sign-in$/, async (view, _p, query) => {
+  setTitle('Sign in to the app');
+  const challenge = query.challenge || '';
+  view.innerHTML = `
+    <div class="container">
+      <div class="auth">
+        <h1>Sign in to the iTHRIFT app</h1>
+        <p class="muted">Choose your Google account. You will go straight back to the app.</p>
+        <form id="app-sso" novalidate style="margin-top:16px"><div data-form-error></div></form>
+        <div id="google-signin"></div>
+        <div id="back-to-app"></div>
+      </div>
+    </div>`;
+  const form = document.getElementById('app-sso');
+  if (!/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
+    formError(form, 'Open this page from the iTHRIFT app: tap Continue with Google on the app\'s sign-in screen.');
+    return;
+  }
+  const back = (qs, label) => {
+    const href = 'ithrift://signed-in?' + qs;
+    document.getElementById('google-signin').innerHTML = '';
+    document.getElementById('back-to-app').innerHTML = `<a class="btn btn-primary btn-lg btn-block" href="${esc(href)}" style="margin-top:20px">${esc(label)}</a>`;
+    window.location.href = href;
+  };
+  mountGoogleSignIn(document.getElementById('google-signin'), form, null, async (credential) => {
     try {
-      if (current) await api(`/addresses/${current.id}`, { method: 'PUT', body });
-      else await api('/addresses', { method: 'POST', body });
-      toast(current ? 'Address updated.' : 'Address saved.', 'success');
-      renderAddresses(view);
+      const { code } = await api('/auth/sso', { method: 'POST', body: { idToken: credential, challenge } });
+      back('code=' + encodeURIComponent(code), 'Open the iTHRIFT app');
     } catch (err) {
-      document.getElementById('address-error').innerHTML = `<div class="form-error">${escapeHtml(err.message)}</div>`;
+      formError(form, err.message);
+      document.getElementById('back-to-app').innerHTML = `<a class="btn btn-secondary btn-lg btn-block" href="ithrift://signed-in?cancelled=1" style="margin-top:20px">Back to the app</a>`;
     }
   });
-  document.getElementById('cancel-edit')?.addEventListener('click', () => renderAddresses(view));
-  view.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => renderAddresses(view, Number(b.dataset.edit))));
-  view.querySelectorAll('[data-default]').forEach(b => b.addEventListener('click', async () => {
-    await api(`/addresses/${b.dataset.default}/default`, { method: 'PUT' });
-    toast('Default address changed.', 'success');
-    renderAddresses(view);
-  }));
-  view.querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', async () => {
-    if (b.dataset.confirm !== 'yes') { b.dataset.confirm = 'yes'; b.textContent = 'Press again to delete'; return; }
-    await api(`/addresses/${b.dataset.delete}`, { method: 'DELETE' });
-    toast('Address deleted.', 'success');
-    renderAddresses(view);
-  }));
-}
+});
 
-/* ----------------------------- My returns ----------------------------- */
-
-async function renderMyReturns(view) {
-  if (!requireLogin('/returns')) return;
-  const { returns } = await api('/returns');
+route(/^\/register$/, async (view, _p, query) => {
+  setTitle('Create an account');
+  if (state.user) { afterSignIn(state.user, query.next); return; }
   view.innerHTML = `
-    <div class="container section">
-      <a class="muted-link" href="#/account">&larr; Back to account</a>
-      <h1>My returns</h1>
-      <p class="small">Items can be returned within 30 days of delivery. Open a delivered order and choose Return this item.</p>
-      ${returns.length === 0 ? `<div class="empty-state"><h3>No returns</h3><a class="pill-btn dark" href="#/orders">View my orders</a></div>` : `
-      <div class="cart-list">
-        ${returns.map(r => `
-          <div class="cart-line">
-            <div class="thumb-sm"><img src="${r.image}" alt=""></div>
-            <div class="grow">
-              <strong>${escapeHtml(r.productName)}</strong>${r.size ? ` <span class="small">size ${escapeHtml(r.size)}</span>` : ''}
-              <div class="small">${escapeHtml(r.reason)} &middot; requested ${timeAgo(r.createdAt)} &middot; <a href="#/orders/${r.orderId}">${r.orderRef}</a></div>
-              ${r.status === 'Refunded' ? `<div class="small">Refunded ${money(r.refundAmount)}</div>` : ''}
-            </div>
-            <span class="badge ${statusClass(r.status)}">${r.status}</span>
-          </div>`).join('')}
-      </div>`}
-    </div>
-  `;
-}
+    <div class="container">
+      <div class="auth">
+        <h1>Create an account</h1>
+        <p class="muted">You start with 50 Thrift Points.</p>
+        <form id="register" novalidate style="margin-top:24px">
+          <div data-form-error></div>
+          <div class="form-grid">
+            <div class="field"><label for="firstName">First name</label><input class="input" id="firstName" name="firstName" autocomplete="given-name" required></div>
+            <div class="field"><label for="lastName">Last name</label><input class="input" id="lastName" name="lastName" autocomplete="family-name" required></div>
+          </div>
+          <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" autocomplete="email" required></div>
+          <div class="field"><label for="phone">Cellphone number</label><input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="082 123 4567" required aria-describedby="phone-hint">
+            <div class="hint" id="phone-hint">You can sign in with this number too.</div></div>
+          <div class="field"><div class="label-row"><label for="password">Password</label><button type="button" class="link small" id="show-pw" aria-controls="password confirmPassword">Show</button></div><input class="input" id="password" name="password" type="password" autocomplete="new-password" required aria-describedby="pw-hint">
+            <div class="hint" id="pw-hint">At least 8 characters, with an uppercase letter and a number.</div></div>
+          <div class="field"><label for="confirmPassword">Confirm password</label><input class="input" id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" required></div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Create account</button>
+        </form>
+        <div id="google-signin"></div>
+        <p class="small" style="margin-top:20px;text-align:center">Already have an account? <a class="link" href="#/login${query.next ? '?next=' + encodeURIComponent(query.next) : ''}">Sign in</a></p>
+      </div>
+    </div>`;
+  const form = document.getElementById('register');
+  mountGoogleSignIn(document.getElementById('google-signin'), form, query.next);
+  document.getElementById('show-pw').addEventListener('click', (e) => {
+    const show = form.password.type === 'password';
+    form.password.type = form.confirmPassword.type = show ? 'text' : 'password';
+    e.currentTarget.textContent = show ? 'Hide' : 'Show';
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearErrors(form);
+    const v = Object.fromEntries(new FormData(form).entries());
+    let bad = false;
+    if (!v.firstName.trim()) { fieldError(form, 'firstName', 'Enter your first name.'); bad = true; }
+    if (!v.lastName.trim()) { fieldError(form, 'lastName', 'Enter your last name.'); bad = true; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) { fieldError(form, 'email', 'Enter an email address like name@example.com.'); bad = true; }
+    if (!saPhone(v.phone)) { fieldError(form, 'phone', 'Enter a South African cellphone number, like 082 123 4567.'); bad = true; }
+    if (!(v.password.length >= 8 && /[A-Z]/.test(v.password) && /\d/.test(v.password))) { fieldError(form, 'password', 'Use at least 8 characters, with an uppercase letter and a number.'); bad = true; }
+    else if (v.confirmPassword !== v.password) { fieldError(form, 'confirmPassword', 'The two passwords do not match.'); bad = true; }
+    if (bad) { form.querySelector('[aria-invalid="true"]').focus(); return; }
+    busy(form.querySelector('button[type="submit"]'), async () => {
+      try {
+        const { token, user } = await api('/auth/register', { method: 'POST', body: v });
+        setSession(token, user);
+        await refreshCounts();
+        go('#/welcome' + (query.next ? '?next=' + encodeURIComponent(query.next) : ''));
+      } catch (err) {
+        if (/email/i.test(err.message)) fieldError(form, 'email', err.message);
+        else if (/cellphone/i.test(err.message)) fieldError(form, 'phone', err.message);
+        else if (/match/i.test(err.message)) fieldError(form, 'confirmPassword', err.message);
+        else formError(form, err.message);
+      }
+    }, 'Creating account');
+  });
+});
 
-function renderAbout(view) {
-  view.innerHTML = `
-    <div class="container section" style="max-width:800px">
-      <div class="eyebrow">Our story</div>
-      <h1 style="font-size:34px;font-weight:900;letter-spacing:-0.03em;line-height:1.1;margin-bottom:16px">Pre-loved fashion that <span style="font-weight:400">tells a story.</span></h1>
-      <p style="font-size:16px;color:var(--muted);max-width:600px;line-height:1.7">iTHRIFT connects South African buyers with verified sellers of premium branded second-hand clothing. Every piece is condition-rated by our team as <strong>Excellent</strong>, <strong>Very Good</strong>, or <strong>Good</strong>, so you know exactly what you're getting.</p>
+/* ----------------------------- Welcome onboarding ----------------------------- */
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:28px 0;border-radius:var(--radius);overflow:hidden">
-        <div style="aspect-ratio:4/3;background:var(--surface-2);border-radius:var(--radius);overflow:hidden">
-          <img src="/images/brand/storefront.jpg" alt="iTHRIFT storefront" style="width:100%;height:100%;object-fit:cover">
-        </div>
-        <div style="background:var(--surface-2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;padding:32px">
-          <div style="text-align:center">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">300+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Happy buyers</div></div>
-              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">620+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Pieces sold</div></div>
-              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">60+</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Verified sellers</div></div>
-              <div><div style="font-size:28px;font-weight:900;letter-spacing:-0.02em">4.8 / 5</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Average rating</div></div>
-            </div>
+route(/^\/welcome$/, async (view, _p, query) => {
+  setTitle('Welcome');
+  if (!requireCustomer(view)) return;
+  const ov = await api('/account/overview');
+  const picks = { sizes: new Set(ov.style.sizes), brands: new Set(ov.style.brands) };
+  let step = 0;
+  const finish = () => { store.set('ithrift_onboard_later', '1'); go(query.next ? '#' + query.next : '#/'); };
+
+  const steps = [
+    () => `
+      <h1>Welcome to iTHRIFT, ${esc(ov.customer.firstName)}.</h1>
+      <p class="lead" style="margin-top:12px">Two quick questions, and the shop will put pieces in your sizes and favourite brands first. You can change them any time under Account.</p>
+      <div class="list" style="margin-top:24px">
+        <div class="list-item"><span class="list-icon pine">${icon('ruler', { size: 18 })}</span><span>Pieces in your sizes, picked out on the home page</span></div>
+        <div class="list-item"><span class="list-icon pine">${icon('bell', { size: 18 })}</span><span>Alerts when a saved piece drops in price</span></div>
+        <div class="list-item"><span class="list-icon pine">${icon('coins', { size: 18 })}</span><span>${ov.points.balance} Thrift Points to start you off</span></div>
+      </div>`,
+    () => `
+      <h1>What sizes do you wear?</h1>
+      <p class="muted" style="margin-top:8px">Choose any that apply.</p>
+      ${sizeGroups(['XS', 'S', 'M', 'L', 'XL', 'XXL', 'UK 3', 'UK 4', 'UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', '28', '30', '32', '34', '36', '38', '40', '42', '44'])
+        .map(([label, list]) => `<h2 style="font-size:1rem;margin:24px 0 10px">${label}</h2><div class="filter-options">${list.map((s) => `<button type="button" class="chip" data-size="${esc(s)}" aria-pressed="${picks.sizes.has(s)}">${esc(s)}</button>`).join('')}</div>`).join('')}`,
+    () => `
+      <h1>Any favourite brands?</h1>
+      <p class="muted" style="margin-top:8px">We will show these first.</p>
+      <div class="filter-options" style="margin-top:20px">${state.brands.filter((b) => b.name !== 'Generic').map((b) => `<button type="button" class="chip" data-brand="${esc(b.name)}" aria-pressed="${picks.brands.has(b.name)}">${esc(b.name)}</button>`).join('')}</div>`,
+  ];
+
+  function draw() {
+    view.innerHTML = `
+      <div class="container">
+        <div class="onboard">
+          <div class="dots" aria-hidden="true">${steps.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
+          <p class="visually-hidden">Step ${step + 1} of ${steps.length}</p>
+          <div class="panel" style="padding:32px">${steps[step]()}</div>
+          <div class="row between" style="margin-top:20px">
+            <button type="button" class="btn btn-ghost" id="skip">${step === 0 ? 'Not now' : 'Back'}</button>
+            <button type="button" class="btn btn-primary btn-lg" id="next">${step === steps.length - 1 ? 'Show me the shop' : step === 0 ? 'Get started' : 'Continue'}</button>
           </div>
         </div>
-      </div>
+      </div>`;
+    view.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => { toggleSet(picks.sizes, b.dataset.size); b.setAttribute('aria-pressed', String(picks.sizes.has(b.dataset.size))); }));
+    view.querySelectorAll('[data-brand]').forEach((b) => b.addEventListener('click', () => { toggleSet(picks.brands, b.dataset.brand); b.setAttribute('aria-pressed', String(picks.brands.has(b.dataset.brand))); }));
+    document.getElementById('skip').addEventListener('click', async () => {
+      if (step > 0) { step--; draw(); return; }
+      try { await api('/account/style', { method: 'PUT', body: { skip: true } }); } catch (_) { /* fine */ }
+      finish();
+    });
+    document.getElementById('next').addEventListener('click', (e) => {
+      if (step < steps.length - 1) { step++; draw(); view.querySelector('h1').focus?.(); return; }
+      busy(e.currentTarget, async () => {
+        try {
+          await api('/account/style', { method: 'PUT', body: { sizes: [...picks.sizes], brands: [...picks.brands] } });
+          toast('Saved. The shop now starts with your sizes.', 'success');
+          finish();
+        } catch (err) { toast(err.message, 'error'); }
+      }, 'Saving');
+    });
+    view.querySelector('h1').setAttribute('tabindex', '-1');
+  }
+  draw();
+});
 
-      <div style="background:var(--surface-2);border-radius:var(--radius);padding:28px;margin:24px 0;border:1.5px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <h3 style="margin:0;font-size:16px">Staying Safe on iTHRIFT</h3>
+function toggleSet(set, v) { if (set.has(v)) set.delete(v); else set.add(v); }
+
+/* ----------------------------- Orders ----------------------------- */
+
+route(/^\/orders$/, async (view) => {
+  setTitle('Orders');
+  if (!requireLogin()) return;
+  if (isStaff()) { go('#/admin/orders'); return; }
+  const { orders } = await api('/orders');
+  if (!orders.length) {
+    view.innerHTML = `<div class="container">${emptyState({ icon: 'package', title: 'No orders yet', text: 'When you buy something, you can follow it here from packing to your door.', actions: '<a class="btn btn-primary" href="#/shop">Start shopping</a>' })}</div>`;
+    return;
+  }
+  const active = orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped');
+  const past = orders.filter((o) => !active.includes(o));
+  const rows = (list) => `<div class="list">${list.map((o) => `
+    <a class="order-row" href="#/orders/${o.id}">
+      <img src="${esc(o.image || '')}" alt="">
+      <div><strong>${esc(o.ref)}</strong><div class="meta">${dateLabel(o.createdAt)}, ${plural(o.itemCount, 'piece')}${o.collectionDate ? `, collect ${esc(ithriftCalendar.label(o.collectionDate))}` : ''}${o.isGift ? ', gift' : ''}</div></div>
+      <div class="right"><span class="pill ${statusClass(o.status)}">${esc(o.status)}</span><span class="num small">${money(o.total)}</span></div>
+    </a>`).join('')}</div>`;
+  view.innerHTML = `
+    <div class="container mid page">
+      <div class="page-head"><div><h1>Orders</h1></div><a class="btn btn-secondary btn-sm" href="#/returns">Returns</a></div>
+      ${active.length ? `<h2 class="group-label" style="margin-top:0">On the way</h2>${rows(active)}` : ''}
+      ${past.length ? `<h2 class="group-label">Earlier</h2>${rows(past)}` : ''}
+    </div>`;
+});
+
+const STATUS_FLOW = ['Processing', 'Shipped', 'Delivered'];
+const STATUS_WORDS = { Processing: 'Order placed', Shipped: 'With the courier', Delivered: 'Delivered', Cancelled: 'Cancelled' };
+
+route(/^\/orders\/(\d+)$/, async (view, [id]) => {
+  if (!requireLogin()) return;
+  const [{ order }, options] = await Promise.all([api(`/orders/${id}`), loadOptions()]);
+  setTitle(order.ref);
+  const staff = isStaff();
+  const step = STATUS_FLOW.indexOf(order.status);
+  const collect = order.deliveryMethod === 'collection';
+
+  view.innerHTML = `
+    <div class="container mid page">
+      <a class="back-link" href="${staff ? '#/admin/orders' : '#/orders'}">${icon('chevron-left', { size: 18 })}Orders</a>
+      <div class="page-head">
+        <div><h1>${esc(order.ref)}</h1><p>Placed ${dateLabel(order.createdAt)} at ${timeLabel(order.createdAt)}${staff ? ` by ${esc(order.customer.name)}, ${esc(order.customer.email)}` : ''}</p></div>
+        <div class="row wrap">
+          <span class="pill ${statusClass(order.status)}">${esc(order.status)}</span>
+          <a class="btn btn-secondary btn-sm" href="#/orders/${order.id}/receipt">${icon('printer', { size: 16 })}Receipt</a>
         </div>
-        <p style="font-size:12px;color:var(--muted2);margin:0 0 16px">Last updated: June 2026</p>
-        <p><strong>Verified Accounts Only</strong><br>Every buyer and seller must register and be verified by our admin team before they can trade.</p>
-        <p><strong>Never Share Personal Details</strong><br>Do not share your phone number, home address or banking details through the chat system. All payments must go through the official iTHRIFT checkout.</p>
-        <p style="margin:0"><strong>Condition-Rated Listings</strong><br>Every listing is reviewed and condition-rated (Excellent, Very Good, or Good) by our team before it goes live.</p>
       </div>
 
-      <a class="pill-btn dark" href="#/shop" style="margin-top:8px;display:inline-flex">Browse the catalogue</a>
-    </div>
-  `;
-}
+      <div class="two-col">
+        <div>
+          <section class="panel" aria-labelledby="track-h">
+            <h2 id="track-h" style="font-size:1.125rem;margin-bottom:12px">${order.status === 'Cancelled' ? 'This order was cancelled' : collect ? 'Collection' : 'Tracking'}</h2>
+            ${order.status !== 'Cancelled' ? `<div class="tracker" aria-hidden="true">${STATUS_FLOW.map((s, i) => `<div class="${i <= step ? 'done' : ''}"><i></i>${collect && s === 'Shipped' ? 'Ready' : collect && s === 'Delivered' ? 'Collected' : s}</div>`).join('')}</div>` : ''}
+            <ol class="timeline">
+              ${order.history.map((h) => `<li class="${h.status === 'Cancelled' ? 'cancelled' : ''}"><div class="t-title">${esc(STATUS_WORDS[h.status] || h.status)}</div><div class="t-when">${dateLabel(h.at, { weekday: true })}, ${timeLabel(h.at)}${h.note ? `. ${esc(h.note)}` : ''}</div></li>`).join('')}
+              ${order.nextStep ? `<li class="next"><div class="t-title">${esc(order.nextStep.status === 'Ready to collect' ? 'Ready to collect' : order.nextStep.status === 'Shipped' ? 'Handed to the courier' : 'Delivery')}</div><div class="t-when">Expected ${order.nextStep.from && order.nextStep.from !== order.nextStep.date ? `${esc(ithriftCalendar.label(order.nextStep.from))} to ` : ''}${esc(ithriftCalendar.label(order.nextStep.date))}${order.nextStep.slot ? `, ${esc(order.nextStep.slot)}` : ''}</div></li>` : ''}
+            </ol>
+            ${order.courierRef ? `<p class="small" style="margin:0">Courier reference <strong>${esc(order.courierRef)}</strong></p>` : ''}
+          </section>
+
+          <section class="panel" aria-labelledby="items-h">
+            <h2 id="items-h" style="font-size:1.125rem;margin-bottom:8px">${plural(order.items.length, 'piece')}</h2>
+            ${order.items.map((i) => `
+              <div class="line">
+                <a class="line-thumb" href="#/product/${i.productId}"><img src="${esc(i.image)}" alt=""></a>
+                <div>
+                  <a class="line-title" href="#/product/${i.productId}">${esc(i.name)}</a>
+                  <div class="line-sub">${esc(i.brand)}${i.size ? `, size ${esc(i.size)}` : ''}${i.quantity > 1 ? `, ${i.quantity} pieces` : ''}</div>
+                  ${i.returnStatus ? `<div style="margin-top:6px"><span class="pill ${statusClass(i.returnStatus)}">Return ${esc(i.returnStatus.toLowerCase())}</span> <span class="small muted">${esc(i.returnReason || '')}</span></div>` : ''}
+                  ${!staff && i.canReturn ? `<button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" data-return="${i.orderItemId}" data-name="${esc(i.name)}">${icon('rotate-ccw', { size: 16 })}Return this piece</button>` : ''}
+                </div>
+                <div class="line-price">${money(i.lineTotal)}</div>
+              </div>`).join('')}
+            ${orderTotals(order)}
+            <p class="tiny muted" style="margin:6px 0 0">Includes ${money(order.vatIncluded, { cents: true })} VAT.</p>
+          </section>
+        </div>
+
+        <aside class="sticky-side">
+          ${staff ? `
+          <section class="panel" aria-labelledby="process-h">
+            <h2 id="process-h" style="font-size:1.125rem;margin-bottom:12px">Process order</h2>
+            ${order.nextStatuses.length ? `
+            <form id="status-form">
+              <div class="field"><label for="st">Move to</label><select class="select" id="st" name="status">${order.nextStatuses.map((s) => `<option value="${s}">${collect ? ({ Shipped: 'Ready to collect', Delivered: 'Collected' }[s] || s) : s}</option>`).join('')}</select></div>
+              <div class="field" id="courier-field"${collect ? ' hidden' : ''}><label for="courier">Courier reference</label><input class="input" id="courier" name="courierRef" value="${esc(order.courierRef || '')}" placeholder="For example CR-1042"></div>
+              <div class="field"><label for="note">Note for the timeline (optional)</label><input class="input" id="note" name="note" maxlength="200"></div>
+              <button class="btn btn-primary btn-block" type="submit">Update order</button>
+            </form>` : `<p class="muted small" style="margin:0">This order is ${esc(order.status.toLowerCase())}, so nothing more can change.</p>`}
+          </section>` : ''}
+          <section class="panel" aria-labelledby="where-h">
+            <h2 id="where-h" style="font-size:1.125rem;margin-bottom:8px">${collect ? 'Collect from' : 'Delivery'}</h2>
+            <p class="small" style="margin:0">${esc(order.deliveryLabel)}<br><span class="muted">${esc((order.deliveryAddress || '').replace(/^Collect from:\s*/, ''))}</span></p>
+            ${order.collectionDate ? `<p class="small" style="margin:8px 0 0"><strong>${esc(ithriftCalendar.label(order.collectionDate))}, ${esc(order.collectionSlot)}</strong></p>` : ''}
+            ${order.deliveryInstructions ? `<p class="small muted" style="margin:8px 0 0">Instructions: ${esc(order.deliveryInstructions)}</p>` : ''}
+            ${order.isGift ? `<div class="callout" style="margin-top:12px">${icon('gift', { size: 18 })}<p>Gift order${order.giftMessage ? `: &ldquo;${esc(order.giftMessage)}&rdquo;` : ''}</p></div>` : ''}
+            <div class="divider"></div>
+            <div class="summary-row"><span>Payment</span><span>${esc(paymentLabel(order.payment))}</span></div>
+            ${order.pointsEarned ? `<div class="summary-row"><span>Points earned</span><span>${order.pointsEarned}</span></div>` : ''}
+          </section>
+          ${!staff ? `
+          <section class="panel">
+            ${order.canCancel ? `<button type="button" class="btn btn-danger btn-block" id="cancel">Cancel this order</button><p class="small muted" style="margin:8px 0 16px">You can cancel until it ships. Paid orders are refunded and any points come back.</p>` : ''}
+            ${order.returnWindowOpen ? `<p class="small muted">You can return pieces for ${plural(order.returnDaysLeft, 'more day')}.</p>` : ''}
+            <a class="btn btn-quiet btn-block" href="#/help/contact?order=${order.id}">${icon('message-square', { size: 16 })}Ask about this order</a>
+          </section>` : ''}
+        </aside>
+      </div>
+    </div>`;
+
+  document.getElementById('cancel')?.addEventListener('click', async () => {
+    const ok = await confirmDialog({ title: `Cancel ${order.ref}?`, body: 'The pieces go back on sale straight away, so you may not get them back. Paid orders are refunded.', confirmLabel: 'Cancel order', danger: true });
+    if (!ok) return;
+    try {
+      await api(`/orders/${order.id}/cancel`, { method: 'PUT' });
+      toast('Order cancelled.', 'success');
+      router();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  view.querySelectorAll('[data-return]').forEach((b) => b.addEventListener('click', () => {
+    const s = openSheet({
+      title: 'Return a piece', variant: 'center',
+      body: `<p class="muted">${esc(b.dataset.name)}</p>
+        <form id="return-form"><div data-form-error></div>
+          <fieldset style="border:0;padding:0;margin:0"><legend class="label">Why are you returning it?</legend>
+            ${options.returnReasons.map((r, i) => `<label class="option"><input type="radio" name="reason" value="${esc(r)}" ${i === 0 ? '' : ''}><span>${esc(r)}</span></label>`).join('')}
+          </fieldset>
+          <div class="field" style="margin-top:16px"><label for="ret-comment">Anything else? (optional)</label><textarea class="textarea" id="ret-comment" name="comment" maxlength="300"></textarea></div>
+        </form>`,
+      foot: `<button type="button" class="btn btn-secondary" data-x>Keep it</button><button type="submit" form="return-form" class="btn btn-primary">Request return</button>`,
+    });
+    s.el.querySelector('[data-x]').addEventListener('click', s.close);
+    s.el.querySelector('#return-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      clearErrors(f);
+      const reason = (f.querySelector('input[name="reason"]:checked') || {}).value;
+      if (!reason) return formError(f, 'Choose a reason.');
+      try {
+        await api(`/orders/${order.id}/returns`, { method: 'POST', body: { orderItemId: Number(b.dataset.return), reason, comment: f.comment.value || undefined } });
+        s.close();
+        toast('Return requested. We will let you know once it is approved.', 'success');
+        router();
+      } catch (err) { formError(f, err.message); }
+    });
+  }));
+
+  const sf = document.getElementById('status-form');
+  if (sf) {
+    const syncCourier = () => { document.getElementById('courier-field').hidden = collect || sf.status.value !== 'Shipped'; };
+    sf.status.addEventListener('change', syncCourier);
+    syncCourier();
+    sf.addEventListener('submit', (e) => {
+      e.preventDefault();
+      busy(sf.querySelector('button'), async () => {
+        try {
+          await api(`/orders/${order.id}/status`, { method: 'PUT', body: { status: sf.status.value, courierRef: sf.courierRef.value || undefined, note: sf.note.value || undefined } });
+          toast(`Order marked ${sf.status.value.toLowerCase()}. The customer has been notified.`, 'success');
+          router();
+        } catch (err) { toast(err.message, 'error'); }
+      }, 'Updating');
+    });
+  }
+});
+
+/* ----------------------------- Receipt (tax invoice) ----------------------------- */
+
+route(/^\/orders\/(\d+)\/receipt$/, async (view, [id], query) => {
+  if (!requireLogin()) return;
+  const { order } = await api(`/orders/${id}`);
+  setTitle(`Receipt ${order.ref}`);
+  const gift = query.gift === '1';
+  view.innerHTML = `
+    <div class="container">
+      <div class="row wrap no-print" style="padding-top:24px;justify-content:space-between">
+        <a class="back-link" href="#/orders/${order.id}" style="margin:0">${icon('chevron-left', { size: 18 })}${esc(order.ref)}</a>
+        <div class="row wrap">
+          <div class="segmented" role="group" aria-label="Receipt type">
+            <button type="button" aria-pressed="${!gift}" onclick="go('#/orders/${order.id}/receipt')">Tax invoice</button>
+            <button type="button" aria-pressed="${gift}" onclick="go('#/orders/${order.id}/receipt?gift=1')">Gift slip</button>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">${icon('printer', { size: 16 })}Print or save as PDF</button>
+        </div>
+      </div>
+      <article class="receipt">
+        <div class="receipt-head">
+          <div><div class="logo" style="margin-bottom:16px"><span class="logo-mark">i</span>iTHRIFT Clothes</div>
+            <p class="small muted" style="margin:0">${esc(order.store.address)}<br>${esc(order.store.email)}, ${esc(order.store.phone)}</p></div>
+          <div style="text-align:right"><h1>${gift ? 'Gift slip' : 'Tax invoice'}</h1><p class="small muted" style="margin:6px 0 0">${esc(order.ref)}<br>${dateLabel(order.createdAt)}</p></div>
+        </div>
+        <p class="small" style="margin:24px 0 0"><strong>${gift ? 'For' : 'Customer'}</strong><br>${esc(gift ? (order.deliveryAddress || '').split(',')[0] : order.customer.name)}${gift ? '' : `<br>${esc(order.customer.email)}`}</p>
+        ${gift && order.giftMessage ? `<p style="margin-top:16px;font-size:1.125rem">&ldquo;${esc(order.giftMessage)}&rdquo;</p>` : ''}
+        <table>
+          <thead><tr><th>Item</th><th>Size</th><th>Qty</th>${gift ? '' : '<th>Amount</th>'}</tr></thead>
+          <tbody>${order.items.map((i) => `<tr><td>${esc(i.brand)} ${esc(i.name)}<br><span class="small muted">${esc(i.productRef)}, pre-loved, ${esc(i.category.toLowerCase())}</span></td><td>${esc(i.size || '')}</td><td>${i.quantity}</td>${gift ? '' : `<td>${money(i.lineTotal, { cents: true })}</td>`}</tr>`).join('')}</tbody>
+        </table>
+        ${gift ? '<p class="small muted">Returns within 30 days of delivery with this slip. The refund goes to the person who paid.</p>' : `
+        <div style="max-width:320px;margin-left:auto">
+          <div class="summary-row"><span>Subtotal</span><span>${money(order.subtotal, { cents: true })}</span></div>
+          ${order.discount ? `<div class="summary-row"><span>Promo ${esc(order.promoCode || '')}</span><span>-${money(order.discount, { cents: true })}</span></div>` : ''}
+          ${order.pointsDiscount ? `<div class="summary-row"><span>Thrift Points</span><span>-${money(order.pointsDiscount, { cents: true })}</span></div>` : ''}
+          <div class="summary-row"><span>${esc(order.deliveryLabel)}</span><span>${money(order.deliveryFee, { cents: true })}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${money(order.total, { cents: true })}</span></div>
+          <div class="summary-row small muted"><span>VAT included at 15%</span><span>${money(order.vatIncluded, { cents: true })}</span></div>
+          <div class="summary-row small muted"><span>Paid by</span><span>${esc(paymentLabel(order.payment))}</span></div>
+        </div>`}
+      </article>
+    </div>`;
+});
+
+/* ----------------------------- Returns ----------------------------- */
+
+route(/^\/returns$/, async (view) => {
+  setTitle('Returns');
+  if (!requireCustomer(view)) return;
+  const { returns } = await api('/returns');
+  const steps = ['Requested', 'Approved', 'Refunded'];
+  view.innerHTML = `
+    <div class="container mid page">
+      <a class="back-link" href="#/account">${icon('chevron-left', { size: 18 })}Account</a>
+      <div class="page-head"><div><h1>Returns</h1><p>Return any piece within 30 days of delivery. Open the order and choose Return this piece.</p></div></div>
+      ${returns.length ? `<div class="panel">${returns.map((r) => `
+        <div class="line">
+          <span class="line-thumb"><img src="${esc(r.image)}" alt=""></span>
+          <div>
+            <div class="line-title">${esc(r.productName)}</div>
+            <div class="line-sub">${r.size ? `Size ${esc(r.size)}, ` : ''}${esc(r.reason)}. Asked ${timeAgo(r.createdAt)} on <a class="link" href="#/orders/${r.orderId}">${esc(r.orderRef)}</a></div>
+            ${r.status !== 'Rejected' ? `<div class="tracker" style="margin:12px 0 0;max-width:360px" aria-label="Return ${esc(r.status.toLowerCase())}">${steps.map((s, i) => `<div class="${i <= steps.indexOf(r.status) ? 'done' : ''}"><i></i>${s}</div>`).join('')}</div>` : '<p class="small" style="margin:8px 0 0;color:var(--bad)">This return was not accepted. Contact us from Help if you think that is wrong.</p>'}
+          </div>
+          <div class="line-price">${r.status === 'Refunded' ? money(r.refundAmount) : `<span class="pill ${statusClass(r.status)}">${esc(r.status)}</span>`}</div>
+        </div>`).join('')}</div>` : emptyState({ icon: 'rotate-ccw', title: 'No returns', text: 'If something is not right, open a delivered order and choose Return this piece.', actions: '<a class="btn btn-primary" href="#/orders">Open my orders</a>' })}
+    </div>`;
+});
+
+/* ----------------------------- About ----------------------------- */
+
+route(/^\/about$/, async (view) => {
+  setTitle('About');
+  const { products } = await api('/products?inStock=true');
+  view.innerHTML = `
+    <div class="container narrow page">
+      <h1 style="max-width:16ch">A Pretoria shop for clothes that still have years in them.</h1>
+      <p class="lead" style="margin-top:16px">iTHRIFT Clothes buys pre-owned branded clothing, checks every piece by hand and sells it on at a price students can manage. We started on WhatsApp and Instagram; this site brings the whole rack online.</p>
+      <img src="/images/brand/storefront.jpg" alt="The iTHRIFT Clothes store front in Hatfield" style="border-radius:var(--r-lg);margin:32px 0;width:100%;aspect-ratio:16/9;object-fit:cover">
+      <h2 style="margin-bottom:12px">How a piece gets on the rack</h2>
+      <ol class="timeline" style="margin-bottom:32px">
+        <li><div class="t-title">We buy it</div><div class="t-when">From customers selling through Sell to us, and from bulk lots.</div></li>
+        <li><div class="t-title">We check and grade it</div><div class="t-when">Seams, zips, soles and fading, then a grade from Fair to Excellent. Any flaw is written in the description.</div></li>
+        <li><div class="t-title">We clean, measure and photograph it</div><div class="t-when">Every piece is listed in its real size, with stock per size.</div></li>
+        <li><div class="t-title">It goes on sale</div><div class="t-when">Right now there are ${products.length} pieces on the rack.</div></li>
+      </ol>
+      <div class="row wrap"><a class="btn btn-primary" href="#/shop">Shop the rack</a><a class="btn btn-secondary" href="#/help">Help and contact</a></div>
+    </div>`;
+});
