@@ -158,7 +158,19 @@ route(/^\/account\/settings$/, async (view) => {
           <div class="switch-row"><label for="a-motion"><strong>Reduce motion</strong><br><span class="small muted">Turns off sliding and fading. Your device setting is followed too.</span></label><span class="switch"><input type="checkbox" id="a-motion" ${prefs.reduceMotion() ? 'checked' : ''}><span></span></span></div>
         </div>
       </section>
-      ${customer ? `<p class="small"><a class="link" href="#/account/style">Edit your sizes and favourite brands</a></p>` : ''}
+      ${customer ? `<p class="small"><a class="link" href="#/account/style">Edit your sizes and favourite brands</a></p>
+
+      <section class="settings-group" aria-labelledby="del-h" style="margin-top:32px">
+        <h2 id="del-h">Delete your account</h2>
+        <form class="panel" id="delete-account" novalidate>
+          <div data-form-error></div>
+          <p class="small muted" style="margin-top:0">This erases your name, email, cellphone number, addresses, wishlist, alerts and messages, and you will not be able to sign in again. Your orders stay in our accounts without your details, as the law requires. See our <a class="link" href="#/privacy">privacy policy</a>.</p>
+          ${p.canChangePassword
+            ? `<div class="field"><label for="del-pw">Your password</label><input class="input" id="del-pw" name="password" type="password" autocomplete="current-password"></div>`
+            : `<div class="field"><label for="del-confirm">Type DELETE to confirm</label><input class="input" id="del-confirm" name="confirm" autocapitalize="characters" spellcheck="false"></div>`}
+          <button class="btn btn-danger" type="submit">Delete my account</button>
+        </form>
+      </section>` : ''}
     </div>`;
 
   view.querySelectorAll('[data-theme-choice]').forEach((b) => b.addEventListener('click', () => {
@@ -207,6 +219,28 @@ route(/^\/account\/settings$/, async (view) => {
   };
   document.getElementById('n-orders').addEventListener('change', savePrefs);
   document.getElementById('n-alerts').addEventListener('change', savePrefs);
+
+  // Deleting the account: the server checks the password (or the typed DELETE),
+  // refuses while an order is on its way, and ends the session everywhere.
+  const del = document.getElementById('delete-account');
+  del.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors(del);
+    const body = p.canChangePassword ? { password: del.password.value } : { confirm: del.confirm.value };
+    if (p.canChangePassword && !body.password) return fieldError(del, 'password', 'Enter your password.');
+    if (!p.canChangePassword && body.confirm.trim().toUpperCase() !== 'DELETE') return fieldError(del, 'confirm', 'Type DELETE to confirm.');
+    if (!(await confirmDialog({ title: 'Delete your account?', body: 'This cannot be undone. Your Thrift Points and saved pieces go with it.', confirmLabel: 'Delete my account', danger: true }))) return;
+    busy(del.querySelector('button'), async () => {
+      try {
+        await api('/auth/delete-account', { method: 'POST', body });
+        setSession(null, null);
+        toast('Your account has been deleted.', 'success');
+        go('#/');
+      } catch (err) {
+        if (p.canChangePassword && /password/i.test(err.message)) fieldError(del, 'password', err.message); else formError(del, err.message);
+      }
+    }, 'Deleting');
+  });
 });
 
 /* ----------------------------- Style profile ----------------------------- */
@@ -572,6 +606,7 @@ const FAQ = [
   ['account', 'Your account', [
     ['I signed up with Google. How do I sign in?', 'Use Continue with Google in the iTHRIFT app. There is no password on your iTHRIFT account to type.'],
     ['How do I stop notifications?', 'Account, then Settings. You can switch off order updates and shopping alerts separately.'],
+    ['How do I delete my account?', 'Account, then Settings, then Delete my account. Your personal details are erased at once and you are signed out everywhere. Your orders stay in our records without your name, as the law requires. See the privacy policy, linked at the bottom of every page.'],
   ]],
 ];
 

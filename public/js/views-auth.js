@@ -546,6 +546,52 @@ route(/^\/returns$/, async (view) => {
 
 /* ----------------------------- About ----------------------------- */
 
+/**
+ * The privacy policy, written for the Protection of Personal Information Act
+ * (POPIA) and linked from the Play Store listing, the footer and Settings.
+ * It describes what this system actually stores; keep it in step with the
+ * database (server/init-db.js) when a table gains personal data.
+ */
+route(/^\/privacy$/, async (view) => {
+  setTitle('Privacy policy');
+  view.innerHTML = `
+    <div class="container narrow page prose">
+      <h1>Privacy policy</h1>
+      <p class="lead" style="margin-top:12px">How iTHRIFT Clothes looks after the personal information you give us on this website and in the iTHRIFT app. Last updated 26 October 2026.</p>
+
+      <h2>Who we are</h2>
+      <p>iTHRIFT Clothes, Hatfield Plaza, Burnett Street, Hatfield, Pretoria, 0083. We are the responsible party for your information under the Protection of Personal Information Act 4 of 2013 (POPIA). Questions go to <a class="link" href="mailto:support@ithrift.co.za">support@ithrift.co.za</a> or 012 345 6789.</p>
+
+      <h2>What we collect, and why</h2>
+      <ul>
+        <li><strong>Your account:</strong> your name, email address, cellphone number and a scrambled (hashed) copy of your password. We never store the password itself. If you sign in with Google, we receive your name, email address and Google's account number for you, and no password at all.</li>
+        <li><strong>Delivery:</strong> the addresses you save, so we can deliver your orders.</li>
+        <li><strong>Orders and payments:</strong> what you bought, the price, how it was delivered and how you paid. We do not store card numbers.</li>
+        <li><strong>Things you choose to give us:</strong> your sizes and favourite brands, your wishlist, saved searches and alerts, reviews, questions, pieces you offer to sell us, and messages to our support team.</li>
+        <li><strong>On your device:</strong> the website and the app keep your sign-in, your theme and similar settings on your own phone or browser. We use no advertising or tracking cookies.</li>
+      </ul>
+      <p>We use this information only to run your account, deliver and support your orders, pay you for pieces you sell us, send the notifications you have switched on, and keep the records the law requires of a shop.</p>
+
+      <h2>Who else sees it</h2>
+      <p>Our staff, to process your orders. Our hosting provider, which stores the database for us. Google, only if you choose Continue with Google, and only to confirm who you are. We do not sell your information or share it for marketing.</p>
+
+      <h2>How long we keep it</h2>
+      <p>For as long as you have an account. Order and payment records are kept for at least five years after the sale, as South African tax law requires, but without your name or contact details once your account is deleted.</p>
+
+      <h2>Your rights</h2>
+      <p>You may ask to see the information we hold about you, have it corrected, or have it deleted, and you may object to how it is used. You can correct most of it yourself under Account, Settings. If you are unhappy with how we handle your information you may complain to the Information Regulator (South Africa).</p>
+
+      <h2 id="delete">Deleting your account</h2>
+      <p>On the website or in the app, open <strong>Account, Settings</strong> and choose <strong>Delete my account</strong>. This erases your name, email, cellphone number, addresses, wishlist, alerts and messages at once, and signs you out everywhere. If an order is still on its way, you can delete your account once it has arrived. You can also email <a class="link" href="mailto:support@ithrift.co.za">support@ithrift.co.za</a> from the address on your account and we will delete it for you within 30 days.</p>
+
+      <h2>Security</h2>
+      <p>Information travels over an encrypted connection (HTTPS). Passwords are stored only as salted scrypt hashes, staff can only reach what their role allows, and every request is checked on our server.</p>
+
+      <h2>Children</h2>
+      <p>Our shop is meant for people aged 18 and over. We do not knowingly collect information from children.</p>
+    </div>`;
+});
+
 route(/^\/about$/, async (view) => {
   setTitle('About');
   const { products } = await api('/products?inStock=true');

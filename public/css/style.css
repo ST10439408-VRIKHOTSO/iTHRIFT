@@ -131,6 +131,11 @@ h3 { font-size: 1.125rem; letter-spacing: -0.01em; }
 h4 { font-size: 1rem; letter-spacing: -0.005em; }
 p { margin: 0 0 var(--s3); max-width: 68ch; }
 .lead { font-size: 1.0625rem; color: var(--muted); }
+/* Long-form text such as the privacy policy. */
+.prose h2 { margin: var(--s6) 0 var(--s2); }
+.prose p, .prose li { color: var(--ink-2); line-height: 1.6; }
+.prose ul { padding-left: 1.25rem; margin: var(--s2) 0; }
+.prose li { margin-bottom: var(--s2); }
 .muted { color: var(--muted); }
 .faint { color: var(--faint); }
 .small { font-size: 0.875rem; }
@@ -664,6 +669,9 @@ details.disclosure .disclosure-body { padding-bottom: var(--s4); }
   position: fixed; z-index: 45; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + var(--s4) + env(safe-area-inset-bottom));
   display: flex; align-items: center; gap: var(--s3); padding: 8px 8px 8px 12px; border-radius: 999px; background: var(--ink); color: var(--paper);
   box-shadow: var(--shadow-2); animation: toastIn var(--t) var(--ease);
+  /* Positioned from the middle, a fixed box only gets half the screen to shrink into,
+     which wrapped "3 of 3" onto three lines on a phone. Size it to its content instead. */
+  width: max-content; max-width: calc(100vw - 2 * var(--s4)); white-space: nowrap;
 }
 .compare-tray .thumbs { display: flex; }
 .compare-tray .thumbs img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--ink); margin-left: -8px; }
