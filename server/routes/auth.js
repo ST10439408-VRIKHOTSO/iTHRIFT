@@ -4,7 +4,8 @@ const express = require('express');
 const { getDb } = require('../db');
 const { hashPassword, verifyPassword, isPasswordStrong } = require('../utils/password');
 const { verifyGoogleIdToken, isSsoConfigured, webClientId } = require('../utils/sso');
-const { createSession, destroySession, requireAuth, requireRole } = require('../middleware/auth');
+const crypto = require('node:crypto');
+const { createSession, destroySession, destroySessionsFor, requireAuth, requireRole } = require('../middleware/auth');
 const appCodes = require('../utils/app-codes');
 const { normalisePhone, formatPhone, looksLikePhone, findCustomerByPhone, PHONE_HINT } = require('../utils/phone');
 
@@ -313,6 +314,71 @@ router.post('/change-password', requireAuth, requireRole('customer'), (req, res)
     .run(hash, salt, req.user.id);
 
   console.log(`[auth] customer ${req.user.id} changed their password`);
+  res.json({ ok: true });
+});
+
+/**
+ * A customer deletes their own account.
+ *
+ * The personal details are erased and the account can never sign in again.
+ * Orders, payments and returns are kept, because a shop must keep its sales
+ * records for tax; they stay attached to a row that now reads "Deleted
+ * customer" and holds nothing that identifies a person. Reviews and product
+ * questions stay up under that name. Deletion waits until no order is still
+ * on its way, so a parcel is never left without a delivery contact.
+ *
+ * A password account confirms with its password; a Google account, which has
+ * none, confirms by typing DELETE.
+ *
+ * References: Protection of Personal Information Act 4 of 2013, section 24
+ * (correction and deletion); Google Play, "Understanding Google Play's app
+ * account deletion requirements", https://support.google.com/googleplay/android-developer/answer/13327111
+ */
+router.post('/delete-account', requireAuth, requireRole('customer'), (req, res) => {
+  const { password, confirm } = req.body || {};
+  const db = getDb();
+  const customer = db.prepare('SELECT * FROM Customer WHERE CustomerID = ?').get(req.user.id);
+  if (!customer) return res.status(404).json({ error: 'That account no longer exists.' });
+
+  if (customer.AuthProvider === 'password') {
+    if (!password) return res.status(400).json({ error: 'Enter your password to delete your account.' });
+    if (!verifyPassword(password, customer.PasswordSalt, customer.PasswordHash)) {
+      return res.status(401).json({ error: 'Your password is not correct.' });
+    }
+  } else if (String(confirm || '').trim().toUpperCase() !== 'DELETE') {
+    return res.status(400).json({ error: 'Type DELETE to confirm.' });
+  }
+
+  const { open } = db.prepare(`SELECT COUNT(*) AS open FROM Orders
+    WHERE CustomerID = ? AND Status IN ('Processing', 'Shipped')`).get(customer.CustomerID);
+  if (open > 0) {
+    return res.status(409).json({ error: 'You have an order that is still on its way. You can delete your account once it has been delivered or cancelled.' });
+  }
+
+  const id = customer.CustomerID;
+  // A random hash and salt match no password, so the row can never sign in again.
+  const unusable = crypto.randomBytes(32).toString('hex');
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM CartItem WHERE CartID IN (SELECT CartID FROM Cart WHERE CustomerID = ?)').run(id);
+    db.prepare('DELETE FROM SupportMessage WHERE TicketID IN (SELECT TicketID FROM SupportTicket WHERE CustomerID = ?)').run(id);
+    for (const table of ['Cart', 'Address', 'WishlistItem', 'SavedSearch', 'StockAlert', 'Notification', 'SupportTicket']) {
+      db.prepare(`DELETE FROM ${table} WHERE CustomerID = ?`).run(id);
+    }
+    db.prepare(`UPDATE Customer SET FirstName = 'Deleted', LastName = 'customer', Email = ?,
+      PasswordHash = ?, PasswordSalt = ?, AuthProvider = 'password', ProviderSubject = NULL,
+      Phone = NULL, AddressLine = NULL, City = NULL, PostalCode = NULL, Status = 'suspended',
+      PreferredSizes = NULL, FavouriteBrands = NULL, NotifyOrders = 0, NotifyAlerts = 0
+      WHERE CustomerID = ?`).run(`deleted-${id}@deleted.invalid`, unusable, unusable, id);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    console.error(`[auth] deleting customer ${id} failed:`, err.message);
+    return res.status(500).json({ error: 'Your account could not be deleted. Please try again.' });
+  }
+
+  destroySessionsFor('customer', id);
+  console.log(`[auth] customer ${id} deleted their account`);
   res.json({ ok: true });
 });
 

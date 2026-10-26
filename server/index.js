@@ -70,7 +70,7 @@ apiRouter.get('/', (_req, res) => {
     endpoints: [
       'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me',
       'POST /api/auth/sso', 'GET /api/auth/sso/status',
-      'GET /api/auth/profile', 'PUT /api/auth/profile', 'POST /api/auth/change-password',
+      'GET /api/auth/profile', 'PUT /api/auth/profile', 'POST /api/auth/change-password', 'POST /api/auth/delete-account',
       'GET /api/products', 'GET /api/products/:id', 'GET /api/products/brands', 'GET /api/products/categories',
       'GET /api/products/:id/reviews', 'POST /api/products/:id/reviews',
       'POST /api/products', 'PUT /api/products/:id', 'DELETE /api/products/:id',

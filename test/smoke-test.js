@@ -592,6 +592,62 @@ async function main() {
     check('The token no longer works after logout', afterLogout.status === 401);
   }
 
+  // --- Deleting an account (POPIA, and Google Play's account deletion rule) ---
+  // A throwaway customer with an order on its way: deletion waits for the
+  // order, then erases the personal details and ends every session.
+  {
+    const delEmail = `delete.${Date.now()}@example.com`;
+    const created = await call('/api/auth/register', {
+      method: 'POST',
+      body: { firstName: 'Delete', lastName: 'Me', email: delEmail, phone: freshPhone(), password: 'Password9' },
+    });
+    check('A throwaway account is registered for the deletion tests', created.status === 201);
+    const delToken = created.data.token;
+    const delId = created.data.user.id;
+    const secondDevice = (await call('/api/auth/login', { method: 'POST', body: { identifier: delEmail, password: 'Password9' } })).data.token;
+
+    const staffTry = await call('/api/auth/delete-account', { method: 'POST', token: staffToken, body: { password: 'Staff@123' } });
+    check('Staff accounts cannot use the customer account deletion route', staffTry.status === 403);
+
+    const wrong = await call('/api/auth/delete-account', { method: 'POST', token: delToken, body: { password: 'NotMyPassword1' } });
+    check('Deleting an account needs the correct password', wrong.status === 401);
+
+    // Put an order on its way: an address, one piece in the bag, checkout.
+    await call('/api/addresses', { method: 'POST', token: delToken, body: { recipient: 'Delete Me', line1: '1 Test Street', city: 'Pretoria', postalCode: '0083' } });
+    const listed = (await call('/api/products?inStock=true')).data.products;
+    let piece = null;
+    for (const p of listed) {
+      const detail = (await call(`/api/products/${p.id}`)).data.product;
+      const size = (detail.sizes || []).find(s => s.stock > 0);
+      if (size) { piece = { id: detail.id, size: size.size }; break; }
+    }
+    await call('/api/cart/items', { method: 'POST', token: delToken, body: { productId: piece.id, quantity: 1, size: piece.size } });
+    const order = await call('/api/orders', { method: 'POST', token: delToken, body: { method: 'eft' } });
+    check('The throwaway account places an order', order.status === 201);
+
+    const tooSoon = await call('/api/auth/delete-account', { method: 'POST', token: delToken, body: { password: 'Password9' } });
+    check('An account with an order still on its way cannot be deleted yet', tooSoon.status === 409 && /on its way/.test(tooSoon.data.error));
+
+    await call(`/api/orders/${order.data.order.id}/cancel`, { method: 'PUT', token: delToken });
+    const deleted = await call('/api/auth/delete-account', { method: 'POST', token: delToken, body: { password: 'Password9' } });
+    check('A customer can delete their own account once nothing is on its way', deleted.status === 200 && deleted.data.ok === true);
+
+    const signIn = await call('/api/auth/login', { method: 'POST', body: { identifier: delEmail, password: 'Password9' } });
+    check('A deleted account can no longer sign in', signIn.status === 401);
+
+    const thisDevice = await call('/api/cart', { token: delToken });
+    const otherDevice = await call('/api/cart', { token: secondDevice });
+    check('Deleting an account ends its sessions on every device', thisDevice.status === 401 && otherDevice.status === 401);
+
+    const customers = await call('/api/admin/users', { token: adminToken });
+    const row = (customers.data.customers || customers.data.users || []).find(c => (c.id ?? c.CustomerID) === delId);
+    const flat = JSON.stringify(row || {});
+    check('The deleted customer keeps no name, email or phone number', !!row && !flat.includes(delEmail) && !flat.includes('Delete Me') && /Deleted/.test(flat));
+
+    const history = await call(`/api/orders/${order.data.order.id}`, { token: adminToken });
+    check('The order record is kept for the shop\'s accounts', history.status === 200);
+  }
+
   console.log(`\n${pass} passed, ${fail} failed, ${pass + fail} total checks.\n`);
   if (fail > 0) {
     console.log('Failed checks:');

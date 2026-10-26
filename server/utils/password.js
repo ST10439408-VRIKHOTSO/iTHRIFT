@@ -1,5 +1,9 @@
 'use strict';
 
+// References:
+//  - Node.js crypto.scrypt and crypto.timingSafeEqual: https://nodejs.org/api/crypto.html
+//  - OWASP Password Storage Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+
 const crypto = require('node:crypto');
 
 const KEY_LEN = 64;

@@ -22,6 +22,13 @@ function destroySession(token) {
   sessions.delete(token);
 }
 
+/** Ends every session one user holds, on every device (used when an account is deleted). */
+function destroySessionsFor(type, id) {
+  for (const [token, user] of sessions) {
+    if (user.type === type && user.id === id) sessions.delete(token);
+  }
+}
+
 function getSessionUser(token) {
   return sessions.get(token) || null;
 }
@@ -52,4 +59,4 @@ function requireRole(...types) {
   };
 }
 
-module.exports = { createSession, destroySession, getSessionUser, attachUser, requireAuth, requireRole };
+module.exports = { createSession, destroySession, destroySessionsFor, getSessionUser, attachUser, requireAuth, requireRole };
