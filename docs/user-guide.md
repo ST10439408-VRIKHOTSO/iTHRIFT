@@ -114,7 +114,7 @@ sends people to the website.
   matches, you get a notification. Manage them under **Account, Saved searches**.
 - Start typing in the search box for suggestions; press `/` anywhere to jump to it.
 - The compare button on a piece adds it to a tray; open **Compare** to see up to
-  four side by side.
+  three side by side.
 
 ### Deciding on a piece
 
@@ -134,7 +134,7 @@ sends people to the website.
 | **Style profile** | Your sizes and favourite brands, used for **For you** and **My sizes**. |
 | **Saved searches** and **Back-in-stock alerts** | What you are watching; remove anything you no longer want. |
 | **Notifications** | Order updates, price drops, alerts and replies. |
-| **Settings** | Profile, password, which notifications you get, and appearance: light, dark or system theme, larger text and reduced motion. |
+| **Settings** | Profile, password, which notifications you get, and appearance: light, dark or system theme, larger text and reduced motion. At the bottom, **Delete my account** erases your personal details and signs you out everywhere (see the privacy policy at `#/privacy`). |
 | **Sell to us** | Offer a piece to the shop. When an offer arrives, take it by EFT or as Thrift Points worth 20 percent more. |
 | **Help** | Searchable answers, the size guide, and **Message us** for anything else. Replies arrive under **Messages**. |
 

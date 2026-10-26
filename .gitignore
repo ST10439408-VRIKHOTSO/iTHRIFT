@@ -14,6 +14,8 @@ public/images/products/*.svg
 build/
 app/build/
 captures/
+# Screenshot-test output; the curated copies live in docs/task3/figures
+app/screens/
 local.properties
 *.apk
 *.aab
