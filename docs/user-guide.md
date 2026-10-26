@@ -16,6 +16,11 @@ answers in shorter form. If you change one, change the other.
 
 ## Part 1: The Android application
 
+The application looks and works like the website: the same design, the same
+features and the same account, because both talk to the same server. Part 2
+describes the features in detail; this part covers what is different on a
+phone.
+
 ### Installing it
 
 The application is not on the Google Play Store yet, so it installs from a
@@ -27,165 +32,63 @@ file.
 2. Open the file on the phone. Android will ask whether to allow installs
    from this source; say yes. This is normal for an application that has not
    come from the Play Store.
-3. Open **iTHRIFT** from the app drawer.
+3. Open **iTHRIFT** from the app drawer. Its icon is the pine square with an i.
 
-### Pointing it at the server
+### Which server it uses
 
-The application talks to the iTHRIFT server. Until it knows where that is,
-nothing will load.
+Out of the box the app uses the hosted iTHRIFT server,
+`https://ithrift-api.onrender.com`, the same one the hosted website uses.
+Nothing needs setting up.
 
-Open **Account → Settings → Connection** and set the server address:
+The hosted server sleeps after 15 quiet minutes, so the very first screen can
+take up to a minute to load. After that it is quick.
+
+To use a server running on your own computer instead, open **Account,
+Settings, Connection**, type the address and tap **Save and test**:
 
 | Where the app is running | Address to use |
 |---|---|
-| Android emulator on the same computer as the server | `http://10.0.2.2:3000` (already set) |
+| Android emulator on the same computer as the server | `http://10.0.2.2:3000` |
 | A real phone on the same Wi-Fi as the server | `http://<the computer's IP>:3000`, e.g. `http://192.168.0.10:3000` |
 
-Tap **Save address**, then **Test connection**. It will tell you plainly
-whether it got through.
+**Use the hosted server** puts it back.
 
 > **`localhost` will not work on a phone.** On a phone, `localhost` means the
-> phone itself, and the phone is not running the server. Use the computer's
-> address on the network. On Windows, `ipconfig` prints it; on macOS and
-> Linux, `ifconfig` or `ip addr`.
+> phone itself, and the phone is not running the server.
+
+### Getting around
+
+The tab bar at the bottom has **Shop**, **Search**, **Bag**, **Orders** and
+**Account**. The bell at the top opens your notifications; the number on it is
+how many are unread. The number on **Bag** is how many pieces are in it.
+
+Signed in as staff or the administrator, the tabs become **Shop**, **Search**,
+**Console**, **Orders** and **Account**, and the console works as described in
+Part 3.
 
 ### Getting an account
 
-**If you already have one**, open the **Account** tab, type your email
-address and password, and tap **Sign in**.
+Tap **Account**, then **Sign in** or **Create an account**. A new account
+starts with 50 Thrift Points and a short welcome that asks for your sizes and
+favourite brands. **Not now** skips it; you can set them later under
+**Account, Your sizes and brands**.
 
-**If you don't**, either:
+If the server has Google sign-in switched on, **Continue with Google** appears
+under the form.
 
-- fill in the **Create account** form: first name, last name, email address
-  and a password of at least 8 characters with an uppercase letter and a
-  number; or
-- tap **Continue with Google** and pick an account. We never see your Google
-  password. Google gives the app a signed token, and our server checks that
-  token with Google before letting you in. If you don't see the button, this
-  build has no Google sign-in configured; use the form instead.
+### Things that work a little differently on a phone
 
-Staff and administrator accounts cannot sign in here. The console lives on
-the website, and this application has no administrative screens at all.
-
-### Finding something
-
-The five tabs along the bottom are the whole application.
-
-| Tab | What it is for |
-|---|---|
-| **Shop** | Everything in stock, newest first. The chips along the top filter by brand and category. |
-| **Search** | For when you know what you want. Type part of a brand or a description, then narrow by size or condition. |
-| **Cart** | What you are about to buy. The badge is the number of items in it. |
-| **Orders** | Everything you have bought, and where each parcel is. |
-| **Account** | Signing in and out, and the way through to Settings and Help. |
-
-Everything here is second-hand, so every piece carries a condition grade:
-
-| Grade | What it means |
-|---|---|
-| **Excellent** | As new. No visible wear. |
-| **Very Good** | Lightly worn. No marks. |
-| **Good** | Worn. Small marks or fading, noted in the description. |
-| **Fair** | Visible wear, priced to match. |
-
-Read the description before buying anything graded Good or Fair, because that is
-where a specific flaw is written down.
-
-### Buying something
-
-1. Tap a piece to open it. Check the grade and the description.
-2. Tap a **size**. Only sizes that are in stock are shown.
-3. Tap **Add to cart**.
-4. Open the **Cart** tab and check the total.
-5. Tap **Checkout** and choose a **delivery method**:
-
-   | Method | Cost | How long |
-   |---|---|---|
-   | Standard delivery | R80, free from R1,000 | 3 to 5 working days |
-   | Express delivery | R150 | 1 to 2 working days |
-   | Collect from the Pretoria store | Free | Ready in 2 working days |
-
-6. Choose a **delivery address**. Your default address is already selected.
-7. If you have a **promo code**, type it in and tap **Apply**. The discount shows
-   in the summary before you pay.
-8. Choose a payment method and tap **Place order**.
-9. You will get a reference like `ORD-0007`. Keep it, because it is what support
-   will ask for.
-
-### Saving a piece for later
-
-Open a piece and tap **Save to wishlist**. Find your saved pieces under
-**Account**, then **My wishlist**. From there you can move a piece to your cart
-or remove it. The same wishlist shows on the website. Saving a piece does not
-reserve it.
-
-### Sale prices
-
-A piece on sale shows its new price with the old price crossed out. Tap the
-**Sale** chip on the Shop tab (or **Sale** in the website menu) to see only
-those pieces.
-
-### Your addresses
-
-**Account**, then **Delivery addresses**. Add an address, edit it, delete it or
-make it your default. You can save up to ten.
-
-> **Adding something to your cart does not hold it for you.** Most pieces are
-> one of a kind. Stock is only reserved when you place the order, so if two
-> people check out at the same time the first one gets it and the second is
-> told the item has gone. This is deliberate: a cart that reserved stock
-> would let abandoned baskets take the shop's stock off sale.
-
-### Tracking an order
-
-The **Orders** tab lists everything you have bought, newest first, with the
-stage it has reached:
-
-| Stage | What is happening |
-|---|---|
-| **Processing** | We have your order and are picking and packing it. |
-| **Shipped** | It is with the courier. Open the order for the courier reference. |
-| **Delivered** | It has arrived. |
-| **Cancelled** | The order was cancelled. Any payment is refunded. |
-
-Open an order to see what is in it, what you paid, and the courier reference.
-
-### Cancelling an order
-
-Open the order and tap **Cancel this order**. You can do this while the order
-is still **Processing**. Once it has shipped it cannot be cancelled, but you can
-return it after it arrives. If you had already paid, the payment is refunded.
-
-### Returning an item
-
-You have **30 days** from delivery.
-
-1. Open the delivered order.
-2. Tap **Return this item** next to the piece.
-3. Choose a reason and confirm.
-
-Follow the return under **Account**, then **My returns**. It moves from
-**Requested** to **Approved** and then **Refunded**.
-
-### Changing your settings
-
-**Account → Settings.**
-
-| Section | What it changes | Where it is kept |
-|---|---|---|
-| **Your details** | Name, phone number, delivery address | Your account, so the website shows the same details |
-| **Password** | Your password. Asks for the current one first | Your account |
-| **Appearance** | Light, dark, or follow the phone's setting | This phone only |
-| **Notifications** | Order updates, new arrivals | This phone only |
-| **Connection** | Which server the app talks to | This phone only |
-| **Reset** | Clear cached data, sign out | This phone only |
-
-Two things worth knowing:
-
-- **There is no Password section if you signed in with Google.** Google holds
-  your password, not us, so there is nothing here to change.
-- **Clear cached data does not sign you out.** It empties the saved brand and
-  category lists and forces a fresh fetch. Use it if a filter looks stale.
+- **Photos.** Tap a product photo to open it full screen, then pinch or double
+  tap to zoom.
+- **Sharing.** **Share** on a product opens Android's share sheet.
+- **Receipts.** **Receipt** on an order shows the tax invoice or the gift slip.
+  **Print or save as PDF** opens Android's print screen, where **Save as PDF**
+  is one of the printers.
+- **Help.** **Call** and **Email support** in the Help centre open your phone
+  and email apps.
+- **Appearance.** **Account, Settings, Appearance** has light, dark or
+  automatic, larger text and reduced motion. These are kept on the phone.
+  Notification choices are kept on your account, so they match the website.
 
 ---
 
@@ -193,66 +96,128 @@ Two things worth knowing:
 
 Open `http://localhost:3000/` (or wherever the server is running).
 
-The website does everything the application does, and adds the staff and
-administrator console. The storefront works the same way: browse or search,
-open a piece, add to cart, check out, track the order under **Orders**.
+The website does everything the application does, adds the features below, and
+holds the staff and administrator console. On a phone the main sections sit in a
+tab bar at the bottom: **Shop**, **Search**, **Bag**, **Orders** and **Account**.
 
-There is also an installable version at `/mobile`, which is the storefront
-built as a Progressive Web App. It is a fallback for anyone who cannot
-install the Android application.
+On a phone, the browser's **Install** or **Add to Home screen** puts the website
+on the home screen like an app. The old separate web app at `/mobile` now
+sends people to the website.
+
+### Finding pieces
+
+- **Shop** shows everything. Tap **Filters** to combine brands, categories,
+  sizes, condition grades, a price range, sale items and in-stock items. Each
+  active filter shows as a chip you can remove on its own.
+- **My sizes** limits the shop to the sizes in your style profile.
+- **Save search** keeps the current filters under a name. When a new piece
+  matches, you get a notification. Manage them under **Account, Saved searches**.
+- Start typing in the search box for suggestions; press `/` anywhere to jump to it.
+- The compare button on a piece adds it to a tray; open **Compare** to see up to
+  four side by side.
+
+### Deciding on a piece
+
+- Tap the photo to zoom.
+- **Size guide** and **How we grade** explain sizes and condition.
+- The delivery box shows when the piece would arrive by each method, counted in
+  working days, so weekends and public holidays are skipped.
+- **Ask a question** sends a question to the store. The answer appears on the
+  page and you get a notification.
+- If a size is sold out, **Tell me if it comes back** sets an alert.
+
+### Your account
+
+| Section | What it does |
+|---|---|
+| **Thrift Points** | Your balance, tier and history. You earn one point per R10 once an order is delivered. |
+| **Style profile** | Your sizes and favourite brands, used for **For you** and **My sizes**. |
+| **Saved searches** and **Back-in-stock alerts** | What you are watching; remove anything you no longer want. |
+| **Notifications** | Order updates, price drops, alerts and replies. |
+| **Settings** | Profile, password, which notifications you get, and appearance: light, dark or system theme, larger text and reduced motion. |
+| **Sell to us** | Offer a piece to the shop. When an offer arrives, take it by EFT or as Thrift Points worth 20 percent more. |
+| **Help** | Searchable answers, the size guide, and **Message us** for anything else. Replies arrive under **Messages**. |
+
+### Checking out
+
+1. Choose standard, express or collection. For collection, pick a day and a
+   two-hour slot; bring your order number to the Hatfield store.
+2. Tick **This is a gift** to add a message. The gift slip leaves the prices off.
+3. Choose how to pay. Payments are simulated; no money changes hands.
+4. Apply a promo code or spend Thrift Points (100 points for R10 off).
+5. Place the order. The order page shows a timeline of every change, and
+   **Receipt** opens a printable tax invoice or gift slip.
 
 ---
 
 ## Part 3: For staff and administrators
 
-Sign in on the website with a staff or administrator username. The **Admin
-Console** appears in the navigation.
+Sign in with a staff or administrator email address and open
+**Console**. Numbers beside a section show how many items are waiting.
 
 | Section | Who | What it does |
 |---|---|---|
-| **Dashboard** | Staff, Administrator | Sales and stock at a glance |
-| **Listings** | Staff, Administrator | Add, edit and remove pieces |
-| **Inventory** | Staff, Administrator | Stock levels, with out-of-stock flagged |
-| **Process orders** | Staff, Administrator | Move an order along and record a courier reference |
+| **Dashboard** | Staff, Administrator | What needs attention, revenue for the last 30 days, sales by category and brand, return rate. **Export orders (CSV)** downloads every order for the bookkeeper. |
+| **Listings** | Staff, Administrator | Add, edit and delist pieces, with stock per size and a sale price. Tick several pieces to mark them down or end a sale in one go. |
+| **Inventory** | Staff, Administrator | Stock value, sold-out and low-stock pieces |
+| **Promo codes** | Staff can view; Administrator can create and edit | Percentage or rand codes with a minimum spend, an end date and a usage limit |
+| **Orders** | Staff, Administrator | Filter by status and delivery method, then open an order to move it along |
+| **Collections** | Staff, Administrator | Collection orders by day and slot; **Collected** completes one |
+| **Returns** | Staff, Administrator | Approve, reject and refund returns |
+| **Support inbox** | Staff, Administrator | Customer messages; replying notifies the customer |
+| **Questions** | Staff, Administrator | Answer product questions; answers appear on the product page |
+| **Buy-back offers** | Staff, Administrator | Make offers on pieces customers want to sell, then mark them received and paid |
 | **Customers** | Administrator only | Customer accounts; suspend and reactivate |
-| **Reports** | Staff, Administrator | Sales and inventory reporting |
 
 ### Moving an order along
 
-Open **Process orders**, find the order, set its new status and, for
-**Shipped**, enter the courier reference. Save. The customer sees the change
-on their phone the next time they open the order; there is nothing to
-synchronise, because both are reading the same database.
+Open the order and choose the next status under **Process order**. For a
+delivery, **Shipped** asks for the courier reference. For a collection the
+choices read **Ready to collect** and **Collected**. Add a note if it helps;
+it appears in the customer's timeline. An order can only move forward:
+Processing to Shipped, Delivered or Cancelled, and Shipped to Delivered.
+Cancelling puts the stock back, refunds a paid order and returns any points.
 
 ### Handling a return
 
-Open **Returns** in the admin console. Each return shows the order, the
-customer, the item and the reason.
+Open **Returns** in the console. Each return shows the order, the customer,
+the item and the reason.
 
 | Action | When to use it |
 |---|---|
 | **Approve** | The return is valid and the parcel is on its way back. |
 | **Reject** | The return does not meet the policy. A rejected return can still be approved later. |
-| **Refund** | The piece has arrived and passed inspection. It goes back on sale in its size. |
+| **Refund** | The piece has arrived and passed inspection. It goes back on sale in its size, and anyone waiting for it is told. |
+
+### Marking pieces down
+
+In **Listings**, tick the pieces, choose a percentage and press **Mark down**.
+The discount is taken from the full price, so marking a piece down twice does
+not compound. Customers who saved a piece are told the price dropped.
+**End sale** returns the pieces to full price.
 
 ### Permissions are enforced on the server
 
-The **Customers** section is only rendered for an administrator. That is a
-convenience, not the control: the server refuses the request from any other
-role even if the address is typed in by hand. The same is true of every
-administrative action in the app and on the website.
+The **Customers** section and promo editing are only shown to an
+administrator. That is a convenience, not the control: the server refuses the
+request from any other role even if the address is typed in by hand. The same
+is true of every administrative action in the app and on the website.
 
 ---
 
 ## Part 4: When something goes wrong
 
-### "Couldn't reach the server."
+### "Couldn't reach iTHRIFT."
 
-The app is pointed at the wrong address, or the server is not running.
+The phone is offline, the hosted server is still waking up, or the app is
+pointed at the wrong address.
 
-1. **Account → Settings → Connection → Test connection.** It will say which.
-2. Check the server is up: on the computer running it, `npm start` should be
-   printing request lines.
+1. Wait a minute and tap **Try again**. The hosted server can take that long
+   after a quiet spell.
+2. **Account, Settings, Connection, Save and test.** It will say whether it got
+   through. **Use the hosted server** puts the default address back.
+3. If you use your own server, check it is up: on the computer running it,
+   `npm start` should be printing request lines.
 3. On a real phone, check the address is the computer's network address and
    not `localhost`.
 4. Check the phone and the computer are on the same network. Guest Wi-Fi
@@ -316,16 +281,12 @@ npm start
 Then open <http://localhost:3000/> for the website, and run the Android
 application from Android Studio against `http://10.0.2.2:3000`.
 
-### Demonstration accounts
+### Signing in
 
-| Role | Email / username | Password |
-|---|---|---|
-| Customer | `lerato.m@gmail.com` | `Password1` |
-| Customer | `sipho.n@gmail.com` | `Password2` |
-| Administrator | `admin` | `Admin@123` |
-| Staff | `staff01` | `Staff@123` |
-
-Staff and administrator accounts sign in on the website only.
+Sign in with an email address or a cellphone number. The administrator
+account is `vukosir@icloud.com` with the password `ithrift@2025`. Customers
+create their own accounts; registration asks for a cellphone number and for
+the password twice.
 
 ### Seeing the two clients share one database
 
