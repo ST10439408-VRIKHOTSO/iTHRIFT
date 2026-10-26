@@ -1,0 +1,24 @@
+# Render Blueprint for the iTHRIFT REST API, website and database.
+#
+# One web service runs server/index.js. The SQLite database is built and
+# seeded during the build (npm run init-db), so every deploy starts from the
+# same known demo data. On the free plan the disk is not persistent: orders
+# placed after a deploy are kept while the service is running and are reset
+# on the next deploy or restart.
+services:
+  - type: web
+    name: ithrift-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci && npm run init-db
+    startCommand: npm start
+    healthCheckPath: /api/products
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      # The OAuth web client id from Google Cloud. Set it in the Render
+      # dashboard so it is never committed. Leave it empty to run without SSO.
+      - key: GOOGLE_CLIENT_ID
+        sync: false

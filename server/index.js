@@ -58,10 +58,15 @@ apiRouter.use('/admin', require('./routes/admin'));
 apiRouter.use('/wishlist', require('./routes/wishlist'));
 apiRouter.use('/addresses', require('./routes/addresses'));
 apiRouter.use('/returns', require('./routes/returns'));
+apiRouter.use('/account', require('./routes/account'));
+apiRouter.use('/notifications', require('./routes/notifications'));
+apiRouter.use('/sell', require('./routes/sell'));
+apiRouter.use('/support', require('./routes/support'));
 apiRouter.get('/', (_req, res) => {
   res.json({
     name: 'iTHRIFT Clothes API',
     status: 'ok',
+    version: require('../package.json').version,
     endpoints: [
       'POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout', 'GET /api/auth/me',
       'POST /api/auth/sso', 'GET /api/auth/sso/status',
@@ -76,22 +81,41 @@ apiRouter.get('/', (_req, res) => {
       'GET /api/addresses', 'POST /api/addresses', 'PUT /api/addresses/:id', 'PUT /api/addresses/:id/default', 'DELETE /api/addresses/:id',
       'GET /api/returns', 'PUT /api/returns/:id',
       'GET /api/admin/users', 'PUT /api/admin/users/:id/status', 'GET /api/admin/reports/sales', 'GET /api/admin/reports/inventory',
+      // Release 1.3.0
+      'GET /api/products/suggest', 'GET /api/products/sizes', 'GET /api/products/by-ids', 'GET /api/products/:id/similar',
+      'GET /api/products/:id/questions', 'POST /api/products/:id/questions', 'POST /api/products/:id/alerts', 'POST /api/products/bulk-price',
+      'GET /api/account/overview', 'PUT /api/account/preferences', 'PUT /api/account/style', 'GET /api/account/for-you',
+      'GET /api/account/points', 'GET /api/account/impact',
+      'GET /api/account/saved-searches', 'POST /api/account/saved-searches', 'DELETE /api/account/saved-searches/:id',
+      'GET /api/account/alerts', 'DELETE /api/account/alerts/:id',
+      'GET /api/notifications', 'GET /api/notifications/unread-count', 'PUT /api/notifications/:id/read', 'PUT /api/notifications/read-all', 'DELETE /api/notifications/:id',
+      'GET /api/sell', 'POST /api/sell', 'PUT /api/sell/:id/respond', 'PUT /api/sell/:id',
+      'GET /api/support', 'POST /api/support', 'GET /api/support/:id', 'POST /api/support/:id/messages', 'PUT /api/support/:id/status',
+      'GET /api/admin/reports/analytics', 'GET /api/admin/reports/orders.csv', 'GET /api/admin/promos', 'POST /api/admin/promos', 'PUT /api/admin/promos/:id',
+      'GET /api/admin/questions', 'PUT /api/admin/questions/:id', 'GET /api/admin/collections',
     ],
   });
 });
 app.use('/api', apiRouter);
 
 // ---- Static front ends ----
-// /mobile -> installable PWA (customer-only, phone-native layout)
-app.use('/mobile', express.static(path.join(PUBLIC_DIR, 'mobile')));
-app.get('/mobile/*', (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'mobile', 'index.html'));
-});
+// /mobile used to serve a separate installable web app. The website itself is
+// now the installable app on phones (see public/manifest.webmanifest), so the
+// old address sends people there instead of to an out-of-date copy.
+app.get(['/mobile', '/mobile/*'], (_req, res) => res.redirect(301, '/'));
 
 // / -> desktop website (customer storefront + staff/admin console)
-app.use(express.static(PUBLIC_DIR));
+// no-cache means "check with the server before using a saved copy". The
+// check is a cheap ETag round trip, and it stops a phone browser from
+// running yesterday's scripts for hours after a new version goes live.
+app.use(express.static(PUBLIC_DIR, {
+  setHeaders: (res, file) => {
+    if (/\.(html|js|css|webmanifest)$/.test(file)) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
@@ -106,7 +130,6 @@ app.listen(PORT, () => {
   console.log('  iTHRIFT Clothes prototype is running');
   console.log('  --------------------------------------');
   console.log(`  Website (desktop):  http://localhost:${PORT}/`);
-  console.log(`  Mobile application: http://localhost:${PORT}/mobile`);
   console.log(`  REST API (the link): http://localhost:${PORT}/api`);
   console.log('');
 });

@@ -11,7 +11,7 @@ function loadWishlist(db, customerId) {
   const items = db.prepare(`
     SELECT w.ProductID AS productId, p.Name AS name, b.Name AS brand, p.Price AS price,
            p.OriginalPrice AS originalPrice, p.StockQty AS stock, p.ImageFile AS image,
-           p.ConditionGrade AS condition, w.CreatedAt AS savedAt,
+           p.ConditionGrade AS condition, w.CreatedAt AS savedAt, w.PriceWhenSaved AS priceWhenSaved,
            (SELECT COUNT(*) FROM ProductSize ps WHERE ps.ProductID = p.ProductID AND ps.StockQty > 0) AS sizeCount,
            (SELECT ps.Size FROM ProductSize ps WHERE ps.ProductID = p.ProductID AND ps.StockQty > 0
               ORDER BY ps.ProductSizeID LIMIT 1) AS firstSize
@@ -26,6 +26,8 @@ function loadWishlist(db, customerId) {
       ...it,
       inStock: it.stock > 0,
       onSale: it.originalPrice != null && it.originalPrice > it.price,
+      // How much cheaper it is now than when it was saved.
+      priceDrop: it.priceWhenSaved != null && it.priceWhenSaved > it.price ? it.priceWhenSaved - it.price : 0,
       // With exactly one size left, "Move to cart" can add it straight away.
       onlySize: it.sizeCount === 1 ? it.firstSize : null,
     })),
@@ -42,9 +44,9 @@ router.post('/', (req, res) => {
   const db = getDb();
   const productId = Number((req.body || {}).productId);
   if (!productId) return res.status(400).json({ error: 'A product is required.' });
-  const product = db.prepare('SELECT ProductID FROM Product WHERE ProductID = ?').get(productId);
+  const product = db.prepare('SELECT ProductID, Price FROM Product WHERE ProductID = ?').get(productId);
   if (!product) return res.status(404).json({ error: 'Product not found.' });
-  db.prepare('INSERT OR IGNORE INTO WishlistItem (CustomerID, ProductID) VALUES (?, ?)').run(req.user.id, productId);
+  db.prepare('INSERT OR IGNORE INTO WishlistItem (CustomerID, ProductID, PriceWhenSaved) VALUES (?, ?, ?)').run(req.user.id, productId, product.Price);
   res.status(201).json(loadWishlist(db, req.user.id));
 });
 

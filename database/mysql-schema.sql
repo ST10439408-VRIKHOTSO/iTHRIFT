@@ -75,6 +75,12 @@ CREATE TABLE Customer (
   PostalCode      VARCHAR(10),
   Status          ENUM('active','suspended') NOT NULL DEFAULT 'active',
   CreatedAt       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- Style profile (1.3.0): JSON arrays of sizes and brand names, set during onboarding.
+  PreferredSizes  JSON,
+  FavouriteBrands JSON,
+  OnboardedAt     DATETIME,
+  NotifyOrders    TINYINT(1) NOT NULL DEFAULT 1,
+  NotifyAlerts    TINYINT(1) NOT NULL DEFAULT 1,
   -- A password account must carry a hash; an SSO account must carry a subject.
   CONSTRAINT chk_customer_credentials CHECK (
     (AuthProvider = 'password' AND PasswordHash IS NOT NULL AND PasswordSalt IS NOT NULL)
@@ -86,6 +92,7 @@ CREATE TABLE Customer (
 CREATE TABLE Admin (
   AdminID      INT AUTO_INCREMENT PRIMARY KEY,
   Username     VARCHAR(60) NOT NULL UNIQUE,
+  Email        VARCHAR(160) NOT NULL UNIQUE,
   PasswordHash CHAR(128) NOT NULL,
   PasswordSalt CHAR(32) NOT NULL,
   FullName     VARCHAR(120) NOT NULL,
@@ -125,6 +132,12 @@ CREATE TABLE Orders (
   DeliveryInstructions VARCHAR(200),
   TotalAmount DECIMAL(10,2) NOT NULL CHECK (TotalAmount >= 0),
   CourierRef  VARCHAR(40),
+  CollectionDate DATE,
+  CollectionSlot VARCHAR(20),
+  IsGift         TINYINT(1) NOT NULL DEFAULT 0,
+  GiftMessage    VARCHAR(200),
+  PointsRedeemed INT NOT NULL DEFAULT 0 CHECK (PointsRedeemed >= 0),
+  PointsDiscount DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (PointsDiscount >= 0),
   CreatedAt   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UpdatedAt   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID)
@@ -183,6 +196,7 @@ CREATE TABLE WishlistItem (
   WishlistItemID INT AUTO_INCREMENT PRIMARY KEY,
   CustomerID     INT NOT NULL,
   ProductID      INT NOT NULL,
+  PriceWhenSaved DECIMAL(10,2),  -- lets the wishlist show a price drop
   CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (CustomerID, ProductID),
   FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
@@ -196,7 +210,9 @@ CREATE TABLE PromoCode (
   DiscountType  ENUM('percent','fixed') NOT NULL,
   DiscountValue DECIMAL(10,2) NOT NULL CHECK (DiscountValue > 0),
   MinSpend      DECIMAL(10,2) NOT NULL DEFAULT 0,
-  Active        TINYINT(1) NOT NULL DEFAULT 1
+  Active        TINYINT(1) NOT NULL DEFAULT 1,
+  ExpiresAt     DATE,          -- last day the code works; NULL means no end date
+  UsageLimit    INT CHECK (UsageLimit IS NULL OR UsageLimit > 0)
 ) ENGINE=InnoDB;
 
 CREATE TABLE ReturnRequest (
@@ -211,4 +227,127 @@ CREATE TABLE ReturnRequest (
   UpdatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (OrderItemID) REFERENCES OrderItem(OrderItemID),
   FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID)
+) ENGINE=InnoDB;
+
+-- -----------------------------------------------------------------------------
+-- 1.3.0 additions
+-- -----------------------------------------------------------------------------
+
+-- Every status change on an order, for the customer's timeline.
+CREATE TABLE OrderStatusHistory (
+  HistoryID INT AUTO_INCREMENT PRIMARY KEY,
+  OrderID   INT NOT NULL,
+  Status    ENUM('Processing','Shipped','Delivered','Cancelled') NOT NULL,
+  Note      VARCHAR(200),
+  CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
+  INDEX idx_history_order (OrderID)
+) ENGINE=InnoDB;
+
+CREATE TABLE Notification (
+  NotificationID INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID     INT NOT NULL,
+  Type           ENUM('order','return','price_drop','back_in_stock','saved_search','question','sell','support','points','welcome') NOT NULL,
+  Title          VARCHAR(120) NOT NULL,
+  Body           VARCHAR(300) NOT NULL,
+  Link           VARCHAR(200),
+  IsRead         TINYINT(1) NOT NULL DEFAULT 0,
+  CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
+  INDEX idx_notification_customer (CustomerID, IsRead)
+) ENGINE=InnoDB;
+
+-- Criteria is the filter set as JSON (brands, categories, sizes, grades, price range).
+CREATE TABLE SavedSearch (
+  SavedSearchID INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID    INT NOT NULL,
+  Name          VARCHAR(60) NOT NULL,
+  Criteria      JSON NOT NULL,
+  CreatedAt     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (CustomerID, Name),
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- "Tell me when it is back". Size NULL means any size.
+CREATE TABLE StockAlert (
+  StockAlertID INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID   INT NOT NULL,
+  ProductID    INT NOT NULL,
+  Size         VARCHAR(20),
+  CreatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FulfilledAt  DATETIME,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID) ON DELETE CASCADE,
+  FOREIGN KEY (ProductID) REFERENCES Product(ProductID) ON DELETE CASCADE,
+  INDEX idx_stockalert_product (ProductID)
+) ENGINE=InnoDB;
+
+-- Thrift Points. The balance is the sum of Points; nothing is stored twice.
+CREATE TABLE PointsLedger (
+  EntryID    INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID INT NOT NULL,
+  Points     INT NOT NULL CHECK (Points <> 0),
+  Reason     VARCHAR(100) NOT NULL,
+  OrderID    INT,
+  CreatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+  FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
+  INDEX idx_points_customer (CustomerID)
+) ENGINE=InnoDB;
+
+CREATE TABLE ProductQuestion (
+  QuestionID INT AUTO_INCREMENT PRIMARY KEY,
+  ProductID  INT NOT NULL,
+  CustomerID INT NOT NULL,
+  Question   VARCHAR(300) NOT NULL,
+  Answer     VARCHAR(600),
+  AnsweredBy INT,
+  CreatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  AnsweredAt DATETIME,
+  FOREIGN KEY (ProductID) REFERENCES Product(ProductID) ON DELETE CASCADE,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+  FOREIGN KEY (AnsweredBy) REFERENCES Admin(AdminID),
+  INDEX idx_question_product (ProductID)
+) ENGINE=InnoDB;
+
+-- Pieces customers offer to sell to the shop.
+CREATE TABLE SellSubmission (
+  SubmissionID   INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID     INT NOT NULL,
+  Brand          VARCHAR(40) NOT NULL,
+  Category       VARCHAR(40) NOT NULL,
+  ItemSize       VARCHAR(20) NOT NULL,
+  ConditionGrade ENUM('Excellent','Very Good','Good','Fair') NOT NULL,
+  Description    VARCHAR(500) NOT NULL,
+  AskingPrice    DECIMAL(10,2) CHECK (AskingPrice IS NULL OR AskingPrice >= 0),
+  OfferAmount    DECIMAL(10,2) CHECK (OfferAmount IS NULL OR OfferAmount > 0),
+  PayoutMethod   ENUM('eft','points'),
+  StaffNote      VARCHAR(300),
+  Status         ENUM('Submitted','Offer made','Accepted','Declined','Received','Paid') NOT NULL DEFAULT 'Submitted',
+  CreatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID)
+) ENGINE=InnoDB;
+
+CREATE TABLE SupportTicket (
+  TicketID   INT AUTO_INCREMENT PRIMARY KEY,
+  CustomerID INT NOT NULL,
+  Topic      ENUM('Order','Return','Selling','Account','Other') NOT NULL,
+  Subject    VARCHAR(100) NOT NULL,
+  OrderID    INT,
+  Status     ENUM('Open','Answered','Closed') NOT NULL DEFAULT 'Open',
+  CreatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (CustomerID) REFERENCES Customer(CustomerID),
+  FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
+) ENGINE=InnoDB;
+
+CREATE TABLE SupportMessage (
+  MessageID  INT AUTO_INCREMENT PRIMARY KEY,
+  TicketID   INT NOT NULL,
+  Sender     ENUM('customer','staff') NOT NULL,
+  AuthorName VARCHAR(120) NOT NULL,
+  Body       VARCHAR(2000) NOT NULL,
+  CreatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (TicketID) REFERENCES SupportTicket(TicketID) ON DELETE CASCADE,
+  INDEX idx_message_ticket (TicketID)
 ) ENGINE=InnoDB;

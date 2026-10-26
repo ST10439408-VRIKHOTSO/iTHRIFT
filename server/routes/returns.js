@@ -4,6 +4,7 @@ const express = require('express');
 const { getDb } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { orderRef } = require('../utils/refs');
+const notifyUtil = require('../utils/notify');
 
 const router = express.Router();
 
@@ -71,7 +72,16 @@ router.put('/:id', requireRole('admin', 'staff'), (req, res) => {
           ON CONFLICT (ProductID, Size) DO UPDATE SET StockQty = StockQty + excluded.StockQty
         `).run(ret.ProductID, ret.Size, ret.Quantity);
       }
+      notifyUtil.stockChanged(db, ret.ProductID);
     }
+    const name = db.prepare('SELECT Name FROM Product WHERE ProductID = ?').get(ret.ProductID).Name;
+    const orderId = db.prepare('SELECT OrderID FROM OrderItem WHERE OrderItemID = ?').get(ret.OrderItemID).OrderID;
+    const words = {
+      Approved: ['Your return was approved', `Send ${name} back to us. We refund it once it arrives.`],
+      Rejected: ['Your return was not accepted', `The return for ${name} does not meet the returns policy. Reply from Help if you think that is wrong.`],
+      Refunded: ['Your refund is on its way', `We received ${name} and refunded R${refund}.`],
+    }[status];
+    if (words) notifyUtil.notify(db, ret.CustomerID, { type: 'return', title: words[0], body: words[1], link: `/orders/${orderId}` });
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');

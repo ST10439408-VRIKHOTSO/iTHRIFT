@@ -111,6 +111,13 @@ CREATE TABLE Customer (
   City            TEXT,
   PostalCode      TEXT,
   Status          TEXT NOT NULL DEFAULT 'active' CHECK (Status IN ('active','suspended')),
+  -- Style profile from the welcome onboarding (JSON arrays of strings).
+  PreferredSizes  TEXT,
+  FavouriteBrands TEXT,
+  OnboardedAt     TEXT,
+  -- Which in-app notifications the customer wants.
+  NotifyOrders    INTEGER NOT NULL DEFAULT 1 CHECK (NotifyOrders IN (0,1)),
+  NotifyAlerts    INTEGER NOT NULL DEFAULT 1 CHECK (NotifyAlerts IN (0,1)),
   CreatedAt       TEXT NOT NULL DEFAULT (datetime('now')),
   -- A password account must carry a hash; an SSO account must carry a subject.
   CHECK (
@@ -123,6 +130,7 @@ CREATE TABLE Customer (
 CREATE TABLE Admin (
   AdminID      INTEGER PRIMARY KEY AUTOINCREMENT,
   Username     TEXT NOT NULL UNIQUE,
+  Email        TEXT NOT NULL UNIQUE,
   PasswordHash TEXT NOT NULL,
   PasswordSalt TEXT NOT NULL,
   FullName     TEXT NOT NULL,
@@ -165,6 +173,8 @@ CREATE TABLE WishlistItem (
   WishlistItemID INTEGER PRIMARY KEY AUTOINCREMENT,
   CustomerID     INTEGER NOT NULL REFERENCES Customer(CustomerID),
   ProductID      INTEGER NOT NULL REFERENCES Product(ProductID),
+  -- The price when it was saved, so a later markdown can be announced.
+  PriceWhenSaved NUMERIC,
   CreatedAt      TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (CustomerID, ProductID)
 );
@@ -176,7 +186,10 @@ CREATE TABLE PromoCode (
   DiscountType  TEXT NOT NULL CHECK (DiscountType IN ('percent','fixed')),
   DiscountValue NUMERIC NOT NULL CHECK (DiscountValue > 0),
   MinSpend      NUMERIC NOT NULL DEFAULT 0 CHECK (MinSpend >= 0),
-  Active        INTEGER NOT NULL DEFAULT 1 CHECK (Active IN (0,1))
+  Active        INTEGER NOT NULL DEFAULT 1 CHECK (Active IN (0,1)),
+  -- Optional end date (YYYY-MM-DD, inclusive) and a cap on how many orders may use it.
+  ExpiresAt     TEXT,
+  UsageLimit    INTEGER CHECK (UsageLimit IS NULL OR UsageLimit > 0)
 );
 
 CREATE TABLE Orders (
@@ -191,6 +204,15 @@ CREATE TABLE Orders (
   PromoCode      TEXT,
   DeliveryAddress TEXT,
   DeliveryInstructions TEXT,
+  -- Booked slot when the order is collected from the store.
+  CollectionDate TEXT,
+  CollectionSlot TEXT,
+  -- Gift orders carry a message and print a receipt without prices.
+  IsGift         INTEGER NOT NULL DEFAULT 0 CHECK (IsGift IN (0,1)),
+  GiftMessage    TEXT,
+  -- Thrift Points spent on this order and the rand value they took off.
+  PointsRedeemed INTEGER NOT NULL DEFAULT 0 CHECK (PointsRedeemed >= 0),
+  PointsDiscount NUMERIC NOT NULL DEFAULT 0 CHECK (PointsDiscount >= 0),
   TotalAmount NUMERIC NOT NULL CHECK (TotalAmount >= 0),
   CourierRef  TEXT,
   CreatedAt   TEXT NOT NULL DEFAULT (datetime('now')),
@@ -236,6 +258,119 @@ CREATE TABLE Review (
   Comment    TEXT,
   CreatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------------------------------------------------------------------------
+-- Release 1.3.0 tables
+-- ---------------------------------------------------------------------------
+
+-- Every status an order passes through, with when and why, for the timeline.
+CREATE TABLE OrderStatusHistory (
+  HistoryID  INTEGER PRIMARY KEY AUTOINCREMENT,
+  OrderID    INTEGER NOT NULL REFERENCES Orders(OrderID),
+  Status     TEXT NOT NULL CHECK (Status IN ('Processing','Shipped','Delivered','Cancelled')),
+  Note       TEXT,
+  CreatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- In-app notifications. Category decides which preference switch governs it.
+CREATE TABLE Notification (
+  NotificationID INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID     INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Type           TEXT NOT NULL CHECK (Type IN ('order','return','price_drop','back_in_stock','saved_search','question','sell','support','points','welcome')),
+  Title          TEXT NOT NULL,
+  Body           TEXT NOT NULL,
+  Link           TEXT,
+  IsRead         INTEGER NOT NULL DEFAULT 0 CHECK (IsRead IN (0,1)),
+  CreatedAt      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- A search a customer asked to be told about when new pieces match it.
+CREATE TABLE SavedSearch (
+  SavedSearchID INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID    INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Name          TEXT NOT NULL,
+  Criteria      TEXT NOT NULL,
+  CreatedAt     TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (CustomerID, Name)
+);
+
+-- "Tell me when it is back": a sold-out piece, optionally one size of it.
+CREATE TABLE StockAlert (
+  StockAlertID INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID   INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  ProductID    INTEGER NOT NULL REFERENCES Product(ProductID),
+  Size         TEXT,
+  CreatedAt    TEXT NOT NULL DEFAULT (datetime('now')),
+  FulfilledAt  TEXT
+);
+
+-- Thrift Points earned and spent. The balance is the sum of Points.
+CREATE TABLE PointsLedger (
+  EntryID    INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Points     INTEGER NOT NULL CHECK (Points != 0),
+  Reason     TEXT NOT NULL,
+  OrderID    INTEGER REFERENCES Orders(OrderID),
+  CreatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Questions shoppers ask about a piece, answered publicly by staff.
+CREATE TABLE ProductQuestion (
+  QuestionID INTEGER PRIMARY KEY AUTOINCREMENT,
+  ProductID  INTEGER NOT NULL REFERENCES Product(ProductID),
+  CustomerID INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Question   TEXT NOT NULL,
+  Answer     TEXT,
+  AnsweredBy INTEGER REFERENCES Admin(AdminID),
+  CreatedAt  TEXT NOT NULL DEFAULT (datetime('now')),
+  AnsweredAt TEXT
+);
+
+-- Pieces customers offer to sell to the shop (the shop's buy-back stream).
+CREATE TABLE SellSubmission (
+  SubmissionID   INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID     INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Brand          TEXT NOT NULL,
+  Category       TEXT NOT NULL,
+  ItemSize       TEXT NOT NULL,
+  ConditionGrade TEXT NOT NULL CHECK (ConditionGrade IN ('Excellent','Very Good','Good','Fair')),
+  Description    TEXT NOT NULL,
+  AskingPrice    NUMERIC CHECK (AskingPrice IS NULL OR AskingPrice >= 0),
+  OfferAmount    NUMERIC CHECK (OfferAmount IS NULL OR OfferAmount > 0),
+  PayoutMethod   TEXT CHECK (PayoutMethod IS NULL OR PayoutMethod IN ('eft','points')),
+  StaffNote      TEXT,
+  Status         TEXT NOT NULL DEFAULT 'Submitted' CHECK (Status IN ('Submitted','Offer made','Accepted','Declined','Received','Paid')),
+  CreatedAt      TEXT NOT NULL DEFAULT (datetime('now')),
+  UpdatedAt      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Customer support conversations.
+CREATE TABLE SupportTicket (
+  TicketID   INTEGER PRIMARY KEY AUTOINCREMENT,
+  CustomerID INTEGER NOT NULL REFERENCES Customer(CustomerID),
+  Topic      TEXT NOT NULL CHECK (Topic IN ('Order','Return','Selling','Account','Other')),
+  Subject    TEXT NOT NULL,
+  OrderID    INTEGER REFERENCES Orders(OrderID),
+  Status     TEXT NOT NULL DEFAULT 'Open' CHECK (Status IN ('Open','Answered','Closed')),
+  CreatedAt  TEXT NOT NULL DEFAULT (datetime('now')),
+  UpdatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE SupportMessage (
+  MessageID  INTEGER PRIMARY KEY AUTOINCREMENT,
+  TicketID   INTEGER NOT NULL REFERENCES SupportTicket(TicketID),
+  Sender     TEXT NOT NULL CHECK (Sender IN ('customer','staff')),
+  AuthorName TEXT NOT NULL,
+  Body       TEXT NOT NULL,
+  CreatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_history_order ON OrderStatusHistory(OrderID);
+CREATE INDEX idx_notification_customer ON Notification(CustomerID, IsRead);
+CREATE INDEX idx_stockalert_product ON StockAlert(ProductID);
+CREATE INDEX idx_points_customer ON PointsLedger(CustomerID);
+CREATE INDEX idx_question_product ON ProductQuestion(ProductID);
+CREATE INDEX idx_message_ticket ON SupportMessage(TicketID);
 
 CREATE INDEX idx_product_brand ON Product(BrandID);
 CREATE INDEX idx_product_category ON Product(CategoryID);
@@ -508,37 +643,41 @@ const insertPromo = db.prepare(`
   ['SPRING12', '12% off orders of R600 or more', 'percent', 12, 600, 1],
   ['SUMMER30', '30% off (campaign ended)', 'percent', 30, 0, 0],
 ].forEach((row) => insertPromo.run(...row));
+// A campaign with an end date, one whose end date has passed, and one capped
+// at a number of orders, so the promo manager has each case to show.
+db.prepare("UPDATE PromoCode SET ExpiresAt = '2026-12-31' WHERE Code = 'SPRING12'").run();
+db.prepare("UPDATE PromoCode SET ExpiresAt = '2026-08-31' WHERE Code = 'WINTER20'").run();
+db.prepare("UPDATE PromoCode SET UsageLimit = 25 WHERE Code = 'SNEAKER100'").run();
 
 console.log('Seeding staff and administrator accounts...');
 
 /**
- * Ten staff and administrator accounts, again to meet the ten-row minimum.
- * `admin` and `staff01` are the documented demo accounts; the rest are the
- * counter and stockroom staff across the two Pretoria branches. Only two
- * hold the administrator role, because the console's destructive actions
- * (suspending a customer, deleting a listing) should not be within reach of
- * every till operator.
+ * Ten staff accounts, again to meet the ten-row minimum. Everyone signs in
+ * with their email address. There is one administrator, the store owner,
+ * because the console's destructive actions (suspending a customer,
+ * deleting a listing) should not be within reach of every till operator.
+ * The username is kept only as an internal handle for the seed data below.
  */
 const staffAccounts = [
-  { username: 'admin', password: 'Admin@123', fullName: 'Naledi Khumalo', role: 'admin' },
-  { username: 'staff01', password: 'Staff@123', fullName: 'Kabelo Tau', role: 'staff' },
-  { username: 'staff02', password: 'Staff@234', fullName: 'Dineo Mabaso', role: 'staff' },
-  { username: 'staff03', password: 'Staff@345', fullName: 'Sizwe Ngcobo', role: 'staff' },
-  { username: 'staff04', password: 'Staff@456', fullName: 'Karabo Pillay', role: 'staff' },
-  { username: 'staff05', password: 'Staff@567', fullName: 'Lindiwe Botha', role: 'staff' },
-  { username: 'staff06', password: 'Staff@678', fullName: 'Mpho Jacobs', role: 'staff' },
-  { username: 'staff07', password: 'Staff@789', fullName: 'Sanele Adams', role: 'staff' },
-  { username: 'staff08', password: 'Staff@890', fullName: 'Thandeka Naidoo', role: 'staff' },
-  { username: 'admin02', password: 'Admin@234', fullName: 'Johan van Wyk', role: 'admin' },
+  { username: 'admin', email: 'vukosir@icloud.com', password: 'ithrift@2025', fullName: 'Vukosi Rikhotso', role: 'admin' },
+  { username: 'staff01', email: 'kabelo.tau@ithrift.co.za', password: 'Staff@123', fullName: 'Kabelo Tau', role: 'staff' },
+  { username: 'staff02', email: 'dineo.mabaso@ithrift.co.za', password: 'Staff@234', fullName: 'Dineo Mabaso', role: 'staff' },
+  { username: 'staff03', email: 'sizwe.ngcobo@ithrift.co.za', password: 'Staff@345', fullName: 'Sizwe Ngcobo', role: 'staff' },
+  { username: 'staff04', email: 'karabo.pillay@ithrift.co.za', password: 'Staff@456', fullName: 'Karabo Pillay', role: 'staff' },
+  { username: 'staff05', email: 'lindiwe.botha@ithrift.co.za', password: 'Staff@567', fullName: 'Lindiwe Botha', role: 'staff' },
+  { username: 'staff06', email: 'mpho.jacobs@ithrift.co.za', password: 'Staff@678', fullName: 'Mpho Jacobs', role: 'staff' },
+  { username: 'staff07', email: 'sanele.adams@ithrift.co.za', password: 'Staff@789', fullName: 'Sanele Adams', role: 'staff' },
+  { username: 'staff08', email: 'thandeka.naidoo@ithrift.co.za', password: 'Staff@890', fullName: 'Thandeka Naidoo', role: 'staff' },
+  { username: 'staff09', email: 'johan.vanwyk@ithrift.co.za', password: 'Staff@901', fullName: 'Johan van Wyk', role: 'staff' },
 ];
 
 const insertAdmin = db.prepare(`
-  INSERT INTO Admin (Username, PasswordHash, PasswordSalt, FullName, Role)
-  VALUES (?, ?, ?, ?, ?)
+  INSERT INTO Admin (Username, Email, PasswordHash, PasswordSalt, FullName, Role)
+  VALUES (?, ?, ?, ?, ?, ?)
 `);
 for (const a of staffAccounts) {
   const { hash, salt } = hashPassword(a.password);
-  insertAdmin.run(a.username, hash, salt, a.fullName, a.role);
+  insertAdmin.run(a.username, a.email, hash, salt, a.fullName, a.role);
 }
 
 console.log('Seeding orders, payments and reviews...');
@@ -674,14 +813,19 @@ for (const cart of openCarts) {
 
 console.log('Seeding wishlists...');
 
-const insertWish = db.prepare('INSERT INTO WishlistItem (CustomerID, ProductID) VALUES (?, ?)');
+const insertWish = db.prepare('INSERT INTO WishlistItem (CustomerID, ProductID, PriceWhenSaved) VALUES (?, ?, ?)');
+// Most of these pieces were saved before their markdown, so the price saved is
+// the pre-sale price and the wishlist can show how much has come off since.
 [
   [0, 'Ultraboost Sneakers'], [0, 'Faux-Fur Logo Jacket'], [0, 'Green Floral Slip Dress'],
   [1, 'Air Max 90 White'], [1, 'Mohair-Blend Jumper'], [2, 'Suede Classic Sneakers'],
   [2, 'Slim Fit Jeans Dark Wash'], [3, 'Heritage Crest Sweatshirt'], [4, 'Pique Polo Shirt'],
   [5, 'Workwear Chino Trousers'], [6, 'Oversized Tee'], [7, 'Silver Cuban Link Bracelet'],
   [8, 'Dunk Low'], [9, 'Samba Suede Trainers'],
-].forEach(([customer, name]) => insertWish.run(customerIds[customer], findProduct(name).id));
+].forEach(([customer, name]) => {
+  const p = findProduct(name);
+  insertWish.run(customerIds[customer], p.id, SALE_ORIGINAL_PRICES[name] || p.price);
+});
 
 console.log('Seeding returns...');
 
@@ -758,13 +902,165 @@ for (const review of reviews) {
   insertReview.run(findProduct(review.product).id, customerIds[review.customer], review.rating, review.comment);
 }
 
+console.log('Seeding release 1.3.0 data (timelines, points, alerts, questions, selling, support)...');
+
+/**
+ * Style profiles. The first eight customers have been through the welcome
+ * onboarding; the rest have not, so signing in as one of them shows it.
+ */
+const styleProfiles = [
+  { sizes: ['UK 8', 'M', '32'], brands: ['Nike', 'Adidas', 'Tommy Hilfiger'] },
+  { sizes: ['UK 9', 'L', '34'], brands: ['Puma', 'Calvin Klein'] },
+  { sizes: ['UK 7', 'S', 'M'], brands: ['Zara', 'H&M'] },
+  { sizes: ['UK 9', 'L'], brands: ['Adidas', 'Nike'] },
+  { sizes: ['S', 'M', '30'], brands: ['Zara', 'Guess'] },
+  { sizes: ['UK 8', 'L', '32'], brands: ['Nike', 'Wrangler'] },
+  { sizes: ['M'], brands: ['Guess', 'Calvin Klein'] },
+  { sizes: ['UK 10', 'XL', '36'], brands: ['Dickies', 'Tommy Hilfiger'] },
+];
+const setStyle = db.prepare(`UPDATE Customer SET PreferredSizes = ?, FavouriteBrands = ?, OnboardedAt = datetime('now', '-30 days') WHERE CustomerID = ?`);
+styleProfiles.forEach((s, i) => setStyle.run(JSON.stringify(s.sizes), JSON.stringify(s.brands), customerIds[i]));
+
+// Order timelines: every seeded order gets the steps it went through.
+const insertHistory = db.prepare(`INSERT INTO OrderStatusHistory (OrderID, Status, Note, CreatedAt) VALUES (?, ?, ?, datetime(?, ?))`);
+const seededOrders = db.prepare('SELECT OrderID, Status, CreatedAt, UpdatedAt, CourierRef FROM Orders ORDER BY OrderID').all();
+for (const o of seededOrders) {
+  insertHistory.run(o.OrderID, 'Processing', 'Order placed', o.CreatedAt, '+0 minutes');
+  if (o.Status === 'Shipped' || o.Status === 'Delivered') {
+    insertHistory.run(o.OrderID, 'Shipped', o.CourierRef ? `Courier reference ${o.CourierRef}` : null, o.CreatedAt, '+1 days');
+  }
+  if (o.Status === 'Delivered') insertHistory.run(o.OrderID, 'Delivered', null, o.CreatedAt, '+3 days');
+  if (o.Status === 'Cancelled') insertHistory.run(o.OrderID, 'Cancelled', 'Cancelled by the customer', o.CreatedAt, '+4 hours');
+}
+// A delivered order's UpdatedAt is when it was delivered, which is what the 30-day return window counts from.
+db.prepare(`UPDATE Orders SET UpdatedAt = datetime(CreatedAt, '+3 days') WHERE Status = 'Delivered' AND datetime(CreatedAt, '+3 days') <= datetime('now')`).run();
+
+// A gift order and a store collection, so both show on the order screens.
+db.prepare(`UPDATE Orders SET IsGift = 1, GiftMessage = 'Happy birthday, Nomsa! Love, Lerato.' WHERE OrderID = ?`).run(seededOrderIds[0]);
+db.prepare(`UPDATE Orders SET DeliveryMethod = 'collection', DeliveryFee = 0, DeliveryAddress = 'Collect from: iTHRIFT Clothes, Hatfield Plaza, Pretoria',
+  CollectionDate = date('now', '+2 days'), CollectionSlot = '12:00 to 14:00' WHERE OrderID = ?`).run(seededOrderIds[11]);
+
+/**
+ * Thrift Points. Every customer received the 50-point welcome bonus, and each
+ * delivered order earned a point per R10 paid. One customer has spent some.
+ */
+const POINTS_PER_RAND = 0.1;
+const insertPoints = db.prepare(`INSERT INTO PointsLedger (CustomerID, Points, Reason, OrderID, CreatedAt) VALUES (?, ?, ?, ?, datetime('now', ?))`);
+customerIds.forEach((id) => insertPoints.run(id, 50, 'Welcome bonus', null, '-120 days'));
+const deliveredOrders = db.prepare(`SELECT OrderID, CustomerID, TotalAmount FROM Orders WHERE Status = 'Delivered'`).all();
+for (const o of deliveredOrders) {
+  const pts = Math.floor(o.TotalAmount * POINTS_PER_RAND);
+  if (pts > 0) insertPoints.run(o.CustomerID, pts, `Earned on ORD-${String(o.OrderID).padStart(4, '0')}`, o.OrderID, '-2 days');
+}
+insertPoints.run(customerIds[1], -100, 'Redeemed for R10 off an order', null, '-30 days');
+
+/** Notifications already waiting in the demo inboxes. */
+const insertNote = db.prepare(`INSERT INTO Notification (CustomerID, Type, Title, Body, Link, IsRead, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))`);
+const orderLink = (i) => `/orders/${seededOrderIds[i]}`;
+[
+  [0, 'welcome', 'Welcome to iTHRIFT', 'You have 50 Thrift Points to start with. Every R10 you spend earns another point.', '/account/points', 1, '-120 days'],
+  [0, 'order', 'Your order has been delivered', `ORD-${String(seededOrderIds[21]).padStart(4, '0')} was delivered. You have 30 days to return anything that is not right.`, orderLink(21), 0, '-2 days'],
+  [0, 'price_drop', 'Price drop on a saved piece', 'Ultraboost Sneakers dropped from R1,799 to R1,399.', `/product/${findProduct('Ultraboost Sneakers').id}`, 0, '-1 days'],
+  [0, 'price_drop', 'Price drop on a saved piece', 'Faux-Fur Logo Jacket dropped from R1,199 to R699.', `/product/${findProduct('Faux-Fur Logo Jacket').id}`, 0, '-1 days'],
+  [0, 'points', 'You earned Thrift Points', 'Your delivered order earned points. See your balance under Account.', '/account/points', 1, '-2 days'],
+  [1, 'order', 'Your order has been delivered', 'Your order was delivered. Leave a review to help other shoppers.', orderLink(20), 0, '-5 days'],
+  [1, 'price_drop', 'Price drop on a saved piece', 'Air Max 90 White dropped from R1,299 to R1,049.', `/product/${findProduct('Air Max 90 White').id}`, 0, '-3 days'],
+  [2, 'order', 'We are packing your order', 'Your order is being picked and packed.', orderLink(9), 0, '-3 days'],
+  [8, 'order', 'Your order is on its way', 'Your parcel is with the courier.', orderLink(7), 1, '-10 days'],
+  [9, 'order', 'Your order is on its way', 'Your parcel is with the courier.', orderLink(8), 0, '-6 days'],
+  [10, 'order', 'We are packing your order', 'Your order is being picked and packed.', orderLink(10), 0, '-2 days'],
+  [11, 'order', 'Your collection is booked', 'Collect your order from the Pretoria store in your chosen slot.', orderLink(11), 0, '-1 days'],
+].forEach(([c, type, title, body, link, read, age]) => insertNote.run(customerIds[c], type, title, body, link, read, age));
+
+/** Saved searches. */
+const insertSaved = db.prepare('INSERT INTO SavedSearch (CustomerID, Name, Criteria) VALUES (?, ?, ?)');
+[
+  [0, 'Nike trainers in UK 8', { brand: ['Nike'], category: ['Footwear'], size: ['UK 8'] }],
+  [0, 'Sale knitwear', { category: ['Knitwear'], onSale: true }],
+  [1, 'Puma under R800', { brand: ['Puma'], maxPrice: 800 }],
+  [2, 'Zara dresses', { brand: ['Zara'], category: ['Dresses'] }],
+  [3, 'Adidas Samba', { q: 'samba' }],
+  [4, 'Size S tops', { size: ['S'], category: ['Tees', 'Shirts'] }],
+  [5, 'Jeans waist 32', { category: ['Jeans'], size: ['32'] }],
+  [6, 'Guess anything', { brand: ['Guess'] }],
+  [7, 'Excellent condition jackets', { category: ['Jackets'], condition: ['Excellent'] }],
+  [9, 'Jordans', { q: 'jordan' }],
+].forEach(([c, name, crit]) => insertSaved.run(customerIds[c], name, JSON.stringify(crit)));
+
+/** Back-in-stock alerts on sold-out pieces and sizes. */
+const insertAlert = db.prepare('INSERT INTO StockAlert (CustomerID, ProductID, Size) VALUES (?, ?, ?)');
+[
+  [0, 'Silver Diamond Halo Ring', null], [2, 'Silver Diamond Halo Ring', null], [4, 'Silver Diamond Halo Ring', null],
+  [0, 'Air Force 1 Low', 'UK 6'], [1, 'Samba OG Trainers', 'UK 7'], [3, 'Dunk Low', 'UK 10'],
+  [5, 'CK96 Crew Sweater', 'S'], [6, 'Faux-Fur Logo Jacket', 'M'], [7, 'Slim Fit Jeans', '30'], [9, 'Air Jordan 1 Low', 'UK 8'],
+].forEach(([c, name, size]) => insertAlert.run(customerIds[c], findProduct(name).id, size));
+
+/** Product questions, most answered by staff. */
+const adminId = (u) => db.prepare('SELECT AdminID FROM Admin WHERE Username = ?').get(u).AdminID;
+const insertQuestion = db.prepare(`INSERT INTO ProductQuestion (ProductID, CustomerID, Question, Answer, AnsweredBy, CreatedAt, AnsweredAt)
+  VALUES (?, ?, ?, ?, ?, datetime('now', ?), CASE WHEN ? IS NULL THEN NULL ELSE datetime('now', ?) END)`);
+[
+  ['Air Force 1 Low', 1, 'Do these run true to size?', 'They run about half a size big, so most people take their usual size or half down.', 'staff01'],
+  ['Samba OG Trainers', 3, 'Is the gum sole yellowed at all?', 'Very lightly on the heel only. We added a close-up to the description.', 'staff02'],
+  ['Faux-Fur Logo Jacket', 0, 'Does the hood detach?', 'No, the hood is sewn in.', 'staff01'],
+  ['Tie-Waist Maxi Dress', 4, 'How long is it from shoulder to hem?', 'About 138 cm measured flat.', 'admin'],
+  ['Slim Fit Jeans', 5, 'Is there any stretch in the denim?', 'Yes, it is a cotton blend with about 2 percent elastane.', 'staff03'],
+  ['CK96 Crew Sweater', 6, 'Is the print cracked?', 'No cracking at all. It is in excellent condition.', 'staff01'],
+  ['Dunk Low', 7, 'Do they come with the original box?', 'No box, but they are cleaned and come in an iTHRIFT dust bag.', 'staff02'],
+  ['Silver Cuban Link Bracelet', 8, 'Is this real silver?', null, null],
+  ['Quilted Puffer Gilet', 9, 'Is it water resistant?', null, null],
+  ['Ultraboost Sneakers', 10, 'Can I try them on in store first?', null, null],
+].forEach(([name, c, q, a, by], i) => {
+  const age = `-${20 - i} days`;
+  insertQuestion.run(findProduct(name).id, customerIds[c], q, a, by ? adminId(by) : null, age, a, `-${18 - i} days`);
+});
+
+/** Sell-to-us submissions in every state. */
+const insertSell = db.prepare(`INSERT INTO SellSubmission (CustomerID, Brand, Category, ItemSize, ConditionGrade, Description, AskingPrice, OfferAmount, PayoutMethod, StaffNote, Status, CreatedAt, UpdatedAt)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))`);
+[
+  [0, 'Nike', 'Footwear', 'UK 8', 'Very Good', 'Air Max 97 in silver, worn a handful of times.', 900, null, null, null, 'Submitted', '-2 days'],
+  [1, 'Adidas', 'Hoodies', 'L', 'Excellent', 'Black Trefoil hoodie, never washed.', 350, 280, null, 'Bring it to the Hatfield store any weekday.', 'Offer made', '-4 days'],
+  [2, 'Zara', 'Dresses', 'S', 'Excellent', 'Satin midi dress in emerald, tags on.', 400, 320, 'points', 'Accepted as Thrift Points.', 'Accepted', '-6 days'],
+  [3, 'Levi\'s', 'Jeans', '34', 'Good', '501 straight leg, some fading at the knees.', 300, 180, null, 'Offer reflects the fading.', 'Declined', '-9 days'],
+  [4, 'Guess', 'Tees', 'M', 'Very Good', 'White logo tee.', 150, 110, 'eft', null, 'Received', '-11 days'],
+  [5, 'Puma', 'Footwear', 'UK 9', 'Very Good', 'Suede Classic in navy.', 500, 380, 'eft', 'Paid by EFT.', 'Paid', '-15 days'],
+  [6, 'Calvin Klein', 'Knitwear', 'M', 'Excellent', 'Grey merino crew.', 450, null, null, null, 'Submitted', '-1 days'],
+  [7, 'Dickies', 'Trousers', '36', 'Good', '874 work trousers in khaki.', 250, 160, 'points', 'Paid as Thrift Points with the 20 percent bonus.', 'Paid', '-20 days'],
+  [8, 'H&M', 'Jackets', 'M', 'Fair', 'Denim jacket, small mark on the cuff.', 200, null, null, 'We are not taking Fair jackets this season.', 'Declined', '-25 days'],
+  [9, 'Tommy Hilfiger', 'Polos', 'L', 'Excellent', 'Navy polo with flag logo.', 300, 230, null, null, 'Offer made', '-3 days'],
+].forEach(([c, brand, cat, size, cond, desc, ask, offer, payout, note, status, age]) => insertSell.run(customerIds[c], brand, cat, size, cond, desc, ask, offer, payout, note, status, age, age));
+
+/** Support conversations. */
+const insertTicket = db.prepare(`INSERT INTO SupportTicket (CustomerID, Topic, Subject, OrderID, Status, CreatedAt, UpdatedAt) VALUES (?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))`);
+const insertMessage = db.prepare(`INSERT INTO SupportMessage (TicketID, Sender, AuthorName, Body, CreatedAt) VALUES (?, ?, ?, ?, datetime('now', ?))`);
+const customerName = (i) => `${customers[i].first} ${customers[i].last}`;
+[
+  [0, 'Order', 'Can I change my delivery address?', 21, 'Answered', [['customer', 'I moved to res. Can the parcel go to campus instead?'], ['staff', 'Done. We updated the courier booking to your campus address.']]],
+  [1, 'Return', 'Return label', 20, 'Closed', [['customer', 'Do I need to print a return label?'], ['staff', 'No label needed. Drop it at any PEP store with your order number.'], ['customer', 'Thanks!']]],
+  [2, 'Order', 'EFT payment proof', 9, 'Open', [['customer', 'I paid by EFT this morning. Where do I send proof of payment?']]],
+  [3, 'Selling', 'Selling a bulk lot', null, 'Answered', [['customer', 'I have about 20 pieces to sell. Can I bring them all at once?'], ['staff', 'Yes, book a slot on Saturday morning and we will go through them with you.']]],
+  [4, 'Account', 'Change my email', null, 'Open', [['customer', 'I want to use my student email instead.']]],
+  [5, 'Order', 'Missing item', 4, 'Closed', [['customer', 'My jeans were not in the parcel.'], ['staff', 'Sorry about that. They were sent separately and arrive tomorrow.']]],
+  [6, 'Other', 'Gift vouchers', null, 'Answered', [['customer', 'Do you sell gift vouchers?'], ['staff', 'Not yet, but you can mark an order as a gift and add a message.']]],
+  [7, 'Return', 'Refund timing', 6, 'Open', [['customer', 'How long does a refund take after you receive the item?']]],
+  [8, 'Order', 'Courier tracking', 7, 'Answered', [['customer', 'The courier reference does not work on their site.'], ['staff', 'It activates once they scan the parcel at the depot, usually by 17:00.']]],
+  [9, 'Other', 'Store hours', null, 'Closed', [['customer', 'Are you open on public holidays?'], ['staff', 'We open 09:00 to 13:00 on most public holidays.']]],
+].forEach(([c, topic, subject, orderIdx, status, msgs], i) => {
+  const age = `-${12 - i} days`;
+  const t = insertTicket.run(customerIds[c], topic, subject, orderIdx == null ? null : seededOrderIds[orderIdx], status, age, age);
+  msgs.forEach(([sender, body], j) => insertMessage.run(Number(t.lastInsertRowid), sender, sender === 'staff' ? 'iTHRIFT Support' : customerName(c), body, `-${12 - i} days`));
+});
+
 // A seed script that quietly under-fills a table is worse than one that
 // fails, because the gap is only found during the demonstration. The module
 // requires at least ten rows in every table, so that is checked here rather
 // than trusted.
 const MINIMUM_ROWS = 10;
 const tables = ['Brand', 'Category', 'Product', 'ProductSize', 'Customer', 'Address', 'Admin', 'Cart', 'CartItem',
-  'WishlistItem', 'PromoCode', 'Orders', 'OrderItem', 'Payment', 'ReturnRequest', 'Review'];
+  'WishlistItem', 'PromoCode', 'Orders', 'OrderItem', 'Payment', 'ReturnRequest', 'Review',
+  'OrderStatusHistory', 'Notification', 'SavedSearch', 'StockAlert', 'PointsLedger', 'ProductQuestion',
+  'SellSubmission', 'SupportTicket', 'SupportMessage'];
 const counts = {};
 const shortfall = [];
 

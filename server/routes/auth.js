@@ -3,36 +3,50 @@
 const express = require('express');
 const { getDb } = require('../db');
 const { hashPassword, verifyPassword, isPasswordStrong } = require('../utils/password');
-const { verifyGoogleIdToken, isSsoConfigured } = require('../utils/sso');
+const { verifyGoogleIdToken, isSsoConfigured, webClientId } = require('../utils/sso');
 const { createSession, destroySession, requireAuth, requireRole } = require('../middleware/auth');
+const appCodes = require('../utils/app-codes');
+const { normalisePhone, formatPhone, looksLikePhone, findCustomerByPhone, PHONE_HINT } = require('../utils/phone');
 
 const router = express.Router();
 
 // UC1: Register. A visitor creates a customer account.
 router.post('/register', (req, res) => {
-  const { firstName, lastName, email, password, phone, address, city, postalCode } = req.body || {};
+  const { firstName, lastName, email, password, confirmPassword, phone, address, city, postalCode } = req.body || {};
 
-  if (!firstName || !lastName || !email || !password) {
-    return res.status(400).json({ error: 'First name, last name, email and password are all required.' });
+  if (!firstName || !lastName || !email || !password || !phone) {
+    return res.status(400).json({ error: 'First name, last name, email, cellphone number and password are all required.' });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Please enter a valid email address.' });
   }
+  const national = normalisePhone(phone);
+  if (!national) {
+    return res.status(400).json({ error: PHONE_HINT, field: 'phone' });
+  }
   if (!isPasswordStrong(password)) {
     return res.status(400).json({ error: 'Password must be at least 8 characters long and include an uppercase letter and a number.' });
   }
+  // Older clients do not send the confirmation, so only check it when given.
+  if (confirmPassword !== undefined && confirmPassword !== password) {
+    return res.status(400).json({ error: 'The two passwords do not match.', field: 'confirmPassword' });
+  }
 
   const db = getDb();
-  const existing = db.prepare('SELECT CustomerID FROM Customer WHERE Email = ?').get(email.toLowerCase());
+  const existing = db.prepare('SELECT CustomerID FROM Customer WHERE Email = ?').get(email.toLowerCase())
+    || db.prepare('SELECT AdminID FROM Admin WHERE Email = ?').get(email.toLowerCase());
   if (existing) {
-    return res.status(409).json({ error: 'An account with that email already exists.' });
+    return res.status(409).json({ error: 'An account with that email already exists.', field: 'email' });
+  }
+  if (findCustomerByPhone(db, national)) {
+    return res.status(409).json({ error: 'An account with that cellphone number already exists.', field: 'phone' });
   }
 
   const { hash, salt } = hashPassword(password);
   const info = db.prepare(`
     INSERT INTO Customer (FirstName, LastName, Email, PasswordHash, PasswordSalt, Phone, AddressLine, City, PostalCode)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(firstName.trim(), lastName.trim(), email.toLowerCase(), hash, salt, phone || null, address || null, city || null, postalCode || null);
+  `).run(firstName.trim(), lastName.trim(), email.toLowerCase(), hash, salt, formatPhone(national), address || null, city || null, postalCode || null);
 
   const customerId = Number(info.lastInsertRowid);
   db.prepare('INSERT INTO Cart (CustomerID) VALUES (?)').run(customerId);
@@ -42,17 +56,24 @@ router.post('/register', (req, res) => {
   res.status(201).json({ token, user });
 });
 
-// UC2: Log in. A customer, staff member or administrator signs in.
-// `identifier` is an email for customers, or a username for staff/admin.
+// UC2: Log in. A customer, staff member or administrator signs in with an
+// email address, or a customer with their cellphone number.
 router.post('/login', (req, res) => {
-  const { identifier, password } = req.body || {};
+  const { password } = req.body || {};
+  const identifier = String((req.body || {}).identifier || '').trim();
   if (!identifier || !password) {
-    return res.status(400).json({ error: 'Please enter your email/username and password.' });
+    return res.status(400).json({ error: 'Please enter your email or cellphone number and your password.' });
   }
 
   const db = getDb();
+  const byPhone = !identifier.includes('@') && looksLikePhone(identifier);
+  if (!byPhone && !identifier.includes('@')) {
+    return res.status(400).json({ error: 'Sign in with your email address or cellphone number.' });
+  }
 
-  const customer = db.prepare('SELECT * FROM Customer WHERE Email = ?').get(identifier.toLowerCase());
+  const customer = byPhone
+    ? findCustomerByPhone(db, identifier)
+    : db.prepare('SELECT * FROM Customer WHERE Email = ?').get(identifier.toLowerCase());
   if (customer) {
     // An account created through single sign-on has no password on this
     // system, so there is nothing here to check it against. Say so plainly
@@ -62,7 +83,7 @@ router.post('/login', (req, res) => {
       return res.status(409).json({ error: 'This account signs in with Google. Use the "Continue with Google" button instead.' });
     }
     if (!verifyPassword(password, customer.PasswordSalt, customer.PasswordHash)) {
-      return res.status(401).json({ error: 'Incorrect email or password.' });
+      return res.status(401).json({ error: 'Incorrect sign-in details or password.' });
     }
     if (customer.Status === 'suspended') {
       return res.status(403).json({ error: 'This account has been suspended. Please contact iTHRIFT support.' });
@@ -72,17 +93,17 @@ router.post('/login', (req, res) => {
     return res.json({ token, user });
   }
 
-  const admin = db.prepare('SELECT * FROM Admin WHERE Username = ?').get(identifier);
+  const admin = byPhone ? null : db.prepare('SELECT * FROM Admin WHERE Email = ?').get(identifier.toLowerCase());
   if (admin) {
     if (!verifyPassword(password, admin.PasswordSalt, admin.PasswordHash)) {
-      return res.status(401).json({ error: 'Incorrect username or password.' });
+      return res.status(401).json({ error: 'Incorrect sign-in details or password.' });
     }
     const user = { type: admin.Role, id: admin.AdminID, name: admin.FullName };
     const token = createSession(user);
     return res.json({ token, user });
   }
 
-  res.status(401).json({ error: 'Incorrect email/username or password.' });
+  res.status(401).json({ error: 'Incorrect sign-in details or password.' });
 });
 
 // UC2b: Single sign-on. The client proves who the customer is with a Google
@@ -90,7 +111,10 @@ router.post('/login', (req, res) => {
 // tokens. Everything downstream (cart, checkout, orders) then works exactly as
 // it does for a password account, because the session looks the same.
 router.post('/sso', async (req, res) => {
-  const { idToken } = req.body || {};
+  const { idToken, challenge } = req.body || {};
+  if (challenge !== undefined && !appCodes.isChallenge(challenge)) {
+    return res.status(400).json({ error: 'This sign-in link from the app is not valid. Go back to the app and try again.' });
+  }
 
   let identity;
   try {
@@ -139,14 +163,32 @@ router.post('/sso', async (req, res) => {
   }
 
   const user = { type: 'customer', id: customer.CustomerID, name: `${customer.FirstName} ${customer.LastName}` };
+  // From the app's browser tab: a single-use code for the app, not a session
+  // (see server/utils/app-codes.js).
+  if (challenge) return res.json({ code: appCodes.issue(user, challenge) });
   const token = createSession(user);
   res.json({ token, user });
+});
+
+// The app swaps the single-use code for a session, proving with the secret
+// behind the challenge that it is the app that started the sign-in.
+router.post('/sso/exchange', (req, res) => {
+  const { code, verifier } = req.body || {};
+  const result = appCodes.redeem(code, verifier);
+  if (result.error) return res.status(400).json({ error: result.error });
+  const token = createSession(result.user);
+  res.json({ token, user: result.user });
 });
 
 // Lets a client hide the single sign-on button when the server it is pointed
 // at has no provider configured, rather than offering a button that fails.
 router.get('/sso/status', (_req, res) => {
-  res.json({ enabled: isSsoConfigured(), provider: 'google' });
+  // The website needs the OAuth web client id to draw Google's sign-in
+  // button. A client id is public by design (Google shows it in every
+  // sign-in page), so returning it here is safe; it stays out of the
+  // repository because it is read from the environment at run time.
+  const enabled = isSsoConfigured();
+  res.json({ enabled, provider: 'google', clientId: enabled ? webClientId() : null });
 });
 
 router.post('/logout', (req, res) => {
@@ -208,8 +250,15 @@ router.put('/profile', requireAuth, requireRole('customer'), (req, res) => {
   if (postalCode && !/^\d{4}$/.test(String(postalCode).trim())) {
     return res.status(400).json({ error: 'A South African postal code is four digits.' });
   }
+  const national = normalisePhone(phone);
+  if (!national) {
+    return res.status(400).json({ error: PHONE_HINT, field: 'phone' });
+  }
 
   const db = getDb();
+  if (findCustomerByPhone(db, national, req.user.id)) {
+    return res.status(409).json({ error: 'Another account already uses that cellphone number.', field: 'phone' });
+  }
   db.prepare(`
     UPDATE Customer
     SET FirstName = ?, LastName = ?, Phone = ?, AddressLine = ?, City = ?, PostalCode = ?
@@ -217,7 +266,7 @@ router.put('/profile', requireAuth, requireRole('customer'), (req, res) => {
   `).run(
     firstName.trim(),
     lastName.trim(),
-    phone ? String(phone).trim() : null,
+    formatPhone(national),
     address ? String(address).trim() : null,
     city ? String(city).trim() : null,
     postalCode ? String(postalCode).trim() : null,

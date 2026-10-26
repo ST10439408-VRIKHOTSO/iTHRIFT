@@ -145,4 +145,12 @@ async function verifyGoogleIdToken(idToken, { get = askGoogle } = {}) {
   };
 }
 
-module.exports = { verifyGoogleIdToken, isSsoConfigured, allowedAudiences };
+/**
+ * The client id the website's Google button should use: the first one in
+ * GOOGLE_CLIENT_ID, which by convention is the web application client.
+ */
+function webClientId() {
+  return allowedAudiences()[0] || null;
+}
+
+module.exports = { verifyGoogleIdToken, isSsoConfigured, allowedAudiences, webClientId };
