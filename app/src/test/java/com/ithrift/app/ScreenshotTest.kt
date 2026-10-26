@@ -99,6 +99,20 @@ class ScreenshotTest {
         }
     }
 
+    /** Opens a screen, scrolls until [text] is on screen, and photographs it without tapping anything. */
+    private fun scrolledTo(name: String, route: String, text: String) {
+        RuntimeEnvironment.setQualifiers("+notnight")
+        AppSettings.setThemeMode(context, AppSettings.ThemeMode.LIGHT)
+        val intent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ROUTE, route)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            settle(4000)
+            val nodes = compose.onAllNodesWithText(text, useUnmergedTree = true)
+            if (nodes.fetchSemanticsNodes().isNotEmpty()) runCatching { nodes[0].performScrollTo() }
+            settle(800)
+            compose.onRoot().captureRoboImage("screens/$name.png")
+        }
+    }
+
     private fun shoot(name: String, route: String, dark: Boolean = false, wait: Long = 4000) {
         RuntimeEnvironment.setQualifiers(if (dark) "+night" else "+notnight")
         AppSettings.setThemeMode(context, if (dark) AppSettings.ThemeMode.DARK else AppSettings.ThemeMode.LIGHT)
@@ -127,6 +141,7 @@ class ScreenshotTest {
         shoot("customer account", "account")
         shoot("customer account dark", "account", dark = true)
         shoot("customer settings", "settings")
+        scrolledTo("customer settings delete account", "settings", "Delete my account")
         shoot("customer points", "points")
         shoot("customer notifications", "notifications")
         shoot("customer sell", "sell")

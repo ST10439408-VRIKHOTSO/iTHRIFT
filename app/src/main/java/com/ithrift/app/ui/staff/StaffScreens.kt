@@ -2,6 +2,7 @@
 
 package com.ithrift.app.ui.staff
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -296,6 +297,7 @@ fun ProcessOrderPanel(order: OrderDetail, onDone: () -> Unit) {
             val st = status ?: return@Btn
             busy = true
             app.run({ safeApiCall { app.api.setOrderStatus(order.id, OrderStatusRequest(st, courier.ifBlank { null }, note.ifBlank { null })) } }, onDone = { busy = false }) {
+                Log.i(STAFF_TAG, "Order ${order.ref} moved to $st by ${app.user?.type} #${app.user?.id}")
                 app.toast("Order marked ${st.lowercase()}. The customer has been notified.", ToastKind.Success)
                 onDone()
             }
@@ -604,6 +606,8 @@ fun StaffSupportScreen() {
 }
 
 /* ----------------------------- Listings ----------------------------- */
+
+private const val STAFF_TAG = "StaffConsole"
 
 private val STAFF_SIZE_RANGES = mapOf(
     "Footwear" to listOf("UK 3", "UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10"),

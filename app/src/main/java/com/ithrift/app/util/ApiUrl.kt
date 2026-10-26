@@ -10,6 +10,9 @@ package com.ithrift.app.util
  * kind of thing a tired person types at 2am on a phone keyboard, and the
  * resulting IllegalArgumentException from Retrofit ("baseUrl must end in /")
  * is not a message anyone can act on.
+ *
+ * Reference: Retrofit.Builder.baseUrl, which requires the trailing slash,
+ * https://square.github.io/retrofit/2.x/retrofit/retrofit2/-retrofit/-builder/base-url.html
  */
 object ApiUrl {
 

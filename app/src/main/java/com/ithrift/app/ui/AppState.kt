@@ -1,6 +1,7 @@
 package com.ithrift.app.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -44,6 +45,17 @@ data class Toast(
  * counts on the bag and the bell, the wishlist and compare tray, the
  * appearance settings and the toasts. It plays the part `state` plays in the
  * website's public/js/app.js.
+ *
+ * Because every screen goes through this class to navigate, sign in or out
+ * and run an API action, it is also where the app's Logcat trail is written
+ * (tag "AppState"): a developer can follow a customer's path through the
+ * app from the log alone. Identities are logged by role and id only, never
+ * by name, email or token.
+ *
+ * References:
+ *  - State in Compose (mutableStateOf, @Stable): https://developer.android.com/develop/ui/compose/state
+ *  - Navigation with Compose: https://developer.android.com/develop/ui/compose/navigation
+ *  - CompositionLocal: https://developer.android.com/develop/ui/compose/compositionlocal
  */
 @Stable
 class AppState(val context: Context, val scope: CoroutineScope) {
@@ -84,6 +96,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     // --- Navigation -----------------------------------------------------------
 
     fun go(route: String) {
+        Log.d(TAG, "Navigate to $route")
         nav.navigate(route) { launchSingleTop = true }
     }
 
@@ -94,6 +107,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     /** Opens the sign-in screen and comes back to [next] afterwards. */
     fun requireSignIn(next: String): Boolean {
         if (isSignedIn) return true
+        Log.i(TAG, "Sign-in required before $next")
         go(Routes.login(next))
         return false
     }
@@ -103,11 +117,13 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     fun signIn(token: String, signedIn: AuthUser) {
         SessionManager.saveSession(context, token, signedIn)
         user = signedIn
+        Log.i(TAG, "Signed in: ${signedIn.type} #${signedIn.id}")
         scope.launch { refreshCounts() }
     }
 
     fun signOut() {
         val hadToken = SessionManager.getToken(context) != null
+        Log.i(TAG, "Signing out ${user?.type ?: "guest"} #${user?.id ?: "-"}")
         scope.launch {
             if (hadToken) safeApiCall { api.logout() }
             SessionManager.clearSession(context)
@@ -121,6 +137,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     /** Called when any request finds the session gone (the server restarted, say). */
     fun noticeLostSession() {
         if (user != null && !SessionManager.isLoggedIn(context)) {
+            Log.w(TAG, "Session lost on the server; showing the app signed out")
             user = null
             cartCount = 0
             unread = 0
@@ -152,6 +169,7 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         (safeApiCall { api.getCategories() } as? ApiOutcome.Success)?.let { categories = it.data.categories }
         (safeApiCall { api.getSizes() } as? ApiOutcome.Success)?.let { sizes = it.data.sizes }
         (safeApiCall { api.getOrderOptions() } as? ApiOutcome.Success)?.let { options = it.data }
+        Log.d(TAG, "Lookups loaded: ${brands.size} brands, ${categories.size} categories, ${sizes.size} sizes")
     }
 
     // --- Wishlist and compare --------------------------------------------------
@@ -159,6 +177,8 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     fun toggleWishlist(productId: Int, name: String) {
         if (!requireSignIn(Routes.product(productId))) return
         val saved = productId in wishlistIds
+        Log.d(TAG, if (saved) "Wishlist: removing product #$productId" else "Wishlist: saving product #$productId")
+        // Optimistic update: the heart changes at once and is put back if the API refuses.
         wishlistIds = if (saved) wishlistIds - productId else wishlistIds + productId
         scope.launch {
             val result = if (saved) safeApiCall { api.removeFromWishlist(productId) }
@@ -181,8 +201,8 @@ class AppState(val context: Context, val scope: CoroutineScope) {
         val ids = compareIds
         compareIds = when {
             productId in ids -> ids - productId
-            ids.size >= 4 -> {
-                toast("You can compare up to four pieces. Remove one first.", ToastKind.Error)
+            ids.size >= 3 -> {
+                toast("You can compare three pieces at a time. Remove one first.", ToastKind.Error)
                 ids
             }
             else -> ids + productId
@@ -200,16 +220,19 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     fun setTheme(mode: AppSettings.ThemeMode) {
         AppSettings.setThemeMode(context, mode)
         themeMode = mode.stored
+        Log.i(TAG, "Theme set to ${mode.stored}")
     }
 
     fun updateLargeText(on: Boolean) {
         AppSettings.setLargeText(context, on)
         largeText = on
+        Log.i(TAG, "Larger text ${if (on) "on" else "off"}")
     }
 
     fun updateReduceMotion(on: Boolean) {
         AppSettings.setReduceMotion(context, on)
         reduceMotion = on
+        Log.i(TAG, "Reduced motion ${if (on) "on" else "off"}")
     }
 
     // --- Toasts ------------------------------------------------------------------
@@ -227,7 +250,14 @@ class AppState(val context: Context, val scope: CoroutineScope) {
     fun dismissToast(t: Toast) {
         toasts.remove(t)
     }
+
+    private companion object {
+        const val TAG = "AppState"
+    }
 }
+
+private const val LOAD_TAG = "ScreenLoad"
+private const val ACTION_TAG = "AppAction"
 
 val LocalApp = staticCompositionLocalOf<AppState> { error("AppState not provided") }
 
@@ -264,6 +294,9 @@ class LoadHandle<T> {
  * Loads a screen's data from the API, again whenever [keys] change or
  * [LoadHandle.reload] is called. A reload keeps the old data on screen while
  * it runs, so nothing flickers.
+ *
+ * Reference: LaunchedEffect and other side effects in Compose,
+ * https://developer.android.com/develop/ui/compose/side-effects
  */
 @Composable
 fun <T> rememberLoad(vararg keys: Any?, block: suspend () -> ApiOutcome<T>): LoadHandle<T> {
@@ -277,6 +310,7 @@ fun <T> rememberLoad(vararg keys: Any?, block: suspend () -> ApiOutcome<T>): Loa
         handle.state = when (result) {
             is ApiOutcome.Success -> Load.Ready(result.data)
             is ApiOutcome.Failure -> {
+                Log.w(LOAD_TAG, "Screen data failed to ${if (hadData) "refresh" else "load"}: ${result.message}")
                 app.noticeLostSession()
                 if (hadData) {
                     app.toast(result.message, ToastKind.Error)
@@ -300,6 +334,7 @@ fun <T> AppState.run(
         when (val r = block()) {
             is ApiOutcome.Success -> onSuccess(r.data)
             is ApiOutcome.Failure -> {
+                Log.w(ACTION_TAG, "Action refused: ${r.message}")
                 noticeLostSession()
                 if (onError != null) onError(r.message) else toast(r.message, ToastKind.Error)
             }

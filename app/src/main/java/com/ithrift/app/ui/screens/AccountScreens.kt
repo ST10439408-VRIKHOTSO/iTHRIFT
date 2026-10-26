@@ -2,6 +2,7 @@
 
 package com.ithrift.app.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,7 +43,9 @@ import com.ithrift.app.data.AddressRequest
 import com.ithrift.app.data.ApiOutcome
 import com.ithrift.app.data.AppNotification
 import com.ithrift.app.data.AppSettings
+import com.ithrift.app.data.ApiClient
 import com.ithrift.app.data.ChangePasswordRequest
+import com.ithrift.app.data.DeleteAccountRequest
 import com.ithrift.app.data.CustomerProfile
 import com.ithrift.app.data.NotificationListResponse
 import com.ithrift.app.data.PointsSummary
@@ -99,6 +103,8 @@ import com.ithrift.app.util.plural
 import com.ithrift.app.util.timeAgo
 import java.util.Calendar
 import kotlinx.coroutines.launch
+
+private const val SETTINGS_TAG = "Settings"
 
 private fun groupThousands(n: Long) = String.format(java.util.Locale.US, "%,d", n)
 
@@ -269,6 +275,7 @@ fun SettingsScreen() {
         }
         AppearanceSection()
         ConnectionSection()
+        load.data?.let { DeleteAccountSection(it.profile) }
         Spacer(Modifier.height(Space.s5))
         Text("iTHRIFT ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})", style = T.tiny, color = C.faint)
     }
@@ -302,7 +309,7 @@ private fun ProfileSection(p: CustomerProfile) {
             if (e.isNotEmpty()) return@Btn
             busy = true
             app.run(
-                { safeApiCall { app.api.updateProfile(UpdateProfileRequest(first.trim(), last.trim(), phone.trim(), p.address, p.city, p.postalCode)) } },
+                { Log.i(SETTINGS_TAG, "Saving profile details"); safeApiCall { app.api.updateProfile(UpdateProfileRequest(first.trim(), last.trim(), phone.trim(), p.address, p.city, p.postalCode)) } },
                 onDone = { busy = false },
                 onError = { msg -> if (msg.contains("cellphone", ignoreCase = true)) errors = mapOf("phone" to msg) else app.toast(msg, ToastKind.Error) },
             ) {
@@ -335,7 +342,7 @@ private fun PasswordSection(p: CustomerProfile) {
             if (e.isNotEmpty()) return@Btn
             busy = true
             app.run(
-                { safeApiCall { app.api.changePassword(ChangePasswordRequest(current, next)) } },
+                { Log.i(SETTINGS_TAG, "Changing the account password"); safeApiCall { app.api.changePassword(ChangePasswordRequest(current, next)) } },
                 onDone = { busy = false },
                 onError = { msg -> errors = if (msg.contains("current", ignoreCase = true)) mapOf("current" to msg) else mapOf("new" to msg) },
             ) {
@@ -344,6 +351,63 @@ private fun PasswordSection(p: CustomerProfile) {
                 app.toast("Password changed.", ToastKind.Success)
             }
         }, loading = busy)
+    }
+}
+
+/**
+ * Deleting the account, as Google Play requires of any app that lets people
+ * create one, and as POPIA gives every customer the right to ask. The server
+ * erases the personal details, keeps the order records the law requires
+ * without them, refuses while an order is on its way, and ends every session.
+ */
+@Composable
+private fun DeleteAccountSection(p: CustomerProfile) {
+    val app = LocalApp.current
+    val uri = LocalUriHandler.current
+    var secret by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var confirming by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    SettingsGroup("Delete your account") {
+        Text(
+            "This erases your name, email, cellphone number, addresses, wishlist, alerts and messages, and you will not be able to sign in again. Your orders stay in our accounts without your details, as the law requires.",
+            style = T.small, color = C.muted, modifier = Modifier.padding(bottom = Space.s3),
+        )
+        LinkText("Read the privacy policy", { uri.openUri("${ApiClient.originUrl(app.context)}/#/privacy") })
+        Spacer(Modifier.height(Space.s3))
+        if (p.canChangePassword) Field("Your password", secret, { secret = it; error = null }, error = error, password = true)
+        else Field("Type DELETE to confirm", secret, { secret = it; error = null }, error = error)
+        Btn("Delete my account", {
+            error = when {
+                p.canChangePassword && secret.isEmpty() -> "Enter your password."
+                !p.canChangePassword && secret.trim().uppercase() != "DELETE" -> "Type DELETE to confirm."
+                else -> null
+            }
+            if (error == null) confirming = true
+        }, style = BtnStyle.Danger, loading = busy)
+    }
+    if (confirming) {
+        ConfirmDialog(
+            "Delete your account?", "This cannot be undone. Your Thrift Points and saved pieces go with it.", "Delete my account",
+            onConfirm = {
+                confirming = false
+                busy = true
+                val body = if (p.canChangePassword) DeleteAccountRequest(password = secret) else DeleteAccountRequest(confirm = secret.trim())
+                app.run(
+                    { Log.i(SETTINGS_TAG, "Deleting the account"); safeApiCall { app.api.deleteAccount(body) } },
+                    onDone = { busy = false },
+                    onError = { msg -> error = msg },
+                ) {
+                    Log.i(SETTINGS_TAG, "Account deleted; signing out on this phone")
+                    app.signOut()
+                    app.toast("Your account has been deleted.", ToastKind.Success)
+                    app.nav.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
+                }
+            },
+            onDismiss = { confirming = false },
+            danger = true,
+            cancelLabel = "Keep my account",
+        )
     }
 }
 
@@ -400,10 +464,12 @@ private fun ConnectionSection() {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
             Btn("Save and test", {
                 AppSettings.setServerUrl(app.context, url)
+                Log.i(SETTINGS_TAG, "Server address set to $url; testing the connection")
                 testing = true
                 status = "Checking. The hosted server can take up to a minute to wake." to true
                 app.run({ safeApiCall { app.api.getBrands() } }, onDone = { testing = false }, onError = { status = it to false }) { r ->
                     status = "Connected. The server returned ${r.brands.size} brands." to true
+                    Log.i(SETTINGS_TAG, "Connection test passed: ${r.brands.size} brands returned")
                     app.scope.launch { app.loadLookups(force = true); app.refreshCounts() }
                 }
             }, loading = testing, small = true)

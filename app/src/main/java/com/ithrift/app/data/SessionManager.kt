@@ -8,6 +8,9 @@ import com.ithrift.app.util.ApiUrl
  * Persists the signed-in session and the configurable server address using
  * plain SharedPreferences. Kept deliberately simple, in the same spirit as the
  * website's use of localStorage for its token (see public/js/app.js).
+ *
+ * Reference: Save simple data with SharedPreferences,
+ * https://developer.android.com/training/data-storage/shared-preferences
  */
 object SessionManager {
 

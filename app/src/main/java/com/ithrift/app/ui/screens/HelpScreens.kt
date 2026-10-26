@@ -252,6 +252,7 @@ private val FAQ = listOf(
     Triple("account", "Your account", listOf(
         "I signed up with Google. How do I sign in?" to "Use Continue with Google on the sign-in screen. There is no password on your iTHRIFT account to type.",
         "How do I stop notifications?" to "Account, then Settings. You can switch off order updates and shopping alerts separately.",
+        "How do I delete my account?" to "Account, then Settings, then Delete my account. Your personal details are erased at once and you are signed out everywhere. Your orders stay in our records without your name, as the law requires. The privacy policy is at ithrift-api.onrender.com/#/privacy.",
         "Which server does the app use?" to "The hosted iTHRIFT server, the same one the website uses. You can point it at another server under Account, Settings, Connection.",
     )),
 )

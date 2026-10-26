@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Base64
+import android.util.Log
 import androidx.browser.customtabs.CustomTabsIntent
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -31,9 +32,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * A session token never travels through the ithrift:// link, so another
  * app that claimed the link would get only a code it cannot use.
  * See server/utils/app-codes.js.
+ *
+ * Logging records each step of the round trip under the tag "GoogleSignIn",
+ * but never the verifier, the challenge or the code: each of those is a
+ * secret for as long as it is valid.
+ *
+ * References:
+ *  - Proof Key for Code Exchange (PKCE), S256 method: https://datatracker.ietf.org/doc/html/rfc7636
+ *  - Android Custom Tabs: https://developer.chrome.com/docs/android/custom-tabs
+ *  - Deep links into an app: https://developer.android.com/training/app-links/deep-linking
  */
 object GoogleSignIn {
 
+    private const val TAG = "GoogleSignIn"
     private const val PREFS = "google_sign_in"
     private const val KEY_VERIFIER = "verifier"
     private const val KEY_NEXT = "next"
@@ -53,14 +64,18 @@ object GoogleSignIn {
             .putString(KEY_NEXT, next)
             .apply()
         val uri = Uri.parse("${serverUrl.trimEnd('/')}/#/app-sign-in?challenge=$challenge")
+        Log.i(TAG, "Opening Google sign-in on ${serverUrl.trimEnd('/')} in a browser tab")
         return try {
             CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, uri)
             null
         } catch (e: ActivityNotFoundException) {
+            // Custom Tabs need a browser that supports them; any browser will do.
+            Log.w(TAG, "No Custom Tabs browser; falling back to a plain browser intent")
             try {
                 context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 null
             } catch (e2: ActivityNotFoundException) {
+                Log.e(TAG, "No browser is installed, so Google sign-in cannot start")
                 "There is no web browser on this phone to sign in with Google."
             }
         }
@@ -69,9 +84,14 @@ object GoogleSignIn {
     /** The secret and the screen to return to, once only: a code is redeemed a single time. */
     fun takePending(context: Context): Pair<String, String>? {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val verifier = prefs.getString(KEY_VERIFIER, null) ?: return null
+        val verifier = prefs.getString(KEY_VERIFIER, null)
+        if (verifier == null) {
+            Log.w(TAG, "A sign-in link arrived but no sign-in was waiting for it")
+            return null
+        }
         val next = prefs.getString(KEY_NEXT, "") ?: ""
         prefs.edit().clear().apply()
+        Log.d(TAG, "Pending sign-in taken; the stored verifier is cleared so it cannot be reused")
         return verifier to next
     }
 

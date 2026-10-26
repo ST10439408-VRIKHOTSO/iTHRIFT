@@ -81,6 +81,10 @@ import com.ithrift.app.ui.theme.C
 import com.ithrift.app.ui.theme.IThriftTheme
 import kotlinx.coroutines.delay
 
+// The app shell: one NavHost for every screen, the theme, and the shared AppState.
+// References: Navigation with Compose, https://developer.android.com/develop/ui/compose/navigation;
+// window insets and edge-to-edge in Compose, https://developer.android.com/develop/ui/compose/layouts/insets
+
 /** Screens that are a step of their own, where the tab bar would only distract. */
 private val NO_TABS = listOf("checkout", "login", "register", "welcome", "receipt")
 

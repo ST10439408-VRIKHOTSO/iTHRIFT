@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
  * 2 unit stroke and round ends; the colour is applied by the Icon composable.
  *
  * Generated from the SVG files; regenerate rather than editing by hand.
+ *
+ * Reference: Lucide icons, https://lucide.dev (ISC licence).
  */
 object Lucide {
 

@@ -15,6 +15,9 @@ import retrofit2.http.QueryMap
  * one-database, multiple-clients architecture described in the System
  * Design document. Base path is configured per-environment in ApiClient
  * (it ends in "/api/", so paths below are relative to that, e.g. "auth/login").
+ *
+ * Reference: Retrofit service interfaces and annotations (@GET, @POST, @Body,
+ * @Path, @QueryMap) with suspend functions, https://square.github.io/retrofit/
  */
 interface ApiService {
 
@@ -51,6 +54,10 @@ interface ApiService {
 
     @POST("auth/change-password")
     suspend fun changePassword(@Body body: ChangePasswordRequest): Response<OkResponse>
+
+    /** Erases the signed-in customer's personal details and ends every session (POPIA; Google Play account deletion). */
+    @POST("auth/delete-account")
+    suspend fun deleteAccount(@Body body: DeleteAccountRequest): Response<OkResponse>
 
     @GET("products")
     suspend fun getProducts(@QueryMap filters: Map<String, String>): Response<ProductListResponse>

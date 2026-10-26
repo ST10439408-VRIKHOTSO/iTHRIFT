@@ -22,6 +22,10 @@ import androidx.appcompat.app.AppCompatDelegate
  * Putting a delivery address in SharedPreferences would mean a customer who
  * changed it on the website still saw the old one on the phone, which is the
  * bug this split avoids.
+ *
+ * References:
+ *  - SharedPreferences: https://developer.android.com/training/data-storage/shared-preferences
+ *  - Dark theme with AppCompatDelegate: https://developer.android.com/develop/ui/views/theming/darktheme
  */
 object AppSettings {
 
@@ -107,7 +111,7 @@ object AppSettings {
     fun clearRecentProducts(context: Context) = setIds(context, KEY_RECENT, emptyList())
 
     fun compareProducts(context: Context): List<Int> = ids(context, KEY_COMPARE)
-    fun setCompareProducts(context: Context, ids: List<Int>) = setIds(context, KEY_COMPARE, ids.take(4))
+    fun setCompareProducts(context: Context, ids: List<Int>) = setIds(context, KEY_COMPARE, ids.take(3))
 
     fun recentSearches(context: Context): List<String> =
         (prefs(context).getString(KEY_SEARCHES, "") ?: "").split("\n").filter { it.isNotBlank() }

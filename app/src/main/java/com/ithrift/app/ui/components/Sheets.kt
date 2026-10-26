@@ -60,6 +60,9 @@ import com.ithrift.app.ui.theme.T
  * The bottom sheet every form and picker opens in, as `.sheet` on the
  * website's phone layout: a title with a close button, a scrolling body and
  * an optional footer for the buttons.
+ *
+ * Reference: Bottom sheets in Material 3 for Compose,
+ * https://developer.android.com/develop/ui/compose/components/bottom-sheets
  */
 @Composable
 fun Sheet(

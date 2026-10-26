@@ -2,6 +2,7 @@ package com.ithrift.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -16,11 +17,16 @@ import com.ithrift.app.ui.IThriftApp
  *
  * It stays an AppCompatActivity so the light and dark setting applied in
  * IThriftApplication also reaches the window and any system dialogs.
+ *
+ * References:
+ *  - Edge-to-edge display: https://developer.android.com/develop/ui/views/layout/edge-to-edge
+ *  - Handling a deep link in an activity (onNewIntent): https://developer.android.com/training/app-links/deep-linking
  */
 class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_ROUTE = "route"
+        private const val TAG = "MainActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +46,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun takeGoogleReturn(intent: Intent?) {
         val uri = intent?.data
-        if (GoogleSignIn.isReturnLink(uri)) GoogleSignIn.returned.value = uri
+        if (GoogleSignIn.isReturnLink(uri)) {
+            // The link carries a single-use code, so only the fact that it arrived is logged.
+            Log.i(TAG, "Returned from Google sign-in in the browser tab")
+            GoogleSignIn.returned.value = uri
+        }
     }
 }

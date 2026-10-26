@@ -129,6 +129,11 @@ val InstrumentSans = FontFamily(
     Font(R.font.instrumentsansbold, FontWeight.Bold),
 )
 
+// References: custom design systems in Compose,
+// https://developer.android.com/develop/ui/compose/designsystems/custom;
+// downloadable and bundled fonts, https://developer.android.com/develop/ui/compose/text/fonts;
+// Instrument Sans (SIL Open Font Licence), see assets/licences/instrumentsans.txt.
+
 /** The type scale, the same steps as the website's phone layout. */
 @Immutable
 data class IThriftType(

@@ -14,6 +14,10 @@ import java.util.TimeZone
  * both places. Nothing here depends on the phone's locale.
  */
 
+// Money is formatted with Locale.US on purpose: the phone's own locale may group
+// thousands with a space or a full stop. Reference: java.util.Formatter,
+// https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Formatter.html
+
 /** "R1,620", matching the website. Cents are rounded, never shown. */
 fun formatMoney(amount: Double): String {
     return String.format(Locale.US, "R%,.0f", amount)

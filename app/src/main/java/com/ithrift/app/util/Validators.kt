@@ -20,6 +20,12 @@ package com.ithrift.app.util
  * to show against the field when it is not. Client-side validation is a
  * courtesy that saves a round trip; the server re-checks everything and
  * remains the authority.
+ *
+ * References:
+ *  - OWASP Input Validation Cheat Sheet (validate on the server, use the client for feedback):
+ *    https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+ *  - OWASP Authentication Cheat Sheet (password rules):
+ *    https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
  */
 object Validators {
 

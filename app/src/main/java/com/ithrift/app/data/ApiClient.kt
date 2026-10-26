@@ -16,6 +16,15 @@ import java.util.concurrent.TimeUnit
  * since it points at whichever machine on the network is running
  * `npm start`. The client is rebuilt automatically whenever that address
  * changes.
+ *
+ * Logging: OkHttp's HttpLoggingInterceptor writes one line per request and
+ * response at BASIC level (method, URL, status, time), which deliberately
+ * leaves out the headers, so the bearer token never reaches Logcat.
+ *
+ * References:
+ *  - Retrofit: https://square.github.io/retrofit/
+ *  - OkHttp interceptors: https://square.github.io/okhttp/features/interceptors/
+ *  - HttpLoggingInterceptor: https://github.com/square/okhttp/tree/master/okhttp-logging-interceptor
  */
 object ApiClient {
 
@@ -32,6 +41,7 @@ object ApiClient {
         val normalized = ApiUrl.baseUrl(configuredUrl)
 
         if (retrofit == null || cachedBaseUrl != normalized) {
+            Log.i(TAG, "Building the API client for $normalized")
             retrofit = buildRetrofit(context, normalized)
             cachedBaseUrl = normalized
         }

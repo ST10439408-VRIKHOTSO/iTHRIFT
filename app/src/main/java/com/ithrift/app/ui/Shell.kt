@@ -54,6 +54,9 @@ import com.ithrift.app.ui.theme.T
  * Every screen's address. They follow the website's hash routes, so a link
  * the API sends in a notification ("/orders/22", "/product/34") can be
  * opened here with [Routes.fromWebPath].
+ *
+ * Reference: Navigation with Compose (routes and arguments),
+ * https://developer.android.com/develop/ui/compose/navigation
  */
 object Routes {
     const val HOME = "home"

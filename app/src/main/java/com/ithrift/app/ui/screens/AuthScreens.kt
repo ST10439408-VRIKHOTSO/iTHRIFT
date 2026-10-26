@@ -2,6 +2,7 @@
 
 package com.ithrift.app.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -136,15 +137,22 @@ private fun GoogleButton(next: String, onError: (String) -> Unit) {
 }
 
 /** Finishes a Google sign-in that came back from the browser tab. */
+private const val AUTH_TAG = "Auth"
+
 fun finishGoogleSignIn(app: AppState, uri: android.net.Uri) {
     val pending = GoogleSignIn.takePending(app.context)
     val code = uri.getQueryParameter("code")
-    if (code == null) return // The customer came back without signing in.
+    if (code == null) {
+        Log.i(AUTH_TAG, "Came back from the browser tab without signing in")
+        return
+    }
     if (pending == null) {
+        Log.w(AUTH_TAG, "Google sign-in code arrived after the pending sign-in had gone")
         app.toast("That Google sign-in has expired. Please try again.", ToastKind.Error)
         return
     }
     val (verifier, next) = pending
+    Log.i(AUTH_TAG, "Exchanging the Google sign-in code for a session")
     app.run({ safeApiCall { app.api.ssoExchange(SsoExchangeRequest(code, verifier)) } }) { r ->
         app.signIn(r.token, r.user)
         app.toast("Signed in as ${r.user.name.substringBefore(' ')}.", ToastKind.Success)

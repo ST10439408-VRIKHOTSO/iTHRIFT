@@ -45,6 +45,9 @@ import com.ithrift.app.ui.theme.T
  * The product card: a 4 by 5 photo with the save and compare buttons on it,
  * then brand, name, price and the condition meter. The same card as
  * productCard() in the website's app.js.
+ *
+ * The photo is drawn by RemoteImage (Components.kt), which wraps Coil's AsyncImage.
+ * Reference: Coil for Compose, https://coil-kt.github.io/coil/compose/
  */
 @Composable
 fun ProductCard(p: Product, modifier: Modifier = Modifier) {

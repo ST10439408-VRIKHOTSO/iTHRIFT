@@ -11,6 +11,9 @@ import com.ithrift.app.data.AppSettings
  * already being laid out in the previous theme, so switching it there makes
  * the app flash light and then go dark on every launch. Application.onCreate
  * runs first, which is why this class exists at all.
+ *
+ * Reference: AppCompatDelegate.setDefaultNightMode,
+ * https://developer.android.com/reference/androidx/appcompat/app/AppCompatDelegate
  */
 class IThriftApplication : Application() {
 

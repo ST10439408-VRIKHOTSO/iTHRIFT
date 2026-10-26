@@ -1,6 +1,7 @@
 package com.ithrift.app.ui.screens
 
 import android.content.Context
+import android.util.Log
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
@@ -158,6 +159,7 @@ fun OrdersScreen() {
     }
 }
 
+private const val ORDERS_TAG = "Orders"
 private val STATUS_FLOW = listOf("Processing", "Shipped", "Delivered")
 private val STATUS_WORDS = mapOf("Processing" to "Order placed", "Shipped" to "With the courier", "Delivered" to "Delivered", "Cancelled" to "Cancelled")
 
@@ -344,6 +346,7 @@ fun OrderDetailScreen(id: Int) {
                         danger = true,
                         onConfirm = {
                             app.run({ safeApiCall { app.api.cancelOrder(order.id) } }) { r ->
+                                Log.i(ORDERS_TAG, "Order ${order.ref} cancelled; the server put the stock back")
                                 load.set(r.order)
                                 app.toast("Order cancelled.", ToastKind.Success)
                             }
@@ -372,6 +375,7 @@ private fun ReturnSheet(orderId: Int, orderItemId: Int, name: String, onDone: ()
                 if (reason == null) { error = "Choose a reason."; return@Btn }
                 busy = true
                 app.run({ safeApiCall { app.api.requestReturn(orderId, ReturnRequestBody(orderItemId, reason!!, comment.ifBlank { null })) } }, onDone = { busy = false }, onError = { error = it }) {
+                    Log.i(ORDERS_TAG, "Return requested for order #$orderId, line #$orderItemId, reason: $reason")
                     app.toast("Return requested. We will let you know once it is approved.", ToastKind.Success)
                     onDone()
                 }

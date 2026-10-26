@@ -2,6 +2,7 @@
 
 package com.ithrift.app.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -99,6 +100,8 @@ import com.ithrift.app.util.formatMoney
 import com.ithrift.app.util.formatMoneyCents
 import com.ithrift.app.util.plural
 import kotlinx.coroutines.launch
+
+private const val CHECKOUT_TAG = "Checkout"
 
 /**
  * Shows [content] to a signed-in customer. Anyone else sees why not and
@@ -202,7 +205,7 @@ fun CompareScreen() {
             is Load.Ready -> {
                 val products = s.data
                 if (products.isEmpty()) {
-                    EmptyState(Lucide.columns3, "Nothing to compare yet", "Tap the compare button on up to four pieces, then come back here to see them side by side.", actionLabel = "Browse the shop", onAction = { app.go(Routes.shop()) })
+                    EmptyState(Lucide.columns3, "Nothing to compare yet", "Tap the compare button on up to three pieces, then come back here to see them side by side.", actionLabel = "Browse the shop", onAction = { app.go(Routes.shop()) })
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PageHead("Compare", Modifier.weight(1f), "${plural(products.size, "piece")} side by side.")
@@ -651,6 +654,8 @@ private fun CheckoutForm(d: CheckoutData, onAddressesChanged: () -> Unit) {
                         )
                     }
                 }, onDone = { placing = false }) { r ->
+                    // The total logged is the one the server charged, not one worked out on the phone.
+                    Log.i(CHECKOUT_TAG, "Order ${r.order.ref} placed: $method delivery, $pay payment, total ${r.order.total}")
                     app.scope.launch { app.refreshCounts() }
                     app.nav.navigate(Routes.placed(r.order.id)) { popUpTo(Routes.HOME) }
                 }

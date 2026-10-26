@@ -505,6 +505,9 @@ data class UpdateProfileRequest(
 
 data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
 
+/** A password account confirms with its password; a Google account, which has none, types DELETE. */
+data class DeleteAccountRequest(val password: String? = null, val confirm: String? = null)
+
 data class AddCartItemRequest(val productId: Int, val quantity: Int, val size: String?)
 
 data class UpdateCartItemRequest(val quantity: Int)
