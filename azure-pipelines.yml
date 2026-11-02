@@ -1,0 +1,148 @@
+# Azure Pipelines for iTHRIFT Clothes.
+#
+# Runs the same checks as the GitHub Actions workflows in .github/workflows,
+# from the Azure DevOps project that also holds our board. The code stays on
+# GitHub: Azure Pipelines reads it through its GitHub connection and runs on
+# every push and pull request to main. The unit test results are published to
+# the run's Tests tab, and the debug APK is kept as an artefact.
+
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: api_and_website
+    displayName: API and website
+    jobs:
+      - job: smoke_test
+        displayName: Seed the database and run the end-to-end and feature tests
+        steps:
+          - checkout: self
+
+          # Node 24: server/db.js uses the built-in node:sqlite module, which is
+          # available without an experimental flag from Node 23.4 onwards.
+          - task: UseNode@1
+            displayName: Set up Node.js
+            inputs:
+              version: '24.x'
+
+          - script: npm ci
+            displayName: Install dependencies from the lock file
+
+          # Unit tests need no server, so they run first: if a business rule is
+          # broken there is no point spending a minute booting the API to find out.
+          # The JUnit copy of the results feeds the run's Tests tab.
+          - bash: |
+              mkdir -p "$(Common.TestResultsDirectory)"
+              node --test \
+                --test-reporter=spec --test-reporter-destination=stdout \
+                --test-reporter=junit --test-reporter-destination="$(Common.TestResultsDirectory)/server-unit-tests.xml" \
+                test/unit-tests.js
+            displayName: Run the unit tests
+
+          - task: PublishTestResults@2
+            displayName: Publish the unit test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: server-unit-tests.xml
+              searchFolder: $(Common.TestResultsDirectory)
+              testRunTitle: Server unit tests
+
+          - script: npm run init-db
+            displayName: Build and seed the database
+
+          - bash: |
+              npm start > server.log 2>&1 &
+              SERVER_PID=$!
+
+              echo "Waiting for the API to come up..."
+              for i in $(seq 1 30); do
+                if curl -sf http://localhost:3000/api > /dev/null; then
+                  echo "API is responding."
+                  break
+                fi
+                if [ "$i" -eq 30 ]; then
+                  echo "The API did not start within 60 seconds."
+                  cat server.log
+                  exit 1
+                fi
+                sleep 2
+              done
+
+              set +e
+              npm test
+              STATUS=$?
+              # The 1.3.0 features (points, alerts, collection slots, selling,
+              # support, analytics) run against the same server afterwards.
+              if [ "$STATUS" -eq 0 ]; then
+                npm run test:features
+                STATUS=$?
+              fi
+              set -e
+
+              kill "$SERVER_PID" 2>/dev/null || true
+              exit $STATUS
+            displayName: Start the server and run the smoke test
+
+          - task: PublishPipelineArtifact@1
+            displayName: Upload the server log if the run failed
+            condition: failed()
+            inputs:
+              targetPath: server.log
+              artifact: server-log
+
+  # Independent of the stage above, so a broken API does not hide the state of
+  # the app. With one parallel job the two stages queue one after the other.
+  - stage: android
+    displayName: Android application
+    dependsOn: []
+    jobs:
+      - job: build
+        displayName: Run unit tests and assemble the debug build
+        steps:
+          - checkout: self
+
+          # app/build.gradle.kts targets JVM 17 for both Java and Kotlin.
+          - task: JavaToolInstaller@0
+            displayName: Set up JDK 17
+            inputs:
+              versionSpec: '17'
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+
+          - bash: |
+              chmod +x gradlew
+              ./gradlew testDebugUnitTest --no-daemon --stacktrace
+            displayName: Run the unit tests
+
+          - task: PublishTestResults@2
+            displayName: Publish the unit test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: app/build/test-results/testDebugUnitTest/TEST-*.xml
+              testRunTitle: Android unit tests
+
+          - bash: ./gradlew assembleDebug --no-daemon --stacktrace
+            displayName: Assemble the debug build
+
+          - task: PublishPipelineArtifact@1
+            displayName: Upload the debug package
+            inputs:
+              targetPath: app/build/outputs/apk/debug
+              artifact: ithrift-debug-apk
+
+          - task: PublishPipelineArtifact@1
+            displayName: Upload the test reports if the run failed
+            condition: failed()
+            inputs:
+              targetPath: app/build/reports/tests
+              artifact: unit-test-reports

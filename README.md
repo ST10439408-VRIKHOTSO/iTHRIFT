@@ -22,6 +22,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 | Pipeline runs | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/actions> |
 | Releases (signed APK and App Bundle) | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases> |
 | Azure DevOps board | <https://dev.azure.com/ST10439408/iTHRIFT/_boards/board/t/iTHRIFT%20Team/Issues> |
+| Azure Pipelines runs | <https://dev.azure.com/ST10439408/iTHRIFT/_build> |
 | User guide | [`docs/user-guide.md`](docs/user-guide.md) |
 
 ## Contents
