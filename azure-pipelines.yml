@@ -47,6 +47,25 @@ stages:
                 test/unit-tests.js
             displayName: Run the unit tests
 
+          # Node writes tests that are not inside a describe() straight under
+          # <testsuites>, and Azure only reads test cases inside a <testsuite>,
+          # so the results are given one before they are published.
+          - bash: |
+              node -e '
+                const fs = require("fs");
+                const file = process.argv[1];
+                const xml = fs.readFileSync(file, "utf8");
+                if (!/<testsuite[\s>]/.test(xml)) {
+                  const cases = (xml.match(/<testcase /g) || []).length;
+                  const failures = (xml.match(/<failure/g) || []).length;
+                  fs.writeFileSync(file, xml
+                    .replace("<testsuites>", `<testsuites>\n<testsuite name="Server unit tests" tests="${cases}" failures="${failures}">`)
+                    .replace("</testsuites>", "</testsuite>\n</testsuites>"));
+                }
+              ' "$(Common.TestResultsDirectory)/server-unit-tests.xml"
+            displayName: Group the unit test results into one suite
+            condition: succeededOrFailed()
+
           - task: PublishTestResults@2
             displayName: Publish the unit test results
             condition: succeededOrFailed()
@@ -129,6 +148,7 @@ stages:
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: app/build/test-results/testDebugUnitTest/TEST-*.xml
+              mergeTestResults: true
               testRunTitle: Android unit tests
 
           - bash: ./gradlew assembleDebug --no-daemon --stacktrace
