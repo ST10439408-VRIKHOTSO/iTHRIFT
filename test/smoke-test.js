@@ -53,6 +53,27 @@ async function main() {
   // 1. API is up
   { const r = await call('/api'); check('API root responds with status ok', r.status === 200 && r.data.status === 'ok'); }
 
+  // --- Security headers, error handling and sign-in limits ---
+  {
+    const page = await fetch(`${BASE}/`);
+    const csp = page.headers.get('content-security-policy') || '';
+    const scriptSrc = (csp.match(/script-src([^;]*)/) || [null, ''])[1];
+    check('The website sends a Content-Security-Policy that blocks inline and outside scripts, and framing', /'sha256-/.test(scriptSrc) && !scriptSrc.includes('unsafe-inline') && /frame-ancestors 'none'/.test(csp));
+    check('The website sends nosniff, DENY framing and a referrer policy', page.headers.get('x-content-type-options') === 'nosniff' && page.headers.get('x-frame-options') === 'DENY' && !!page.headers.get('referrer-policy'));
+    check('Nothing reveals the server software', !page.headers.get('x-powered-by'));
+    const api = await fetch(`${BASE}/api/products/brands`);
+    check('API answers are never cached', api.headers.get('cache-control') === 'no-store');
+    const badJson = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"identifier": ' });
+    const badBody = await badJson.text();
+    check('A malformed request gets a 400 with no stack trace', badJson.status === 400 && !/at |\.js:|node_modules/.test(badBody));
+    const nowhere = await call('/api/no-such-route');
+    check('An unknown API address gets a JSON 404', nowhere.status === 404 && typeof nowhere.data.error === 'string');
+    const guessed = `nobody.${Date.now()}@example.com`;
+    const tries = [];
+    for (let i = 0; i < 11; i++) tries.push((await call('/api/auth/login', { method: 'POST', body: { identifier: guessed, password: `Guess${i}abc` } })).status);
+    check('Ten wrong passwords for one account are answered normally, the eleventh is refused (429)', tries.slice(0, 10).every((s) => s === 401) && tries[10] === 429);
+  }
+
   // --- Registration ---
   const newEmail = `test.${Date.now()}@example.com`;
   const newPhone = freshPhone();

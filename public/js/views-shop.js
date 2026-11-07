@@ -47,7 +47,7 @@ route(/^\/$/, async (view) => {
       <section class="hero">
         <div>
           <h1>Branded pieces, second time round.</h1>
-          <p class="lead">Every piece is checked, graded and sized by hand at our Pretoria store. When it is gone, it is gone.</p>
+          <p class="lead">Pre-owned branded clothing, shoes and jewellery from our store in Hatfield, Pretoria. Every piece is checked and graded for condition before it is listed. Order for delivery, or collect it from the store.</p>
           <div class="row wrap">
             <a class="btn btn-primary btn-lg" href="#/shop">Shop everything</a>
             <a class="btn btn-secondary btn-lg" href="#/sell">Sell your clothes</a>
@@ -424,7 +424,9 @@ route(/^\/product\/(\d+)$/, async (view, [id]) => {
           <div><div class="rating-big">${summary.average}</div>${stars(summary.average, 16)}<div class="small muted">${plural(summary.count, 'review')}</div></div>
           <div class="histo">${[5, 4, 3, 2, 1].map((n) => `<div class="histo-row"><span>${n}</span><div class="histo-bar"><i style="width:${summary.count ? Math.round((summary.histogram[n] / summary.count) * 100) : 0}%"></i></div><span>${summary.histogram[n]}</span></div>`).join('')}</div>
         </div>
-        <div id="review-list"></div>` : '<p class="muted">No reviews yet for this piece.</p>'}
+` : '<p class="muted">No customer reviews yet for this piece.</p>'}
+        ${summary.samples ? `<p class="small muted">Reviews marked Sample were written for this project, not by customers, and are not counted in the rating.</p>` : ''}
+        ${reviews.length ? '<div id="review-list"></div>' : ''}
         ${isCustomer() ? `
         <details class="disclosure" style="margin-top:8px">
           <summary>Write a review ${icon('chevron-down', { size: 18 })}</summary>
@@ -443,8 +445,9 @@ route(/^\/product\/(\d+)$/, async (view, [id]) => {
 
       <section class="section" id="questions" aria-labelledby="qa-h">
         <div class="section-head"><h2 id="qa-h">Questions</h2></div>
+        ${qData.questions.some((q) => q.sample) ? '<p class="small muted">Questions marked Sample were written for this project, not by customers.</p>' : ''}
         ${qData.questions.length ? qData.questions.map((q) => `
-          <div class="qa"><div class="q">${esc(q.question)}</div>
+          <div class="qa"><div class="q">${esc(q.question)}${q.sample ? ' <span class="pill">Sample</span>' : ''}</div>
             ${q.answer ? `<div class="a">${esc(q.answer)}</div><div class="tiny faint" style="margin-top:4px">iTHRIFT answered ${timeAgo(q.answeredAt)}</div>` : `<div class="tiny faint" style="margin-top:4px">${icon('clock', { size: 12, cls: 'inline' })} Waiting for an answer. Only you can see this until we reply.</div>`}
           </div>`).join('') : '<p class="muted">No questions yet. Ask about fit, fabric or wear and the store team will answer here.</p>'}
         ${isCustomer() ? `
@@ -465,7 +468,7 @@ route(/^\/product\/(\d+)$/, async (view, [id]) => {
     const sorted = [...reviews].sort((a, b) => (order === 'high' ? b.rating - a.rating : order === 'low' ? a.rating - b.rating : 0));
     list.innerHTML = sorted.map((r) => `
       <div class="review">
-        <div class="row between"><div class="row">${stars(r.rating)}<strong>${esc(r.author)}</strong>${r.verified ? `<span class="pill good">${icon('check', { size: 12 })}Bought this piece</span>` : ''}</div><span class="tiny muted">${timeAgo(r.createdAt)}</span></div>
+        <div class="row between"><div class="row">${stars(r.rating)}<strong>${esc(r.author)}</strong>${r.verified ? `<span class="pill good">${icon('check', { size: 12 })}Bought this piece</span>` : ''}${r.sample ? '<span class="pill">Sample</span>' : ''}</div><span class="tiny muted">${timeAgo(r.createdAt)}</span></div>
         ${r.comment ? `<p>${esc(r.comment)}</p>` : ''}
       </div>`).join('');
   };
@@ -748,7 +751,7 @@ route(/^\/cart$/, async (view) => {
           ${problems.length ? `<div class="callout bad" role="alert" style="margin-bottom:16px">${icon('circle-alert', { size: 18 })}<p>${problems.length === 1 ? 'One piece' : `${problems.length} pieces`} changed since you added ${problems.length === 1 ? 'it' : 'them'}. Fix the lines marked below to check out.</p></div>` : ''}
           ${cart.items.map((i) => `
             <div class="line">
-              <a class="line-thumb" href="#/product/${i.productId}"><img src="${esc(i.image)}" alt=""></a>
+              <a class="line-thumb" href="#/product/${i.productId}" tabindex="-1" aria-hidden="true"><img src="${esc(i.image)}" alt=""></a>
               <div>
                 <a class="line-title" href="#/product/${i.productId}">${esc(i.name)}</a>
                 <div class="line-sub">${i.size ? `Size ${esc(i.size)}, ` : ''}${money(i.price)} each</div>
@@ -774,7 +777,7 @@ route(/^\/cart$/, async (view) => {
           <div style="margin:8px 0 4px">${freeDeliveryMeter(cart.subtotal, options.freeDeliveryThreshold)}</div>
           <div class="summary-row total"><span>Total so far</span><span>${money(cart.subtotal)}</span></div>
           <p class="small muted" style="margin:8px 0 0">Promo codes and Thrift Points go on at checkout.</p>
-          <a class="btn btn-primary btn-lg btn-block" style="margin-top:16px" href="#/checkout" ${problems.length ? 'aria-disabled="true" tabindex="-1" onclick="return false"' : ''}>Check out</a>
+          <a class="btn btn-primary btn-lg btn-block" style="margin-top:16px" href="#/checkout" ${problems.length ? 'aria-disabled="true" tabindex="-1"' : ''}>Check out</a>
           <a class="btn btn-ghost btn-block" style="margin-top:8px" href="#/shop">Keep shopping</a>
         </aside>
       </div>
@@ -1105,7 +1108,7 @@ route(/^\/wishlist$/, async (view) => {
       <div class="panel">
         ${items.map((i) => `
           <div class="line">
-            <a class="line-thumb" href="#/product/${i.productId}"><img src="${esc(i.image)}" alt=""></a>
+            <a class="line-thumb" href="#/product/${i.productId}" tabindex="-1" aria-hidden="true"><img src="${esc(i.image)}" alt=""></a>
             <div>
               <span class="small muted">${esc(i.brand)}</span><br>
               <a class="line-title" href="#/product/${i.productId}">${esc(i.name)}</a>

@@ -9,12 +9,16 @@ const crypto = require('node:crypto');
  * (no JWT library, no external session store) while still demonstrating
  * the role-based access rule end to end. Sessions reset if the server
  * restarts, which is an accepted prototype limitation.
+ *
+ * A session also ends after 30 days without use, so a token left on a lost
+ * or sold phone stops working by itself.
  */
-const sessions = new Map(); // token -> { type: 'customer'|'admin'|'staff', id, name }
+const IDLE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
+const sessions = new Map(); // token -> { user: { type: 'customer'|'admin'|'staff', id, name }, lastSeen }
 
 function createSession(user) {
   const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, user);
+  sessions.set(token, { user, lastSeen: Date.now() });
   return token;
 }
 
@@ -24,13 +28,20 @@ function destroySession(token) {
 
 /** Ends every session one user holds, on every device (used when an account is deleted). */
 function destroySessionsFor(type, id) {
-  for (const [token, user] of sessions) {
-    if (user.type === type && user.id === id) sessions.delete(token);
+  for (const [token, session] of sessions) {
+    if (session.user.type === type && session.user.id === id) sessions.delete(token);
   }
 }
 
-function getSessionUser(token) {
-  return sessions.get(token) || null;
+function getSessionUser(token, now = Date.now()) {
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (now - session.lastSeen > IDLE_LIMIT_MS) {
+    sessions.delete(token);
+    return null;
+  }
+  session.lastSeen = now;
+  return session.user;
 }
 
 /** Reads the bearer token, if any, and attaches req.user. Does not block. */
@@ -59,4 +70,4 @@ function requireRole(...types) {
   };
 }
 
-module.exports = { createSession, destroySession, destroySessionsFor, getSessionUser, attachUser, requireAuth, requireRole };
+module.exports = { createSession, destroySession, destroySessionsFor, getSessionUser, attachUser, requireAuth, requireRole, IDLE_LIMIT_MS };

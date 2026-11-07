@@ -1,6 +1,6 @@
 {
   "name": "ithrift-clothes-prototype",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "iTHRIFT Clothes: website, staff console, installable web app, shared REST API and database for the iTHRIFT Clothes Android and web clients.",
   "main": "server/index.js",
   "type": "commonjs",
@@ -17,6 +17,6 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.22.3"
   }
 }

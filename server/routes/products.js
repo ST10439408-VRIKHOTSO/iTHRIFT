@@ -3,6 +3,7 @@
 const express = require('express');
 const { getDb } = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { limitsFor } = require('../middleware/rate-limit');
 const { productRef } = require('../utils/refs');
 const catalogue = require('../utils/catalogue');
 const notifyUtil = require('../utils/notify');
@@ -217,27 +218,30 @@ router.get('/:id/similar', (req, res) => {
 
 // UC13: Leave reviews / read reviews for a product. A review from someone who
 // bought the piece and had it delivered is marked as a verified purchase.
+// Sample reviews (seed data, see server/sample-content.js) come back labelled
+// and are left out of the average and the star breakdown.
 router.get('/:id/reviews', (req, res) => {
   const db = getDb();
   const rows = db.prepare(`
-    SELECT r.ReviewID AS id, r.Rating AS rating, r.Comment AS comment, r.CreatedAt AS createdAt,
+    SELECT r.ReviewID AS id, r.Rating AS rating, r.Comment AS comment, r.CreatedAt AS createdAt, r.IsSample AS sample,
            c.FirstName AS firstName, c.LastName AS lastName,
            EXISTS (SELECT 1 FROM OrderItem oi JOIN Orders o ON o.OrderID = oi.OrderID
                    WHERE oi.ProductID = r.ProductID AND o.CustomerID = r.CustomerID AND o.Status = 'Delivered') AS verified
     FROM Review r JOIN Customer c ON c.CustomerID = r.CustomerID
     WHERE r.ProductID = ?
-    ORDER BY r.CreatedAt DESC, r.ReviewID DESC
+    ORDER BY r.IsSample, r.CreatedAt DESC, r.ReviewID DESC
   `).all(req.params.id);
+  const real = rows.filter((r) => r.sample !== 1);
   const histogram = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  for (const r of rows) histogram[r.rating]++;
-  const average = rows.length ? Math.round((rows.reduce((s, r) => s + r.rating, 0) / rows.length) * 10) / 10 : null;
+  for (const r of real) histogram[r.rating]++;
+  const average = real.length ? Math.round((real.reduce((s, r) => s + r.rating, 0) / real.length) * 10) / 10 : null;
   res.json({
-    reviews: rows.map((r) => ({ ...r, verified: r.verified === 1, author: `${r.firstName} ${r.lastName[0]}.` })),
-    summary: { count: rows.length, average, histogram },
+    reviews: rows.map((r) => ({ ...r, sample: r.sample === 1, verified: r.verified === 1 && r.sample !== 1, author: `${r.firstName} ${r.lastName[0]}.` })),
+    summary: { count: real.length, average, histogram, samples: rows.length - real.length },
   });
 });
 
-router.post('/:id/reviews', requireRole('customer'), (req, res) => {
+router.post('/:id/reviews', requireRole('customer'), limitsFor.contributions, (req, res) => {
   const db = getDb();
   const product = db.prepare('SELECT ProductID FROM Product WHERE ProductID = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found.' });
@@ -246,6 +250,10 @@ router.post('/:id/reviews', requireRole('customer'), (req, res) => {
   const ratingNum = Number(rating);
   if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
     return res.status(400).json({ error: 'Rating must be a whole number from 1 to 5.' });
+  }
+  // One review per customer per piece, so nobody can stack a rating up or down.
+  if (db.prepare('SELECT ReviewID FROM Review WHERE ProductID = ? AND CustomerID = ? AND IsSample = 0').get(product.ProductID, req.user.id)) {
+    return res.status(409).json({ error: 'You have already reviewed this piece.' });
   }
 
   db.prepare('INSERT INTO Review (ProductID, CustomerID, Rating, Comment) VALUES (?, ?, ?, ?)')
@@ -260,15 +268,15 @@ router.get('/:id/questions', (req, res) => {
   const mine = req.user && req.user.type === 'customer' ? req.user.id : -1;
   const rows = db.prepare(`
     SELECT q.QuestionID AS id, q.Question AS question, q.Answer AS answer, q.CreatedAt AS createdAt,
-           q.AnsweredAt AS answeredAt, c.FirstName AS askedBy, (q.CustomerID = ?) AS mine
+           q.AnsweredAt AS answeredAt, c.FirstName AS askedBy, (q.CustomerID = ?) AS mine, q.IsSample AS sample
     FROM ProductQuestion q JOIN Customer c ON c.CustomerID = q.CustomerID
     WHERE q.ProductID = ? AND (q.Answer IS NOT NULL OR q.CustomerID = ?)
-    ORDER BY q.CreatedAt DESC
+    ORDER BY q.IsSample, q.CreatedAt DESC
   `).all(mine, req.params.id, mine);
-  res.json({ questions: rows.map((q) => ({ ...q, mine: q.mine === 1 })) });
+  res.json({ questions: rows.map((q) => ({ ...q, mine: q.mine === 1, sample: q.sample === 1 })) });
 });
 
-router.post('/:id/questions', requireRole('customer'), (req, res) => {
+router.post('/:id/questions', requireRole('customer'), limitsFor.contributions, (req, res) => {
   const db = getDb();
   const product = db.prepare('SELECT ProductID FROM Product WHERE ProductID = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found.' });
@@ -282,7 +290,7 @@ router.post('/:id/questions', requireRole('customer'), (req, res) => {
 });
 
 // Back-in-stock alert for a sold-out piece or a sold-out size.
-router.post('/:id/alerts', requireRole('customer'), (req, res) => {
+router.post('/:id/alerts', requireRole('customer'), limitsFor.contributions, (req, res) => {
   const db = getDb();
   const product = loadProduct(db, req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found.' });

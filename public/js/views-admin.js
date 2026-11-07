@@ -424,7 +424,7 @@ route(/^\/admin\/questions$/, async (view, _p, query) => {
   const { questions } = await api('/admin/questions?status=' + status);
   main.innerHTML = `
     ${consoleHead('Product questions', 'Answers appear on the product page for everyone, and the customer who asked is notified.')}
-    <div class="toolbar"><div class="segmented">${[['open', 'Waiting'], ['answered', 'Answered'], ['all', 'All']].map(([v, l]) => `<button type="button" aria-pressed="${status === v}" onclick="go('${hashFor('admin/questions', { status: v })}')">${l}</button>`).join('')}</div></div>
+    <div class="toolbar"><div class="segmented">${[['open', 'Waiting'], ['answered', 'Answered'], ['all', 'All']].map(([v, l]) => `<button type="button" aria-pressed="${status === v}" data-go="${esc(hashFor('admin/questions', { status: v }))}">${l}</button>`).join('')}</div></div>
     ${questions.length ? questions.map((q) => `
       <div class="panel">
         <div class="row" style="align-items:flex-start">

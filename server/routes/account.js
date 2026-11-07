@@ -18,9 +18,17 @@ const router = express.Router();
 router.use(requireRole('customer'));
 
 /**
- * Rough, published-average estimates of what making one new garment of each
- * kind uses. They are shown as estimates, to give a sense of scale; they are
- * not a measurement of any particular piece.
+ * Rough estimates of what making one new garment of each kind uses. They are
+ * shown as estimates of what making the customer's pieces from new would take,
+ * to give a sense of scale; they are not a measurement of any particular
+ * piece, and not a claim about what one purchase saved.
+ *
+ * The jeans and T-shirt figures are the widely published ones: about 7,500 L
+ * of water for a pair of jeans (UNECE, 2018, "Fashion and the SDGs") and about
+ * 2,700 L for a cotton T-shirt (WWF, 2013, "The impact of a cotton T-shirt"),
+ * and about 33 kg of CO2e over a pair of jeans' life (Levi Strauss & Co.,
+ * 2015, "The Life Cycle of a Jean"). The other categories are scaled from these
+ * by weight and fibre, and are rougher still.
  */
 const IMPACT_PER_ITEM = {
   Footwear: { water: 8000, co2: 14 },
@@ -57,7 +65,7 @@ function impactFor(db, customerId) {
     co2 += k.co2 * r.items;
     items += r.items;
   }
-  return { items, waterLitres: water, co2Kg: co2, byCategory: rows, basis: 'Estimated from published averages for making one new garment of each kind.' };
+  return { items, waterLitres: water, co2Kg: co2, byCategory: rows, basis: 'Estimated from published averages for making one new garment of each kind, such as about 7,500 L of water for a pair of jeans.' };
 }
 
 function parseList(text) {

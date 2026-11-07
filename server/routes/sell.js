@@ -3,6 +3,7 @@
 const express = require('express');
 const { getDb } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { limitsFor } = require('../middleware/rate-limit');
 const notifyUtil = require('../utils/notify');
 const points = require('../utils/points');
 
@@ -66,7 +67,7 @@ router.get('/', requireAuth, (req, res) => {
   res.json({ submissions: status ? load(db, 'WHERE s.Status = ?', [status]) : load(db, '', []) });
 });
 
-router.post('/', requireRole('customer'), (req, res) => {
+router.post('/', requireRole('customer'), limitsFor.contributions, (req, res) => {
   const db = getDb();
   const b = req.body || {};
   const brand = String(b.brand || '').trim();

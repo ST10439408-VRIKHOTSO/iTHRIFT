@@ -350,7 +350,7 @@ function productCard(p) {
   return `
     <article class="card" data-product="${p.id}">
       <div class="card-media">
-        <img src="${esc(p.image)}" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0">
+        <img src="${esc(p.image)}" alt="" loading="lazy" decoding="async" data-hide-broken>
         ${p.inStock ? '' : '<div class="sold-veil"><span>Sold out</span></div>'}
         ${p.onSale && p.inStock ? `<div class="card-tag"><span class="pill sale">${p.percentOff}% off</span></div>` : ''}
       </div>
@@ -385,7 +385,7 @@ function errorState(err, retry = true) {
     icon: offline ? 'refresh-cw' : 'circle-alert',
     title: offline ? 'You seem to be offline' : 'This page did not load',
     text: esc(err && err.message ? err.message : 'Something went wrong.'),
-    actions: retry ? `<button type="button" class="btn btn-primary" onclick="router()">Try again</button><a class="btn btn-secondary" href="#/">Go to the shop</a>` : '',
+    actions: retry ? `<button type="button" class="btn btn-primary" data-retry>Try again</button><a class="btn btn-secondary" href="#/">Go to the shop</a>` : '',
   });
 }
 
@@ -773,6 +773,24 @@ document.addEventListener('click', (e) => {
   const field = target.querySelector('input, textarea');
   if (field) setTimeout(() => field.focus({ preventScroll: true }), 300);
 });
+
+// Small actions declared in the markup with data attributes, because the
+// site's Content-Security-Policy does not allow inline onclick handlers:
+// data-go="#/route" navigates, data-retry reloads the page, data-print
+// prints, and a link marked aria-disabled does nothing.
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-go], [data-retry], [data-print], a[aria-disabled="true"]');
+  if (!el) return;
+  if (el.matches('a[aria-disabled="true"]')) e.preventDefault();
+  else if (el.hasAttribute('data-go')) go(el.dataset.go);
+  else if (el.hasAttribute('data-retry')) router();
+  else window.print();
+});
+
+// A product photo that fails to load fades out rather than showing a broken image.
+document.addEventListener('error', (e) => {
+  if (e.target instanceof HTMLImageElement && e.target.hasAttribute('data-hide-broken')) e.target.style.opacity = 0;
+}, true);
 
 window.addEventListener('hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {

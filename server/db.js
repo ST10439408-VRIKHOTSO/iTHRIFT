@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { upgradePaymentTable } = require('./payments/schema');
+const { labelSampleContent } = require('./sample-content');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'ithrift.db');
 
@@ -23,6 +24,7 @@ function getDb() {
     db.exec('PRAGMA busy_timeout = 5000;');
     db.exec('PRAGMA foreign_keys = ON;');
     if (upgradePaymentTable(db)) console.log('[db] upgraded the Payment table for online payments');
+    if (labelSampleContent(db)) console.log('[db] labelled the seeded sample reviews and questions');
   }
   return db;
 }

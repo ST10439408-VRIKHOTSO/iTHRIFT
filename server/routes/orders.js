@@ -10,6 +10,7 @@ const notifyUtil = require('../utils/notify');
 const calendar = require('../../public/js/calendar');
 const payments = require('../payments');
 const { baseUrlFor } = require('./payments');
+const { limitsFor } = require('../middleware/rate-limit');
 
 const RETURN_WINDOW_DAYS = 30;
 const RETURN_REASONS = ["Doesn't fit", 'Not as described', 'Damaged or faulty', 'Changed my mind', 'Wrong item received'];
@@ -203,7 +204,7 @@ router.post('/quote', requireRole('customer'), (req, res) => {
 // UC6 / UC7: Place order and pay. The server, not the client, locks
 // stock and recalculates the total. The payment starts pending: a gateway
 // confirms it later (see server/payments), and staff confirm a bank transfer.
-router.post('/', requireRole('customer'), wrap(async (req, res) => {
+router.post('/', requireRole('customer'), limitsFor.checkout, wrap(async (req, res) => {
   const db = getDb();
   const {
     method, deliveryMethod = 'standard', addressId, promoCode, instructions,

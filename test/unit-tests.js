@@ -273,6 +273,50 @@ test('an app sign-in code expires', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rate limits, sessions and the security policy
+// ---------------------------------------------------------------------------
+
+const { rateLimit } = require('../server/middleware/rate-limit');
+const { createSession, getSessionUser, IDLE_LIMIT_MS } = require('../server/middleware/auth');
+const { inlineScriptHashes } = require('../server/middleware/security');
+
+/** Runs a middleware once and reports whether it let the request through. */
+function attempt(middleware, req) {
+  const res = { statusCode: 200, headers: {}, body: null };
+  res.set = (k, v) => { res.headers[k] = v; return res; };
+  res.status = (code) => { res.statusCode = code; return res; };
+  res.json = (b) => { res.body = b; return res; };
+  let passed = false;
+  middleware(req, res, () => { passed = true; });
+  return { passed, res };
+}
+
+test('a rate limit lets the allowed number through, then refuses with a wait time', () => {
+  const limit = rateLimit({ name: 'unit', windowMs: 60_000, max: 3 });
+  const req = { ip: '203.0.113.7' };
+  assert.deepEqual([1, 2, 3].map(() => attempt(limit, req).passed), [true, true, true]);
+  const fourth = attempt(limit, req);
+  assert.equal(fourth.passed, false);
+  assert.equal(fourth.res.statusCode, 429);
+  assert.ok(Number(fourth.res.headers['Retry-After']) > 0);
+  assert.equal(attempt(limit, { ip: '203.0.113.8' }).passed, true, 'another caller has its own count');
+});
+
+test('a session ends after 30 days without use, and each use keeps it alive', () => {
+  const token = createSession({ type: 'customer', id: 99, name: 'Unit Test' });
+  const start = Date.now();
+  assert.equal(getSessionUser(token, start + IDLE_LIMIT_MS - 1000).id, 99);
+  assert.equal(getSessionUser(token, start + 2 * IDLE_LIMIT_MS - 2000).id, 99, 'the previous use moved the deadline on');
+  assert.equal(getSessionUser(token, start + 4 * IDLE_LIMIT_MS), null);
+  assert.equal(getSessionUser(token, start), null, 'an expired session is gone for good');
+});
+
+test('the security policy allows the inline script in index.html by its hash', () => {
+  const hashes = inlineScriptHashes(require('node:path').join(__dirname, '..', 'public', 'index.html'));
+  assert.ok(hashes.length >= 1 && hashes.every((h) => /^'sha256-[A-Za-z0-9+/]+=*'$/.test(h)));
+});
+
+// ---------------------------------------------------------------------------
 // Online payments: the checks that decide whether an order is paid
 // ---------------------------------------------------------------------------
 // Every call to a provider is a parameter, so these tests stand in for

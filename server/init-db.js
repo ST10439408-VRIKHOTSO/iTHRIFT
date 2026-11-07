@@ -16,6 +16,7 @@ const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { hashPassword } = require('./utils/password');
 const { paymentTableSql } = require('./payments/schema');
+const { SAMPLE_REVIEWS, SAMPLE_QUESTIONS, SAMPLE_COLUMN } = require('./sample-content');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DATA_DIR, 'ithrift.db');
@@ -251,6 +252,7 @@ CREATE TABLE Review (
   CustomerID INTEGER NOT NULL REFERENCES Customer(CustomerID),
   Rating     INTEGER NOT NULL CHECK (Rating BETWEEN 1 AND 5),
   Comment    TEXT,
+  ${SAMPLE_COLUMN},
   CreatedAt  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -317,6 +319,7 @@ CREATE TABLE ProductQuestion (
   Question   TEXT NOT NULL,
   Answer     TEXT,
   AnsweredBy INTEGER REFERENCES Admin(AdminID),
+  ${SAMPLE_COLUMN},
   CreatedAt  TEXT NOT NULL DEFAULT (datetime('now')),
   AnsweredAt TEXT
 );
@@ -675,7 +678,7 @@ for (const a of staffAccounts) {
   insertAdmin.run(a.username, a.email, hash, salt, a.fullName, a.role);
 }
 
-console.log('Seeding orders, payments and reviews...');
+console.log('Seeding orders and payments...');
 
 const insertOrder = db.prepare(`
   INSERT INTO Orders (CustomerID, Status, Subtotal, DeliveryMethod, DeliveryAddress, TotalAmount, CourierRef, CreatedAt, UpdatedAt)
@@ -860,44 +863,18 @@ deliveredLines.forEach((line, i) => {
   }
 });
 
-console.log('Seeding reviews...');
+console.log('Seeding sample reviews...');
 
+// Labelled as samples on the product pages and left out of star ratings;
+// see server/sample-content.js.
 const insertReview = db.prepare(`
-  INSERT INTO Review (ProductID, CustomerID, Rating, Comment) VALUES (?, ?, ?, ?)
+  INSERT INTO Review (ProductID, CustomerID, Rating, Comment, IsSample) VALUES (?, ?, ?, ?, 1)
 `);
-
-/**
- * Fifteen reviews, and not all of them are five stars.
- *
- * A catalogue where every rating is perfect tells a shopper nothing, and it
- * hides the bug where the star widget cannot render three. The low ratings
- * here are also the honest ones for second-hand stock: the complaint is
- * almost always that a Good or Fair piece was more worn than the photographs
- * suggested, which is exactly what the condition grade is meant to prevent.
- */
-const reviews = [
-  { product: 'Air Force 1 Low', customer: 0, rating: 5, comment: 'Looked exactly like the photos and arrived really well packaged. Great find!' },
-  { product: 'Slim Chino Trousers', customer: 0, rating: 4, comment: 'Lovely fit, slightly more worn than I expected but still great value.' },
-  { product: 'Cable Knit Jumper', customer: 1, rating: 5, comment: 'Barely worn, smells fresh, fits true to size. Will shop here again.' },
-  { product: 'Samba OG Trainers', customer: 3, rating: 5, comment: 'Gum sole is barely marked. For the price of one new pair I got these and a tee.' },
-  { product: 'Flag Logo Tee', customer: 3, rating: 3, comment: 'Graded Good and it is Good, but the print has cracked a little. Fair enough for the price.' },
-  { product: 'Tie-Waist Maxi Dress', customer: 4, rating: 4, comment: 'Beautiful fabric. Runs slightly small, size up if you are between sizes.' },
-  { product: 'Air Max 90', customer: 5, rating: 5, comment: 'Cleaner in person than in the listing. Delivered to Centurion in two days.' },
-  { product: 'Oversized Tee', customer: 5, rating: 4, comment: 'Exactly the oversized fit I wanted. Would have liked more photos of the back.' },
-  { product: 'Straight Leg Jeans', customer: 5, rating: 2, comment: 'Hem was frayed in a way the photographs did not show. Support sorted it out but check yours.' },
-  { product: 'Zip-Through Hoodie', customer: 7, rating: 5, comment: 'Thick and warm, no bobbling at all. Hard to believe it is second hand.' },
-  { product: 'Classic Chino Trousers', customer: 7, rating: 4, comment: 'Good honest condition, pressed and ready to wear.' },
-  { product: 'Floral Halter Maxi Dress', customer: 8, rating: 5, comment: 'Wore it to a wedding and got three compliments. Nobody guessed it was pre-loved.' },
-  { product: 'Fine Knit Jumper', customer: 8, rating: 3, comment: 'Fine but there is a small pull on the sleeve that was not mentioned.' },
-  { product: 'Dunk Low', customer: 9, rating: 5, comment: 'Sizing advice on the listing was spot on. Very happy.' },
-  { product: 'Heritage Polo Shirt', customer: 10, rating: 4, comment: 'Collar still stands up properly, which is rare second hand. Good buy.' },
-];
-
-for (const review of reviews) {
+for (const review of SAMPLE_REVIEWS) {
   insertReview.run(findProduct(review.product).id, customerIds[review.customer], review.rating, review.comment);
 }
 
-console.log('Seeding release 1.3.0 data (timelines, points, alerts, questions, selling, support)...');
+console.log('Seeding release 1.3.0 data (timelines, points, alerts, sample questions, selling, support)...');
 
 /**
  * Style profiles. The first eight customers have been through the welcome
@@ -990,22 +967,11 @@ const insertAlert = db.prepare('INSERT INTO StockAlert (CustomerID, ProductID, S
   [5, 'CK96 Crew Sweater', 'S'], [6, 'Faux-Fur Logo Jacket', 'M'], [7, 'Slim Fit Jeans', '30'], [9, 'Air Jordan 1 Low', 'UK 8'],
 ].forEach(([c, name, size]) => insertAlert.run(customerIds[c], findProduct(name).id, size));
 
-/** Product questions, most answered by staff. */
+/** Sample product questions, most answered by staff; labelled as samples on the product pages. */
 const adminId = (u) => db.prepare('SELECT AdminID FROM Admin WHERE Username = ?').get(u).AdminID;
-const insertQuestion = db.prepare(`INSERT INTO ProductQuestion (ProductID, CustomerID, Question, Answer, AnsweredBy, CreatedAt, AnsweredAt)
-  VALUES (?, ?, ?, ?, ?, datetime('now', ?), CASE WHEN ? IS NULL THEN NULL ELSE datetime('now', ?) END)`);
-[
-  ['Air Force 1 Low', 1, 'Do these run true to size?', 'They run about half a size big, so most people take their usual size or half down.', 'staff01'],
-  ['Samba OG Trainers', 3, 'Is the gum sole yellowed at all?', 'Very lightly on the heel only. We added a close-up to the description.', 'staff02'],
-  ['Faux-Fur Logo Jacket', 0, 'Does the hood detach?', 'No, the hood is sewn in.', 'staff01'],
-  ['Tie-Waist Maxi Dress', 4, 'How long is it from shoulder to hem?', 'About 138 cm measured flat.', 'admin'],
-  ['Slim Fit Jeans', 5, 'Is there any stretch in the denim?', 'Yes, it is a cotton blend with about 2 percent elastane.', 'staff03'],
-  ['CK96 Crew Sweater', 6, 'Is the print cracked?', 'No cracking at all. It is in excellent condition.', 'staff01'],
-  ['Dunk Low', 7, 'Do they come with the original box?', 'No box, but they are cleaned and come in an iTHRIFT dust bag.', 'staff02'],
-  ['Silver Cuban Link Bracelet', 8, 'Is this real silver?', null, null],
-  ['Quilted Puffer Gilet', 9, 'Is it water resistant?', null, null],
-  ['Ultraboost Sneakers', 10, 'Can I try them on in store first?', null, null],
-].forEach(([name, c, q, a, by], i) => {
+const insertQuestion = db.prepare(`INSERT INTO ProductQuestion (ProductID, CustomerID, Question, Answer, AnsweredBy, IsSample, CreatedAt, AnsweredAt)
+  VALUES (?, ?, ?, ?, ?, 1, datetime('now', ?), CASE WHEN ? IS NULL THEN NULL ELSE datetime('now', ?) END)`);
+SAMPLE_QUESTIONS.forEach(([name, c, q, a, by], i) => {
   const age = `-${20 - i} days`;
   insertQuestion.run(findProduct(name).id, customerIds[c], q, a, by ? adminId(by) : null, age, a, `-${18 - i} days`);
 });

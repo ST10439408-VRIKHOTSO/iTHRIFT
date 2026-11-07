@@ -6,11 +6,13 @@
  * requests in and pages out.
  */
 
+const crypto = require('node:crypto');
 const express = require('express');
 const { getDb } = require('../db');
 const { requireRole } = require('../middleware/auth');
 const { orderRef } = require('../utils/refs');
 const payments = require('../payments');
+const { limitsFor } = require('../middleware/rate-limit');
 
 const router = express.Router();
 
@@ -37,9 +39,20 @@ function esc(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** A small stand-alone page, for the browser tab between the shop and the provider. */
-function page(title, inner) {
-  return `<!doctype html>
+const PAYFAST_HOSTS = 'https://sandbox.payfast.co.za https://www.payfast.co.za';
+
+/**
+ * Sends a small stand-alone page for the browser tab between the shop and
+ * the provider. Its policy is narrower than the website's: nothing loads
+ * from anywhere, the one script runs only with this response's nonce, and
+ * a form may only be sent on to PayFast.
+ */
+function sendPage(res, status, title, inner, script = '') {
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.status(status).set({
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; form-action ${PAYFAST_HOSTS}; base-uri 'none'; frame-ancestors 'none'`,
+  }).send(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} | iTHRIFT</title>
 <style>
@@ -50,11 +63,11 @@ function page(title, inner) {
   p { color: #5c6661; line-height: 1.5; margin: 0 0 12px; }
   .btn { display: block; margin-top: 20px; padding: 14px 20px; border: 0; border-radius: 12px; background: #1e5a43; color: #fff; font: 600 1rem system-ui, sans-serif; text-decoration: none; cursor: pointer; width: 100%; box-sizing: border-box; }
 </style></head>
-<body><main><div class="mark" aria-hidden="true">i</div>${inner}</main></body></html>`;
+<body><main><div class="mark" aria-hidden="true">i</div>${inner}</main>${script ? `<script nonce="${nonce}">${script}</script>` : ''}</body></html>`);
 }
 
 // Starts paying for one of the customer's own orders, or tries again.
-router.post('/:orderId/start', requireRole('customer'), wrap(async (req, res) => {
+router.post('/:orderId/start', requireRole('customer'), limitsFor.checkout, wrap(async (req, res) => {
   try {
     const { url } = await payments.startPayment(getDb(), {
       orderId: Number(req.params.orderId),
@@ -73,17 +86,16 @@ router.post('/:orderId/start', requireRole('customer'), wrap(async (req, res) =>
 router.get('/go/:token', (req, res) => {
   const db = getDb();
   const payment = payments.paymentByToken(db, req.params.token);
-  if (!payment || payment.Method !== 'payfast') return res.status(404).send(page('Link expired', '<h1>This payment link has expired</h1><p>Open your order and choose Pay now again.</p>'));
+  if (!payment || payment.Method !== 'payfast') return sendPage(res, 404, 'Link expired', '<h1>This payment link has expired</h1><p>Open your order and choose Pay now again.</p>');
   if (payment.Status !== 'pending') return res.redirect(303, `/api/payments/return/${payment.PayToken}`);
   const { action, fields } = payments.payfastForm(db, payment, baseUrlFor(req));
-  res.set('Cache-Control', 'no-store').send(page('Going to PayFast', `
+  sendPage(res, 200, 'Going to PayFast', `
     <h1>Taking you to PayFast</h1>
     <p>You will pay for ${esc(orderRef(payment.OrderID))} on PayFast's secure page.</p>
     <form id="pay" method="post" action="${esc(action)}">
       ${Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('\n      ')}
       <button class="btn" type="submit">Continue to PayFast</button>
-    </form>
-    <script>document.getElementById('pay').submit();</script>`));
+    </form>`, "document.getElementById('pay').submit();");
 });
 
 /**
@@ -95,7 +107,7 @@ router.get('/go/:token', (req, res) => {
 router.get('/return/:token', wrap(async (req, res) => {
   const db = getDb();
   let payment = payments.paymentByToken(db, req.params.token);
-  if (!payment) return res.status(404).send(page('Link expired', '<h1>This payment link has expired</h1><p>Open your order to see whether it is paid.</p>'));
+  if (!payment) return sendPage(res, 404, 'Link expired', '<h1>This payment link has expired</h1><p>Open your order to see whether it is paid.</p>');
   payment = await payments.refresh(db, payment, { force: true });
 
   const outcome = ['cancelled', 'failed'].includes(req.query.outcome) ? req.query.outcome : null;
@@ -117,11 +129,10 @@ router.get('/return/:token', wrap(async (req, res) => {
   const unreachable = state === 'pending' && ['payfast', 'yoco'].includes(payment.Method) && isPrivateHost(req)
     ? `<p>This server is on a private network, so ${esc(label)} cannot send its confirmation here. Pay on the hosted site to see the order marked paid.</p>` : '';
   const appLink = `ithrift://payment?order=${payment.OrderID}&status=${state}`;
-  res.set('Cache-Control', 'no-store').send(page(text[0], `
+  sendPage(res, 200, text[0], `
     <h1>${esc(text[0])}</h1>
     <p>${esc(text[1])}</p>${unreachable}
-    <a class="btn" href="${esc(appLink)}">Back to the iTHRIFT app</a>
-    <script>window.location.href = ${JSON.stringify(appLink)};</script>`));
+    <a class="btn" href="${esc(appLink)}">Back to the iTHRIFT app</a>`, `window.location.href = ${JSON.stringify(appLink)};`);
 }));
 
 // PayFast's Instant Transaction Notification. Read raw, because its signature covers the body exactly as sent.

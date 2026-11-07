@@ -110,9 +110,12 @@ data class Review(
     val lastName: String?,
     val author: String,
     val verified: Boolean?,
+    /** Seed data written for the project, labelled and left out of the rating. */
+    val sample: Boolean?,
 )
 
-data class ReviewSummary(val count: Int, val average: Double?, val histogram: Map<String, Int>?)
+/** count, average and histogram cover customers' reviews only; samples is how many sample reviews there are. */
+data class ReviewSummary(val count: Int, val average: Double?, val histogram: Map<String, Int>?, val samples: Int?)
 data class ReviewListResponse(val reviews: List<Review>, val summary: ReviewSummary?)
 
 data class ProductQuestion(
@@ -123,6 +126,7 @@ data class ProductQuestion(
     val answeredAt: String?,
     val askedBy: String?,
     val mine: Boolean?,
+    val sample: Boolean?,
 )
 
 data class QuestionListResponse(val questions: List<ProductQuestion>)

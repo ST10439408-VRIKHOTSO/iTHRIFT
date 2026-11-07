@@ -17,7 +17,7 @@
   --ink: #15201b;
   --ink-2: #33403a;
   --muted: #5c6661;
-  --faint: #8a938e;
+  --faint: #676e6a; /* 4.5:1 or more on every light background (WCAG AA text) */
   --hairline: rgba(21, 32, 27, 0.10);
   --hairline-strong: rgba(21, 32, 27, 0.18);
   --pine: #1e5a43;
@@ -65,7 +65,7 @@
   --ink: #eef2ef;
   --ink-2: #cfd7d2;
   --muted: #9ba6a0;
-  --faint: #6f7a74;
+  --faint: #828f88; /* 4.5:1 or more on every dark background (WCAG AA text) */
   --hairline: rgba(238, 242, 239, 0.10);
   --hairline-strong: rgba(238, 242, 239, 0.18);
   --pine: #5fbf93;

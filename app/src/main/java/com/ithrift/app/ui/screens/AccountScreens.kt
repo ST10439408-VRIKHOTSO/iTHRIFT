@@ -179,7 +179,7 @@ fun AccountScreen() {
                     Panel {
                         val im = ov.impact
                         if (im.items > 0) {
-                            Text("Buying ${plural(im.items, "piece")} second-hand instead of new saved roughly:", style = T.body, color = C.ink, modifier = Modifier.padding(bottom = Space.s3))
+                            Text("Making the ${plural(im.items, "piece")} you bought from new would have used roughly:", style = T.body, color = C.ink, modifier = Modifier.padding(bottom = Space.s3))
                             Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
                                 Impact(Lucide.droplets, "${groupThousands(Math.round(im.waterLitres))} L", "of water", Modifier.weight(1f))
                                 Impact(Lucide.leaf, "${groupThousands(Math.round(im.co2Kg))} kg", "of CO2", Modifier.weight(1f))
@@ -187,7 +187,7 @@ fun AccountScreen() {
                             }
                             Text("${im.basis ?: ""} Rough figures, for a sense of scale.", style = T.tiny, color = C.muted, modifier = Modifier.padding(top = Space.s3))
                         } else {
-                            Text("Once your first order is delivered, we will show roughly how much water and CO2 buying second-hand saved.", style = T.body, color = C.muted)
+                            Text("Once your first order is delivered, we will estimate the water and CO2 that making those pieces from new would have taken.", style = T.body, color = C.muted)
                         }
                     }
                     GroupLabel("Settings")

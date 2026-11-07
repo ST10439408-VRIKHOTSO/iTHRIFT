@@ -166,9 +166,19 @@ async function main() {
     const ids = await call('/api/products/by-ids?ids=3,1,2');
     check('Pieces come back in the order asked for (compare, recently viewed)', ids.data.products.map((p) => p.id).join() === '3,1,2');
     const af1 = (await call('/api/products?q=Air Force 1')).data.products[0];
+    // Lerato's delivered order (seed data) holds this pair, so her review is a verified purchase.
+    const wrote = await call(`/api/products/${af1.id}/reviews`, { method: 'POST', token: lerato, body: { rating: 5, comment: 'Clean pair, exactly as described.' } });
+    check('A customer can review a piece they bought', wrote.status === 201);
+    const twice = await call(`/api/products/${af1.id}/reviews`, { method: 'POST', token: lerato, body: { rating: 1 } });
+    check('A customer can review a piece only once (409)', twice.status === 409);
     const rv = await call(`/api/products/${af1.id}/reviews`);
     check('Reviews come with an average and a star breakdown', rv.data.summary.count > 0 && rv.data.summary.histogram[5] >= 1);
     check('A review from a buyer is marked as a verified purchase', rv.data.reviews.some((r) => r.verified));
+    const samples = rv.data.reviews.filter((r) => r.sample);
+    check('Seeded reviews come back labelled as samples, never as verified', samples.length > 0 && samples.every((r) => !r.verified) && rv.data.summary.samples === samples.length);
+    check('The rating counts customers\' reviews only, not samples', rv.data.summary.count === rv.data.reviews.length - samples.length);
+    const sampleQs = (await call(`/api/products/${af1.id}/questions`)).data.questions;
+    check('Seeded product questions come back labelled as samples', sampleQs.some((q) => q.sample));
     const short = await call(`/api/products/${af1.id}/questions`, { method: 'POST', token: fresh, body: { question: 'Hi?' } });
     check('A too-short question is refused', short.status === 400);
     const ask = await call(`/api/products/${af1.id}/questions`, { method: 'POST', token: fresh, body: { question: 'Are the laces original or replacements?' } });

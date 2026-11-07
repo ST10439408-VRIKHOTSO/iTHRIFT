@@ -385,7 +385,7 @@ route(/^\/orders\/(\d+)$/, async (view, [id], query) => {
             <h2 id="items-h" style="font-size:1.125rem;margin-bottom:8px">${plural(order.items.length, 'piece')}</h2>
             ${order.items.map((i) => `
               <div class="line">
-                <a class="line-thumb" href="#/product/${i.productId}"><img src="${esc(i.image)}" alt=""></a>
+                <a class="line-thumb" href="#/product/${i.productId}" tabindex="-1" aria-hidden="true"><img src="${esc(i.image)}" alt=""></a>
                 <div>
                   <a class="line-title" href="#/product/${i.productId}">${esc(i.name)}</a>
                   <div class="line-sub">${esc(i.brand)}${i.size ? `, size ${esc(i.size)}` : ''}${i.quantity > 1 ? `, ${i.quantity} pieces` : ''}</div>
@@ -515,10 +515,10 @@ route(/^\/orders\/(\d+)\/receipt$/, async (view, [id], query) => {
         <a class="back-link" href="#/orders/${order.id}" style="margin:0">${icon('chevron-left', { size: 18 })}${esc(order.ref)}</a>
         <div class="row wrap">
           <div class="segmented" role="group" aria-label="Receipt type">
-            <button type="button" aria-pressed="${!gift}" onclick="go('#/orders/${order.id}/receipt')">Tax invoice</button>
-            <button type="button" aria-pressed="${gift}" onclick="go('#/orders/${order.id}/receipt?gift=1')">Gift slip</button>
+            <button type="button" aria-pressed="${!gift}" data-go="#/orders/${order.id}/receipt">Tax invoice</button>
+            <button type="button" aria-pressed="${gift}" data-go="#/orders/${order.id}/receipt?gift=1">Gift slip</button>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">${icon('printer', { size: 16 })}Print or save as PDF</button>
+          <button type="button" class="btn btn-primary btn-sm" data-print>${icon('printer', { size: 16 })}Print or save as PDF</button>
         </div>
       </div>
       <article class="receipt">
@@ -584,7 +584,7 @@ route(/^\/privacy$/, async (view) => {
   view.innerHTML = `
     <div class="container narrow page prose">
       <h1>Privacy policy</h1>
-      <p class="lead" style="margin-top:12px">How iTHRIFT Clothes looks after the personal information you give us on this website and in the iTHRIFT app. Last updated 26 October 2026.</p>
+      <p class="lead" style="margin-top:12px">How iTHRIFT Clothes looks after the personal information you give us on this website and in the iTHRIFT app. Last updated 7 November 2026.</p>
 
       <h2>Who we are</h2>
       <p>iTHRIFT Clothes, Hatfield Plaza, Burnett Street, Hatfield, Pretoria, 0083. We are the responsible party for your information under the Protection of Personal Information Act 4 of 2013 (POPIA). Questions go to <a class="link" href="mailto:support@ithrift.co.za">support@ithrift.co.za</a> or 012 345 6789.</p>
@@ -600,7 +600,7 @@ route(/^\/privacy$/, async (view) => {
       <p>We use this information only to run your account, deliver and support your orders, pay you for pieces you sell us, send the notifications you have switched on, and keep the records the law requires of a shop.</p>
 
       <h2>Who else sees it</h2>
-      <p>Our staff, to process your orders. Our hosting provider, which stores the database for us. Google, only if you choose Continue with Google, and only to confirm who you are. We do not sell your information or share it for marketing.</p>
+      <p>Our staff, to process your orders. Our hosting provider, which stores the database for us. Google, only if you choose Continue with Google, and only to confirm who you are. The payment provider you choose at checkout (PayFast, Ozow, Paystack or Yoco), which receives your name, email address and the order amount to take the payment; your card or bank details are typed on its page and never reach us. We do not sell your information or share it for marketing.</p>
 
       <h2>How long we keep it</h2>
       <p>For as long as you have an account. Order and payment records are kept for at least five years after the sale, as South African tax law requires, but without your name or contact details once your account is deleted.</p>
@@ -619,6 +619,61 @@ route(/^\/privacy$/, async (view) => {
     </div>`;
 });
 
+/**
+ * The terms of sale. Every rule here is one the system enforces (prices,
+ * delivery fees, the 30-day return window, points and buy-back rates), so the
+ * page and the shop cannot drift apart without a test noticing.
+ */
+route(/^\/terms$/, async (view) => {
+  setTitle('Terms and conditions');
+  const options = await loadOptions();
+  const fee = (id) => options.deliveryMethods.find((m) => m.id === id) || { fee: 0 };
+  view.innerHTML = `
+    <div class="container narrow page prose">
+      <h1>Terms and conditions</h1>
+      <p class="lead" style="margin-top:12px">The terms for buying from and selling to iTHRIFT Clothes on this website and in the iTHRIFT app. Last updated 7 November 2026.</p>
+
+      <h2>Who we are</h2>
+      <p>iTHRIFT Clothes, Hatfield Plaza, Burnett Street, Hatfield, Pretoria, 0083. Email <a class="link" href="mailto:support@ithrift.co.za">support@ithrift.co.za</a> or call 012 345 6789, Monday to Friday 09:00 to 17:00 and Saturday 09:00 to 13:00.</p>
+
+      <h2>Your account</h2>
+      <p>You need an account to order, and you must be 18 or older. Keep your password to yourself; you are responsible for orders placed with your account. Each cellphone number can belong to one account only. We may suspend an account that is used to abuse the shop, its staff or other customers.</p>
+
+      <h2>What we sell</h2>
+      <p>Everything we sell is pre-owned. Each piece is listed with its size and a condition grade from Fair to Excellent, and any flaw we found is written in its description. Most pieces are one of a kind, so a piece in your bag is not reserved until you place the order.</p>
+
+      <h2>Prices and payment</h2>
+      <p>Prices are in rand and include VAT. The total, with any promo code, Thrift Points and delivery, is worked out by our server when you place the order and is the amount you pay. You can pay through the payment providers shown at checkout, on their own secure pages, or by bank transfer (EFT) using your order number as the reference. We never see your card or bank details. We start packing an order once its payment is confirmed.</p>
+      <p>A payment method marked <strong>Test mode</strong> uses the provider's test system: no money is taken, and an order paid that way is not a sale.</p>
+
+      <h2>Delivery and collection</h2>
+      <ul>
+        <li><strong>Standard delivery:</strong> ${money(fee('standard').fee)}, free on orders of ${money(options.freeDeliveryThreshold)} or more.</li>
+        <li><strong>Express delivery:</strong> ${money(fee('express').fee)}.</li>
+        <li><strong>Collection</strong> from our Hatfield store is free. Choose a day and time slot at checkout and bring your order number.</li>
+      </ul>
+      <p>Delivery dates shown at checkout count working days and skip public holidays. They are estimates, not guarantees.</p>
+
+      <h2>Cancelling an order</h2>
+      <p>You can cancel an order on its order page until it ships or is ready to collect. A paid order is refunded in full to the way you paid, and any Thrift Points you spent are returned. The pieces go back on sale straight away. If a piece turns out to be unavailable after you order, we will cancel that order and refund you in full.</p>
+
+      <h2>Returns</h2>
+      <p>You can return any piece within ${options.returnWindowDays} days of delivery, for any reason, from its order page. We refund the piece once it reaches us in the condition we sent it. This goes beyond the seven-day cooling-off period that the Electronic Communications and Transactions Act gives online purchases.</p>
+
+      <h2>Thrift Points</h2>
+      <p>You earn a point for every R10 of an order once it is delivered. Spend them at checkout in blocks of ${options.points.block}, each worth ${money(options.points.randPerBlock)} off. Points spent on an order come back if it is cancelled. Points have no cash value and cannot be transferred.</p>
+
+      <h2>Selling to us</h2>
+      <p>You can offer us pieces through <a class="link" href="#/sell">Sell to us</a>. You confirm each piece is yours to sell. We may make an offer or decline. If you accept an offer, you choose payment by EFT or in Thrift Points worth 20 percent more, and the piece becomes ours when we receive it.</p>
+
+      <h2>Reviews, questions and messages</h2>
+      <p>Write honestly and politely, about the piece or your order. We may remove anything abusive, misleading, or unrelated to the shop.</p>
+
+      <h2>Your rights and the law</h2>
+      <p>Nothing in these terms limits your rights under the Consumer Protection Act or the Electronic Communications and Transactions Act. How we use your information is set out in our <a class="link" href="#/privacy">privacy policy</a>. These terms are governed by South African law. If we change them, we will update the date at the top of this page.</p>
+    </div>`;
+});
+
 route(/^\/about$/, async (view) => {
   setTitle('About');
   const { products } = await api('/products?inStock=true');
@@ -626,8 +681,7 @@ route(/^\/about$/, async (view) => {
     <div class="container narrow page">
       <h1 style="max-width:16ch">A Pretoria shop for clothes that still have years in them.</h1>
       <p class="lead" style="margin-top:16px">iTHRIFT Clothes buys pre-owned branded clothing, checks every piece by hand and sells it on at a price students can manage. We started on WhatsApp and Instagram; this site brings the whole rack online.</p>
-      <img src="/images/brand/storefront.jpg" alt="The iTHRIFT Clothes store front in Hatfield" style="border-radius:var(--r-lg);margin:32px 0;width:100%;aspect-ratio:16/9;object-fit:cover">
-      <h2 style="margin-bottom:12px">How a piece gets on the rack</h2>
+      <h2 style="margin:32px 0 12px">How a piece gets on the rack</h2>
       <ol class="timeline" style="margin-bottom:32px">
         <li><div class="t-title">We buy it</div><div class="t-when">From customers selling through Sell to us, and from bulk lots.</div></li>
         <li><div class="t-title">We check and grade it</div><div class="t-when">Seams, zips, soles and fading, then a grade from Fair to Excellent. Any flaw is written in the description.</div></li>

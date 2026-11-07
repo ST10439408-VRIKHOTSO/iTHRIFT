@@ -68,14 +68,14 @@ route(/^\/account$/, async (view) => {
           <h2 class="group-label" style="margin-top:0">Your impact</h2>
           <div class="panel tight">
             ${ov.impact.items ? `
-              <p style="margin:0 0 12px">Buying ${plural(ov.impact.items, 'piece')} second-hand instead of new saved roughly:</p>
+              <p style="margin:0 0 12px">Making the ${plural(ov.impact.items, 'piece')} you bought from new would have used roughly:</p>
               <div class="impact">
                 <div>${icon('droplets', { size: 18 })}<strong>${groupThousands(Math.round(ov.impact.waterLitres))} L</strong>of water</div>
                 <div>${icon('leaf', { size: 18 })}<strong>${groupThousands(Math.round(ov.impact.co2Kg))} kg</strong>of CO2</div>
                 <div>${icon('shirt', { size: 18 })}<strong>${ov.impact.items}</strong>${ov.impact.items === 1 ? 'piece' : 'pieces'} kept in use</div>
               </div>
               <p class="tiny muted" style="margin:12px 0 0">${esc(ov.impact.basis)} Rough figures, for a sense of scale.</p>`
-              : '<p class="muted" style="margin:0">Once your first order is delivered, we will show roughly how much water and CO2 buying second-hand saved.</p>'}
+              : '<p class="muted" style="margin:0">Once your first order is delivered, we will estimate the water and CO2 that making those pieces from new would have taken.</p>'}
           </div>
           <h2 class="group-label">Settings</h2>
           <div class="list">

@@ -174,7 +174,7 @@ fun ShopScreen(filters: Map<String, String>) {
                         val count = data?.result?.products?.size
                         Text(
                             if (count == null) "Loading" else plural(count, "piece") +
-                                if (filters["mine"] == "1" && !data?.mySizes.isNullOrEmpty()) " in ${data?.mySizes.orEmpty().joinToString(", ")}" else "",
+                                if (filters["mine"] == "1" && !data.mySizes.isNullOrEmpty()) " in ${data.mySizes.orEmpty().joinToString(", ")}" else "",
                             style = T.small,
                             color = C.muted,
                             modifier = Modifier.weight(1f),

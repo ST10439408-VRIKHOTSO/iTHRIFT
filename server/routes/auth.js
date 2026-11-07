@@ -7,12 +7,13 @@ const { verifyGoogleIdToken, isSsoConfigured, webClientId } = require('../utils/
 const crypto = require('node:crypto');
 const { createSession, destroySession, destroySessionsFor, requireAuth, requireRole } = require('../middleware/auth');
 const appCodes = require('../utils/app-codes');
+const { limitsFor } = require('../middleware/rate-limit');
 const { normalisePhone, formatPhone, looksLikePhone, findCustomerByPhone, PHONE_HINT } = require('../utils/phone');
 
 const router = express.Router();
 
 // UC1: Register. A visitor creates a customer account.
-router.post('/register', (req, res) => {
+router.post('/register', limitsFor.register, (req, res) => {
   const { firstName, lastName, email, password, confirmPassword, phone, address, city, postalCode } = req.body || {};
 
   if (!firstName || !lastName || !email || !password || !phone) {
@@ -59,7 +60,7 @@ router.post('/register', (req, res) => {
 
 // UC2: Log in. A customer, staff member or administrator signs in with an
 // email address, or a customer with their cellphone number.
-router.post('/login', (req, res) => {
+router.post('/login', limitsFor.loginByAddress, limitsFor.loginByAccount, (req, res) => {
   const { password } = req.body || {};
   const identifier = String((req.body || {}).identifier || '').trim();
   if (!identifier || !password) {
@@ -111,7 +112,7 @@ router.post('/login', (req, res) => {
 // ID token instead of a password, and we swap that for one of our own session
 // tokens. Everything downstream (cart, checkout, orders) then works exactly as
 // it does for a password account, because the session looks the same.
-router.post('/sso', async (req, res) => {
+router.post('/sso', limitsFor.singleSignOn, async (req, res) => {
   const { idToken, challenge } = req.body || {};
   if (challenge !== undefined && !appCodes.isChallenge(challenge)) {
     return res.status(400).json({ error: 'This sign-in link from the app is not valid. Go back to the app and try again.' });
@@ -173,7 +174,7 @@ router.post('/sso', async (req, res) => {
 
 // The app swaps the single-use code for a session, proving with the secret
 // behind the challenge that it is the app that started the sign-in.
-router.post('/sso/exchange', (req, res) => {
+router.post('/sso/exchange', limitsFor.singleSignOn, (req, res) => {
   const { code, verifier } = req.body || {};
   const result = appCodes.redeem(code, verifier);
   if (result.error) return res.status(400).json({ error: result.error });
@@ -285,7 +286,7 @@ router.put('/profile', requireAuth, requireRole('customer'), (req, res) => {
 // Change password. The current password is required even though the caller is
 // already signed in, so that a borrowed unlocked phone cannot be used to lock
 // the real owner out of their account.
-router.post('/change-password', requireAuth, requireRole('customer'), (req, res) => {
+router.post('/change-password', requireAuth, requireRole('customer'), limitsFor.accountSecurity, (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
 
   if (!currentPassword || !newPassword) {
@@ -334,7 +335,7 @@ router.post('/change-password', requireAuth, requireRole('customer'), (req, res)
  * (correction and deletion); Google Play, "Understanding Google Play's app
  * account deletion requirements", https://support.google.com/googleplay/android-developer/answer/13327111
  */
-router.post('/delete-account', requireAuth, requireRole('customer'), (req, res) => {
+router.post('/delete-account', requireAuth, requireRole('customer'), limitsFor.accountSecurity, (req, res) => {
   const { password, confirm } = req.body || {};
   const db = getDb();
   const customer = db.prepare('SELECT * FROM Customer WHERE CustomerID = ?').get(req.user.id);

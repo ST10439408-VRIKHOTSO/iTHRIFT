@@ -3,6 +3,7 @@
 const express = require('express');
 const { getDb } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { limitsFor } = require('../middleware/rate-limit');
 const { orderRef } = require('../utils/refs');
 const notifyUtil = require('../utils/notify');
 
@@ -57,7 +58,7 @@ router.get('/', requireAuth, (req, res) => {
   res.json({ tickets: rows.map(summary), topics: TOPICS });
 });
 
-router.post('/', requireRole('customer'), (req, res) => {
+router.post('/', requireRole('customer'), limitsFor.contributions, (req, res) => {
   const db = getDb();
   const { topic, subject, message, orderId } = req.body || {};
   if (!TOPICS.includes(topic)) return res.status(400).json({ error: 'Choose what your message is about.' });
@@ -93,7 +94,7 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 // Either side replies. A staff reply marks the conversation answered and tells the customer.
-router.post('/:id/messages', requireAuth, (req, res) => {
+router.post('/:id/messages', requireAuth, limitsFor.contributions, (req, res) => {
   const db = getDb();
   const found = loadTicket(db, req.params.id, req.user);
   if (found.error) return res.status(found.status).json({ error: found.error });

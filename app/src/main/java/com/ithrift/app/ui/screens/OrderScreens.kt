@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ithrift.app.data.ApiClient
 import com.ithrift.app.data.ApiOutcome
 import com.ithrift.app.data.OrderDetail
 import com.ithrift.app.data.OrderListItem
@@ -78,7 +79,6 @@ import com.ithrift.app.ui.run
 import com.ithrift.app.ui.staff.ProcessOrderPanel
 import com.ithrift.app.ui.theme.C
 import com.ithrift.app.ui.theme.Lucide
-import com.ithrift.app.ui.theme.Radius
 import com.ithrift.app.ui.theme.Space
 import com.ithrift.app.ui.theme.T
 import com.ithrift.app.util.dateLabel
@@ -599,8 +599,7 @@ fun AboutScreen() {
             "iTHRIFT Clothes buys pre-owned branded clothing, checks every piece by hand and sells it on at a price students can manage. We started on WhatsApp and Instagram; this app and the website bring the whole rack online.",
             style = T.body.copy(fontSize = 17.sp, lineHeight = 26.sp), color = C.muted, modifier = Modifier.padding(top = Space.s3),
         )
-        RemoteImage("/images/brand/storefront.jpg", Modifier.padding(vertical = Space.s5).fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(Radius.lg)), description = "The iTHRIFT Clothes store front in Hatfield")
-        Text("How a piece gets on the rack", style = T.h2, color = C.ink, modifier = Modifier.padding(bottom = Space.s3))
+        Text("How a piece gets on the rack", style = T.h2, color = C.ink, modifier = Modifier.padding(top = Space.s5, bottom = Space.s3))
         TimelineItem("We buy it", "From customers selling through Sell to us, and from bulk lots.")
         TimelineItem("We check and grade it", "Seams, zips, soles and fading, then a grade from Fair to Excellent. Any flaw is written in the description.")
         TimelineItem("We clean, measure and photograph it", "Every piece is listed in its real size, with stock per size.")
@@ -609,6 +608,12 @@ fun AboutScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
             Btn("Shop the rack", { app.go(Routes.shop()) }, modifier = Modifier.weight(1f))
             Btn("Help and contact", { app.go(Routes.help()) }, style = BtnStyle.Secondary, modifier = Modifier.weight(1f))
+        }
+        // The legal pages live on the website, so both clients show the same text.
+        val uri = LocalUriHandler.current
+        Row(Modifier.padding(top = Space.s5), horizontalArrangement = Arrangement.spacedBy(Space.s4)) {
+            LinkText("Terms and conditions", { uri.openUri("${ApiClient.originUrl(app.context)}/#/terms") })
+            LinkText("Privacy policy", { uri.openUri("${ApiClient.originUrl(app.context)}/#/privacy") })
         }
         Spacer(Modifier.height(Space.s5))
         Text("Fonts: Instrument Sans (SIL Open Font License). Icons: Lucide (ISC licence).", style = T.tiny, color = C.faint)

@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const express = require('express');
 
 const { attachUser } = require('./middleware/auth');
+const { securityHeaders } = require('./middleware/security');
+const { limitsFor } = require('./middleware/rate-limit');
 const { DB_PATH } = require('./db');
 
 const PORT = process.env.PORT || 3000;
@@ -17,9 +19,13 @@ if (!fs.existsSync(DB_PATH)) {
 
 const app = express();
 app.disable('x-powered-by');
-// Behind Render's proxy, so req.protocol reads https from X-Forwarded-Proto.
-// Payment providers are given links back to this server built from it.
-app.set('trust proxy', true);
+// On Render the request passes through exactly one proxy, so its
+// X-Forwarded-For and X-Forwarded-Proto are believed for one hop: req.ip is
+// the real caller (the rate limits key on it) and req.protocol reads https
+// (payment links back to this server are built from it). Anywhere else
+// nothing is trusted, so a caller cannot claim another address.
+app.set('trust proxy', process.env.RENDER ? 1 : false);
+app.use(securityHeaders({ indexHtml: path.join(PUBLIC_DIR, 'index.html') }));
 // The raw body is kept as well, because Paystack and Yoco sign the exact
 // bytes they send and re-serialising the parsed JSON would not match.
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
@@ -43,13 +49,21 @@ app.use('/api', (req, res, next) => {
   res.on('finish', () => {
     const ms = Number(process.hrtime.bigint() - startedAt) / 1e6;
     const who = req.user ? `${req.user.type}#${req.user.id}` : 'anonymous';
-    const line = `[api] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms.toFixed(1)}ms) [${who}]`;
+    // A payment link's token opens that payment, so it stays out of the log.
+    const url = req.originalUrl.replace(/\/payments\/(go|return)\/[0-9a-f]{32}/, '/payments/$1/[token]');
+    const line = `[api] ${req.method} ${url} -> ${res.statusCode} (${ms.toFixed(1)}ms) [${who}]`;
     // 4xx and 5xx go to stderr so a CI run or a log viewer can filter for
     // the failures without reading every successful request.
     if (res.statusCode >= 400) console.error(line);
     else console.log(line);
   });
 
+  next();
+});
+
+// API answers carry personal data, so no browser or proxy keeps a copy.
+app.use('/api', limitsFor.api, (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
   next();
 });
 
@@ -107,6 +121,7 @@ apiRouter.get('/', (_req, res) => {
   });
 });
 app.use('/api', apiRouter);
+app.use('/api', (_req, res) => res.status(404).json({ error: 'There is no such API address.' }));
 
 // ---- Static front ends ----
 // /mobile used to serve a separate installable web app. The website itself is
@@ -130,7 +145,11 @@ app.get('*', (req, res, next) => {
 });
 
 // ---- Error handling ----
+// The details go to the server log only; the caller gets a plain message,
+// never a stack trace or a file path.
 app.use((err, _req, res, _next) => {
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'The request was not valid JSON.' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'The request is too large.' });
   console.error(err);
   res.status(500).json({ error: 'Something went wrong on the server.' });
 });

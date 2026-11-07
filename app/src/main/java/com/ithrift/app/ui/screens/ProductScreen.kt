@@ -454,6 +454,13 @@ private fun Reviews(productId: Int, data: ReviewListResponse, reload: () -> Unit
                 }
             }
         }
+    } else {
+        Text("No customer reviews yet for this piece.", style = T.body, color = C.muted)
+    }
+    if ((summary?.samples ?: 0) > 0) {
+        Text("Reviews marked Sample were written for this project, not by customers, and are not counted in the rating.", style = T.small, color = C.muted, modifier = Modifier.padding(top = Space.s3))
+    }
+    if (data.reviews.isNotEmpty()) {
         if (data.reviews.size > 1) {
             Spacer(Modifier.height(Space.s4))
             Segmented(listOf("new" to "Newest", "high" to "Highest", "low" to "Lowest"), order, { order = it })
@@ -469,13 +476,12 @@ private fun Reviews(productId: Int, data: ReviewListResponse, reload: () -> Unit
                     Stars(r.rating.toDouble(), 14.dp)
                     Text(r.author, style = T.smallStrong, color = C.ink)
                     if (r.verified == true) Pill("Bought this piece", Tone.Good, icon = Lucide.check)
+                    if (r.sample == true) Pill("Sample", Tone.Neutral)
                 }
                 Text(timeAgo(r.createdAt), style = T.tiny, color = C.muted, modifier = Modifier.padding(top = 2.dp))
                 if (!r.comment.isNullOrBlank()) Text(r.comment, style = T.body, color = C.ink2, modifier = Modifier.padding(top = 6.dp))
             }
         }
-    } else {
-        Text("No reviews yet for this piece.", style = T.body, color = C.muted)
     }
     Spacer(Modifier.height(Space.s4))
     when {
@@ -530,9 +536,15 @@ private fun Questions(productId: Int, questions: List<ProductQuestion>, reload: 
     if (questions.isEmpty()) {
         Text("No questions yet. Ask about fit, fabric or wear and the store team will answer here.", style = T.body, color = C.muted)
     }
+    if (questions.any { it.sample == true }) {
+        Text("Questions marked Sample were written for this project, not by customers.", style = T.small, color = C.muted, modifier = Modifier.padding(bottom = Space.s3))
+    }
     for (q in questions) {
         Column(Modifier.fillMaxWidth().padding(bottom = Space.s4)) {
-            Text(q.question, style = T.bodyStrong, color = C.ink)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(q.question, style = T.bodyStrong, color = C.ink, modifier = Modifier.weight(1f, fill = false))
+                if (q.sample == true) Pill("Sample", Tone.Neutral)
+            }
             if (q.answer != null) {
                 Text(q.answer, style = T.body, color = C.ink2, modifier = Modifier.padding(top = 4.dp))
                 Text("iTHRIFT answered ${q.answeredAt?.let { timeAgo(it) } ?: ""}", style = T.tiny, color = C.faint, modifier = Modifier.padding(top = 4.dp))

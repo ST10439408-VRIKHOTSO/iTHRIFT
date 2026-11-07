@@ -34,6 +34,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 - [How we used GitHub and GitHub Actions](#how-we-used-github-and-github-actions)
 - [Demonstration video](#demonstration-video)
 - [Running it](#running-the-api-and-the-website)
+- [Security](#security)
 - [Online payments](#online-payments)
 - [Automated testing](#automated-testing)
 - [Publishing on Google Play](#publishing-on-google-play)
@@ -253,7 +254,7 @@ side effect of committing.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | [`android.yml`](.github/workflows/android.yml) | push, pull request, manual | Sets up JDK 17 and Gradle, runs the 53 Kotlin unit tests, assembles the debug APK and uploads it as the `ithrift-debug-apk` artefact. On a failure it turns the Kotlin compiler errors into annotations and uploads the test reports. A manual run on a branch also starts the API and renders the screenshot test |
-| [`api-and-website.yml`](.github/workflows/api-and-website.yml) | push, pull request, manual | Sets up Node 24, installs from the lock file, runs the 39 API unit tests, seeds the database, starts the server, then runs the 172-check smoke test and the 95-check feature test. Uploads the server log if anything fails |
+| [`api-and-website.yml`](.github/workflows/api-and-website.yml) | push, pull request, manual | Sets up Node 24, installs from the lock file, runs the 42 API unit tests, seeds the database, starts the server, then runs the 179-check smoke test and the 100-check feature test. Uploads the server log if anything fails |
 | [`release.yml`](.github/workflows/release.yml) | tag `v*`, manual | Checks the signing secrets exist, restores the keystore from a secret, runs the unit tests again, assembles the signed release APK and App Bundle, uploads them as the `ithrift-release` artefact, and deletes the keystore from the runner even if the build failed |
 
 The unit tests run first because they need no server and finish in seconds: if a
@@ -382,6 +383,21 @@ cellphone number (a South African mobile number that no other account uses) and 
 password twice. A customer can then sign in with either their email or that number,
 typed in any common form (`082 555 0101`, `0825550101` or `+27 82 555 0101`).
 
+## Security
+
+| Measure | How | Where |
+|---|---|---|
+| Passwords | Salted scrypt hashes, compared in constant time; never stored or logged as typed | `server/utils/password.js` |
+| Sessions | Random 192-bit bearer tokens; end on sign-out, on account deletion (every device) and after 30 days without use | `server/middleware/auth.js` |
+| Access control | Every route checks the role on the server; a customer only ever reaches their own orders, addresses, messages and offers, because the id comes from the session | `server/routes/` |
+| Database | Parameterised queries throughout; the database file is never served | `server/routes/`, `server/db.js` |
+| Rate limits | Ten sign-in attempts per account and 100 per address every 15 minutes, 30 registrations per address an hour, and limits on password changes, checkout, payments, reviews, questions, messages and offers | `server/middleware/rate-limit.js` |
+| Headers | A Content-Security-Policy that runs only the site's own scripts (the one inline script by its hash) and Google's sign-in, no framing, `nosniff`, a strict referrer policy and HSTS on HTTPS | `server/middleware/security.js` |
+| Errors | Callers get a plain message, never a stack trace; malformed requests get 400 | `server/index.js` |
+| Secrets | Read from the environment only (`render.yaml` lists the names); the Git history holds none | `render.yaml` |
+| Dependencies | One runtime dependency, Express 4.22.3; `npm audit` reports no vulnerabilities | `package.json` |
+| Android | A release build refuses plain `http://`, keeps its sign-in out of backups and logs no network traffic | `app/src/main/AndroidManifest.xml`, `ApiClient.kt` |
+
 ## Online payments
 
 Checkout takes real payment gateways in their test modes, through the server, so the
@@ -433,16 +449,16 @@ citing the provider's documentation.
 
 ## Automated testing
 
-**359 automated checks across four suites, plus a screenshot test**, all run by GitHub
+**374 automated checks across four suites, plus a screenshot test**, all run by GitHub
 Actions (and by Azure Pipelines) so the code is proven on a clean machine and not only
 on ours.
 
 | Suite | Count | What it covers |
 |---|---|---|
 | Kotlin unit tests (`app/src/test/`) | 53 | Input validation (including cellphone numbers and matching passwords), server-address parsing, money and date formatting, network error handling, the theme setting |
-| API unit tests (`test/unit-tests.js`) | 39 | Password hashing and the password policy, SSO configuration and token verification, the app sign-in codes, cart arithmetic, delivery fees, promo codes, cellphone numbers, and the payment checks: PayFast's form and notifications, Paystack's and Yoco's webhook signatures, Ozow's statuses, which methods are offered |
-| End-to-end smoke test (`test/smoke-test.js`) | 172 | The whole API surface against a running server, every role, account deletion, the cross-client database link, and paying: a PayFast sandbox order, forged notifications, EFT confirmed by staff, nothing shipped unpaid |
-| Feature test (`test/feature-test.js`) | 95 | Thrift Points, alerts and notifications, saved searches, the working-day calendar, collection slots, gift orders, selling to the shop, support messages, bulk markdowns, promo limits, analytics and the CSV export |
+| API unit tests (`test/unit-tests.js`) | 42 | Password hashing and the password policy, SSO configuration and token verification, the app sign-in codes, rate limits, session expiry, the security policy, cart arithmetic, delivery fees, promo codes, cellphone numbers, and the payment checks: PayFast's form and notifications, Paystack's and Yoco's webhook signatures, Ozow's statuses, which methods are offered |
+| End-to-end smoke test (`test/smoke-test.js`) | 179 | The whole API surface against a running server, every role, account deletion, the cross-client database link, the security headers, error handling and sign-in lockout, and paying: a PayFast sandbox order, forged notifications, EFT confirmed by staff, nothing shipped unpaid |
+| Feature test (`test/feature-test.js`) | 100 | Reviews (one per customer, samples labelled and left out of ratings), Thrift Points, alerts and notifications, saved searches, the working-day calendar, collection slots, gift orders, selling to the shop, support messages, bulk markdowns, promo limits, analytics and the CSV export |
 | Screenshot test (`app/src/test/.../ScreenshotTest.kt`) | 33 screens and 4 journeys | Every main app screen, light and dark, rendered with Robolectric against the seeded server; runs on a manual branch build |
 
 ### Running them locally
@@ -481,7 +497,7 @@ The app is prepared for the Play Store:
 | Requirement | State |
 |---|---|
 | Application id | `com.ithrift.app` |
-| Version | 1.4.0 (versionCode 8), `targetSdk` 35 |
+| Version | 1.4.1 (versionCode 9), `targetSdk` 35 |
 | Signed APK and App Bundle | Built by `release.yml` from a version tag and attached to the [release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases); the latest signed build is from tag `v1.3.4` |
 | Keystore | Kept out of the repository, in repository secrets |
 | Privacy policy (required by Play for an app with accounts) | <https://ithrift-api.onrender.com/#/privacy> |
@@ -494,7 +510,7 @@ The app is prepared for the Play Store:
 ithrift/
 ├── public/                     web root: everything the browser downloads
 │   ├── index.html              single-page shell for every route
-│   ├── css/                    globals.css, style.css (the design system)
+│   ├── css/                    style.css (the design system)
 │   ├── js/                     app.js (router), views-shop.js, views-auth.js, views-account.js, views-admin.js
 │   ├── images/                 brand/ and products/
 │   └── manifest.webmanifest    makes the website installable on a phone
@@ -539,9 +555,18 @@ Recorded here for transparency; also explained in the final report.
   need their test keys before they appear. PayFast and Yoco can only confirm payments
   to the hosted server, and refunds are made by staff from each provider's dashboard
   (see [Online payments](#online-payments)).
-- **Sessions are in memory.** Signing in issues a bearer token held in the server's
-  memory, so restarting the server signs everyone out. A production build would use a
-  persistent session store.
+- **Sessions and rate limits are in memory.** Signing in issues a bearer token held in
+  the server's memory; it ends after 30 days without use, and restarting the server signs
+  everyone out. The rate limits count per server in the same way. A larger deployment
+  would keep both in a shared store such as Redis.
+- **There is no password reset.** It needs an email service to send the reset link,
+  which the shop does not have yet. A customer who forgets their password contacts
+  support.
+- **The sample reviews and questions are seed data.** The module asks for ten rows in
+  every table, so the seed writes sample reviews and product questions. Both clients
+  label them **Sample** and leave them out of every rating. The seeded customers, orders
+  and support messages are demonstration data too; only the customer they belong to and
+  staff can see them.
 - **There are no instrumented tests.** The Kotlin unit tests cover the logic that can
   be tested without a device, and the Robolectric screenshot test renders the screens;
   the app is checked by hand on a handset, not by Espresso on a device.
@@ -580,6 +605,27 @@ actually works:
 | **Gift orders** with a gift slip without prices, and a **VAT tax invoice** | Real documents a customer can print or save as PDF | 1.3.0 web, 1.3.1 app |
 | **Staff console in the app** | Staff can process orders and collections from the shop floor | 1.3.1 |
 | **App Google sign-in through the website with a single-use code** (PKCE) | Works with the same Google set-up as the website, without the app ever holding a reusable token in a link | 1.3.3 |
+
+### 1.4.1: Security and content audit (November 2026)
+
+- **Security:** rate limits on sign-in, registration, password changes, checkout,
+  payments and everything customers write; security headers with a
+  Content-Security-Policy on every page (inline click handlers moved to data
+  attributes so it can forbid inline script); sessions end after 30 days without use;
+  the server trusts its proxy only on Render; malformed requests get 400 and unknown API
+  addresses a JSON 404; payment-link tokens kept out of the log. Express 4.22.3 clears
+  every `npm audit` finding.
+- **Reviews:** one review per customer per piece. The seeded reviews and questions are
+  now labelled **Sample** on both clients and left out of every rating.
+- **Content:** a Terms and conditions page (website footer and the app's About
+  screen), the privacy policy now names the payment providers, the home page says
+  what the shop sells and where, the impact panel no longer claims a saving it cannot
+  measure, and the About page no longer shows a photo of another shop.
+- **Accessibility:** the faint text colour now meets 4.5:1 in both themes, and the
+  duplicate thumbnail links are hidden from keyboards and screen readers.
+- **Android:** a release build refuses plain `http://`, backups are off, and network
+  logging is debug-only.
+- Removed the unused Tailwind and PostCSS files.
 
 ### 1.4.0: Online payments (November 2026)
 

@@ -2,6 +2,7 @@ package com.ithrift.app.data
 
 import android.content.Context
 import android.util.Log
+import com.ithrift.app.BuildConfig
 import com.ithrift.app.util.ApiUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -78,8 +79,9 @@ object ApiClient {
             response
         }
 
+        // Request lines go to Logcat in a debug build only; a release build logs no traffic.
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
         }
 
         val client = OkHttpClient.Builder()

@@ -11,8 +11,11 @@ android {
         applicationId = "com.ithrift.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.4.0"
+        versionCode = 9
+        versionName = "1.4.1"
+        // Plain http:// is refused in a release build, which only ever talks
+        // to the hosted server over https. See the debug build type below.
+        manifestPlaceholders["allowCleartext"] = "false"
     }
 
     /**
@@ -50,6 +53,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // A debug build may also talk to a server on a laptop over plain
+            // http:// (http://10.0.2.2:3000 in the emulator, or the laptop's
+            // address on the same Wi-Fi), which is how the app is demonstrated.
+            manifestPlaceholders["allowCleartext"] = "true"
+        }
         release {
             isMinifyEnabled = false
             // Only attach the signing config when a keystore was actually

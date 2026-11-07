@@ -475,7 +475,7 @@ fun CheckoutScreen() {
                         d.cart.items.isEmpty() -> EmptyState(Lucide.shoppingBag, "Your bag is empty", "Add something to your bag first.", actionLabel = "Start shopping", onAction = { app.go(Routes.shop()) })
                         d.cart.items.any { it.quantity > it.stock } -> EmptyState(Lucide.circleAlert, "Your bag changed", "Something in your bag sold or changed. Check it before paying.", actionLabel = "Open your bag", onAction = { app.go(Routes.BAG) })
                         app.options == null -> ErrorState("Delivery options did not load.", { load.reload() })
-                        else -> CheckoutForm(d, onAddressesChanged = { load.reload() })
+                        else -> CheckoutForm(d)
                     }
                 }
             }
@@ -496,7 +496,7 @@ private fun StepHead(n: Int, title: String, action: (@Composable () -> Unit)? = 
 }
 
 @Composable
-private fun CheckoutForm(d: CheckoutData, onAddressesChanged: () -> Unit) {
+private fun CheckoutForm(d: CheckoutData) {
     val app = LocalApp.current
     val options = app.options!!
     var method by remember { mutableStateOf("standard") }
