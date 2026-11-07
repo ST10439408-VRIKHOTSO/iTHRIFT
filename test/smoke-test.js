@@ -12,6 +12,8 @@
  * client, and an order placed through the API updates stock and reports.
  */
 
+const payfast = require('../server/payments/payfast');
+
 const BASE = process.env.BASE_URL || 'http://localhost:3000';
 
 let pass = 0;
@@ -420,6 +422,15 @@ async function main() {
     const customerDenied = await call(`/api/orders/${placedOrderId}/status`, { method: 'PUT', body: { status: 'Shipped' }, token: newCustomerToken });
     check('A customer cannot change an order\'s status (403)', customerDenied.status === 403);
 
+    const unpaidShip = await call(`/api/orders/${placedOrderId}/status`, { method: 'PUT', body: { status: 'Shipped' }, token: staffToken });
+    check('An unpaid order cannot be shipped (409)', unpaidShip.status === 409 && /not been paid/.test(unpaidShip.data.error));
+    const customerPays = await call(`/api/orders/${placedOrderId}/payment`, { method: 'PUT', body: { status: 'paid' }, token: newCustomerToken });
+    check('A customer cannot mark their own payment as received (403)', customerPays.status === 403);
+    const received = await call(`/api/orders/${placedOrderId}/payment`, { method: 'PUT', body: { status: 'paid' }, token: staffToken });
+    check('Staff mark a bank transfer as received once the money is in', received.status === 200 && received.data.order.payment.status === 'paid' && !!received.data.order.payment.paidAt);
+    const receivedTwice = await call(`/api/orders/${placedOrderId}/payment`, { method: 'PUT', body: { status: 'paid' }, token: staffToken });
+    check('A payment cannot be marked received twice (409)', receivedTwice.status === 409);
+
     const statusUpdate = await call(`/api/orders/${placedOrderId}/status`, { method: 'PUT', body: { status: 'Shipped', courierRef: 'CR-9001' }, token: staffToken });
     check('Staff can update order status and add a courier reference', statusUpdate.status === 200 && statusUpdate.data.order.status === 'Shipped' && statusUpdate.data.order.courierRef === 'CR-9001');
 
@@ -433,9 +444,10 @@ async function main() {
     const item = products.find(p => p.id !== productForCart.id && p.sizes.length >= 1);
     const size = item.sizes[0].size;
     await call('/api/cart/items', { method: 'POST', body: { productId: item.id, quantity: 1, size }, token: newCustomerToken });
-    const placed = await call('/api/orders', { method: 'POST', body: { method: 'card', deliveryMethod: 'express', addressId: newAddressId, instructions: 'Leave with the guard at the gate.' }, token: newCustomerToken });
+    const placed = await call('/api/orders', { method: 'POST', body: { method: 'eft', deliveryMethod: 'express', addressId: newAddressId, instructions: 'Leave with the guard at the gate.' }, token: newCustomerToken });
     check('Checkout accepts a chosen address, express delivery and instructions', placed.status === 201 && placed.data.order.deliveryMethod === 'express' && placed.data.order.deliveryFee === 150 && placed.data.order.deliveryInstructions === 'Leave with the guard at the gate.');
     check('A new order can be cancelled while it is processing', placed.data.order.canCancel === true);
+    await call(`/api/orders/${placed.data.order.id}/payment`, { method: 'PUT', body: { status: 'paid' }, token: staffToken });
 
     const stockMid = (await call(`/api/products/${item.id}`)).data.product;
     const sizeMid = (stockMid.sizes.find(s => s.size === size) || { stock: 0 }).stock;
@@ -455,6 +467,71 @@ async function main() {
 
     const shipped = await call(`/api/orders/${placedOrderId}/cancel`, { method: 'PUT', token: newCustomerToken });
     check('A shipped order can no longer be cancelled (409)', shipped.status === 409);
+  }
+
+  // --- Paying online through a gateway (PayFast's sandbox; no money moves) ---
+  {
+    const options = await call('/api/orders/options');
+    const offered = options.data.paymentMethods.map((m) => m.id);
+    check('Checkout offers PayFast and bank transfer, and no simulated card', offered.includes('payfast') && offered.includes('eft') && !offered.includes('card'));
+
+    const products = (await call('/api/products?inStock=true')).data.products;
+    const item = products.find((p) => p.id !== productForCart.id && p.sizes.length >= 1);
+    await call('/api/cart/items', { method: 'POST', body: { productId: item.id, quantity: 1, size: item.sizes[0].size }, token: newCustomerToken });
+    const card = await call('/api/orders', { method: 'POST', body: { method: 'card', addressId: newAddressId }, token: newCustomerToken });
+    check('The retired simulated card is refused at checkout', card.status === 400);
+    const noKeys = await call('/api/orders', { method: 'POST', body: { method: 'paystack', addressId: newAddressId }, token: newCustomerToken });
+    check('A gateway without its keys on this server is refused', offered.includes('paystack') || noKeys.status === 400);
+
+    const placed = await call('/api/orders', { method: 'POST', body: { method: 'payfast', addressId: newAddressId, returnTo: 'web' }, token: newCustomerToken });
+    const pay = placed.data.order && placed.data.order.payment;
+    check('A PayFast order is placed with its payment pending, not paid', placed.status === 201 && pay.method === 'payfast' && pay.status === 'pending' && pay.canPay === true);
+    check('Checkout returns a link that starts the PayFast payment', /\/api\/payments\/go\/[0-9a-f]{32}$/.test(placed.data.payUrl || ''));
+    const orderId = placed.data.order.id;
+    const token = (placed.data.payUrl || '').split('/').pop();
+
+    const page = await fetch(`${BASE}/api/payments/go/${token}`);
+    const html = await page.text();
+    check('The link opens the form for PayFast\'s sandbox with the order total', page.status === 200 && html.includes('https://sandbox.payfast.co.za/eng/process') && html.includes(`name="amount" value="${placed.data.order.total.toFixed(2)}"`));
+
+    const someoneElse = await call(`/api/payments/${orderId}/start`, { method: 'POST', body: {}, token: customerToken });
+    check('Nobody else can pay for the order (403)', someoneElse.status === 403);
+    const byHand = await call(`/api/orders/${orderId}/payment`, { method: 'PUT', body: { status: 'paid' }, token: staffToken });
+    check('Staff cannot mark a PayFast payment paid by hand (409)', byHand.status === 409);
+
+    // Two notifications claiming the order was paid, neither sent by PayFast. Neither may count.
+    const fields = {
+      m_payment_id: token, pf_payment_id: '1', payment_status: 'COMPLETE', item_name: 'iTHRIFT order',
+      amount_gross: placed.data.order.total.toFixed(2), custom_int1: String(orderId), merchant_id: '10000100',
+    };
+    const notify = (data) => fetch(`${BASE}/api/payments/payfast/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `${Object.entries(data).map(([k, v]) => `${k}=${payfast.encode(v)}`).join('&')}&signature=${'0'.repeat(32)}`,
+    });
+    const cheap = await notify({ ...fields, amount_gross: '1.00' });
+    check('A notification for less than the order total is rejected', cheap.status === 400);
+    const forged = await notify(fields);
+    check('A notification PayFast did not send is rejected, because PayFast does not confirm it', forged.status === 400);
+    const stillPending = await call(`/api/orders/${orderId}`, { token: newCustomerToken });
+    check('After both, the order is still waiting for payment', stillPending.data.order.payment.status === 'pending');
+
+    const back = await fetch(`${BASE}/api/payments/return/${token}?outcome=cancelled`, { redirect: 'manual' });
+    check('Coming back from PayFast leads to the order without marking it paid', back.status === 303 && /#\/orders\/\d+\?payment=cancelled$/.test(back.headers.get('location') || ''));
+
+    const again = await call(`/api/payments/${orderId}/start`, { method: 'POST', body: { returnTo: 'app' }, token: newCustomerToken });
+    check('The customer can try paying again, with a fresh link', again.status === 200 && again.data.url !== placed.data.payUrl);
+    const oldLink = await fetch(`${BASE}/api/payments/go/${token}`);
+    check('The old payment link stops working once a new one is made (404)', oldLink.status === 404);
+    const appReturn = await fetch(`${BASE}/api/payments/return/${again.data.url.split('/').pop()}`, { redirect: 'manual' });
+    const appPage = await appReturn.text();
+    check('Paying from the app, the return page leads back into the app', appReturn.status === 200 && appPage.includes(`ithrift://payment?order=${orderId}`));
+
+    const unpaidShip = await call(`/api/orders/${orderId}/status`, { method: 'PUT', body: { status: 'Shipped' }, token: staffToken });
+    check('An unpaid PayFast order cannot be shipped (409)', unpaidShip.status === 409);
+    const cancelled = await call(`/api/orders/${orderId}/cancel`, { method: 'PUT', token: newCustomerToken });
+    check('An unpaid order can be cancelled, and nothing is refunded', cancelled.status === 200 && cancelled.data.order.payment.status === 'pending' && cancelled.data.order.payment.canPay === false);
+    const late = await call(`/api/payments/${orderId}/start`, { method: 'POST', body: {}, token: newCustomerToken });
+    check('A cancelled order can no longer be paid (409)', late.status === 409);
   }
 
   // --- Returns ---

@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.ithrift.app.data.GoogleSignIn
+import com.ithrift.app.data.OnlinePayment
 import com.ithrift.app.ui.IThriftApp
 
 /**
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         setContent { IThriftApp(startRoute = intent?.getStringExtra(EXTRA_ROUTE)) }
     }
 
-    /** The browser tab sends the customer back here after Google sign-in. */
+    /** The browser tab sends the customer back here after Google sign-in or paying. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         takeGoogleReturn(intent)
@@ -50,6 +51,9 @@ class MainActivity : AppCompatActivity() {
             // The link carries a single-use code, so only the fact that it arrived is logged.
             Log.i(TAG, "Returned from Google sign-in in the browser tab")
             GoogleSignIn.returned.value = uri
+        } else if (OnlinePayment.isReturnLink(uri)) {
+            Log.i(TAG, "Returned from a payment page in the browser tab")
+            OnlinePayment.returned.value = uri
         }
     }
 }

@@ -156,12 +156,16 @@ CREATE TABLE OrderItem (
 ) ENGINE=InnoDB;
 
 CREATE TABLE Payment (
-  PaymentID INT AUTO_INCREMENT PRIMARY KEY,
-  OrderID   INT NOT NULL UNIQUE,
-  Method    ENUM('payfast','card','eft') NOT NULL,
-  Status    ENUM('pending','paid','refunded') NOT NULL,
-  Amount    DECIMAL(10,2) NOT NULL CHECK (Amount >= 0),
-  CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PaymentID  INT AUTO_INCREMENT PRIMARY KEY,
+  OrderID    INT NOT NULL UNIQUE,
+  Method     ENUM('payfast','ozow','paystack','yoco','eft','card') NOT NULL,
+  Status     ENUM('pending','paid','refunded') NOT NULL,
+  Amount     DECIMAL(10,2) NOT NULL CHECK (Amount >= 0),
+  GatewayRef VARCHAR(100) NULL,
+  PayToken   CHAR(32) NULL UNIQUE,
+  ReturnTo   ENUM('app','web') NULL,
+  PaidAt     DATETIME NULL,
+  CreatedAt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
 ) ENGINE=InnoDB;
 

@@ -17,7 +17,12 @@ if (!fs.existsSync(DB_PATH)) {
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json());
+// Behind Render's proxy, so req.protocol reads https from X-Forwarded-Proto.
+// Payment providers are given links back to this server built from it.
+app.set('trust proxy', true);
+// The raw body is kept as well, because Paystack and Yoco sign the exact
+// bytes they send and re-serialising the parsed JSON would not match.
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(attachUser);
 
 /**
@@ -62,6 +67,7 @@ apiRouter.use('/account', require('./routes/account'));
 apiRouter.use('/notifications', require('./routes/notifications'));
 apiRouter.use('/sell', require('./routes/sell'));
 apiRouter.use('/support', require('./routes/support'));
+apiRouter.use('/payments', require('./routes/payments'));
 apiRouter.get('/', (_req, res) => {
   res.json({
     name: 'iTHRIFT Clothes API',
@@ -93,6 +99,10 @@ apiRouter.get('/', (_req, res) => {
       'GET /api/support', 'POST /api/support', 'GET /api/support/:id', 'POST /api/support/:id/messages', 'PUT /api/support/:id/status',
       'GET /api/admin/reports/analytics', 'GET /api/admin/reports/orders.csv', 'GET /api/admin/promos', 'POST /api/admin/promos', 'PUT /api/admin/promos/:id',
       'GET /api/admin/questions', 'PUT /api/admin/questions/:id', 'GET /api/admin/collections',
+      // Release 1.4.0: online payments
+      'POST /api/payments/:orderId/start', 'GET /api/payments/go/:token', 'GET /api/payments/return/:token',
+      'POST /api/payments/payfast/notify', 'POST /api/payments/paystack/webhook', 'POST /api/payments/yoco/webhook',
+      'PUT /api/orders/:id/payment',
     ],
   });
 });

@@ -182,7 +182,19 @@ data class OrderLineItem(
     val canReturn: Boolean,
 )
 
-data class OrderPayment(val method: String, val status: String, val amount: Double, val createdAt: String)
+/**
+ * How an order is paid. Status is pending until the provider (or staff, for
+ * a bank transfer) confirms the money; canPay says whether Pay now applies.
+ */
+data class OrderPayment(
+    val method: String,
+    val status: String,
+    val amount: Double,
+    val createdAt: String,
+    val label: String?,
+    val paidAt: String?,
+    val canPay: Boolean,
+)
 
 /** One status change, for the order timeline. */
 data class OrderHistoryEntry(val status: String, val note: String?, val at: String)
@@ -229,6 +241,13 @@ data class OrderDetail(
 )
 
 data class OrderDetailResponse(val order: OrderDetail)
+
+/** A placed order, with the payment page to open when it is paid through a gateway. */
+data class CheckoutResponse(val order: OrderDetail, val payUrl: String?, val paymentError: String?)
+
+data class StartPaymentRequest(val returnTo: String)
+data class StartPaymentResponse(val url: String)
+data class PaymentStatusRequest(val status: String)
 
 // --- Wishlist ---
 
@@ -290,8 +309,12 @@ data class CollectionInfo(val dates: List<String>, val slots: List<String>, val 
 
 data class PointsRules(val block: Int, val randPerBlock: Double, val earnPerRand: Double)
 
+/** A way to pay that the server can take right now. testMode means the provider's sandbox. */
+data class PaymentMethodOption(val id: String, val label: String, val description: String, val testMode: Boolean)
+
 data class OrderOptionsResponse(
     val deliveryMethods: List<DeliveryMethod>,
+    val paymentMethods: List<PaymentMethodOption>?,
     val freeDeliveryThreshold: Double,
     val returnReasons: List<String>,
     val returnWindowDays: Int,
@@ -524,6 +547,8 @@ data class CheckoutRequest(
     val collectionSlot: String? = null,
     val isGift: Boolean? = null,
     val giftMessage: String? = null,
+    /** Where the payment page sends the customer afterwards: back into this app. */
+    val returnTo: String? = "app",
 )
 
 data class QuoteRequest(val deliveryMethod: String, val promoCode: String?, val pointsToRedeem: Int? = null)

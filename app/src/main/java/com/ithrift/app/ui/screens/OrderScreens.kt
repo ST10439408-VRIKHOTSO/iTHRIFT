@@ -216,6 +216,7 @@ fun OrderDetailScreen(id: Int) {
     var returning by remember { mutableStateOf<com.ithrift.app.data.OrderLineItem?>(null) }
     var confirmCancel by remember { mutableStateOf(false) }
     val o = load.data
+    ReloadWhenBack(o) { load.reload() }
     Screen(o?.ref ?: "Order") {
         when (val s = load.state) {
             is Load.Loading -> SkeletonPage()
@@ -239,6 +240,8 @@ fun OrderDetailScreen(id: Int) {
                 if (staff) {
                     ProcessOrderPanel(order) { load.reload() }
                     Spacer(Modifier.height(Space.s4))
+                } else {
+                    PaymentNote(order, Modifier.padding(bottom = Space.s4))
                 }
 
                 Panel {

@@ -34,6 +34,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 - [How we used GitHub and GitHub Actions](#how-we-used-github-and-github-actions)
 - [Demonstration video](#demonstration-video)
 - [Running it](#running-the-api-and-the-website)
+- [Online payments](#online-payments)
 - [Automated testing](#automated-testing)
 - [Publishing on Google Play](#publishing-on-google-play)
 - [Release notes](#release-notes)
@@ -252,7 +253,7 @@ side effect of committing.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | [`android.yml`](.github/workflows/android.yml) | push, pull request, manual | Sets up JDK 17 and Gradle, runs the 53 Kotlin unit tests, assembles the debug APK and uploads it as the `ithrift-debug-apk` artefact. On a failure it turns the Kotlin compiler errors into annotations and uploads the test reports. A manual run on a branch also starts the API and renders the screenshot test |
-| [`api-and-website.yml`](.github/workflows/api-and-website.yml) | push, pull request, manual | Sets up Node 24, installs from the lock file, runs the 25 API unit tests, seeds the database, starts the server, then runs the 150-check smoke test and the 95-check feature test. Uploads the server log if anything fails |
+| [`api-and-website.yml`](.github/workflows/api-and-website.yml) | push, pull request, manual | Sets up Node 24, installs from the lock file, runs the 39 API unit tests, seeds the database, starts the server, then runs the 172-check smoke test and the 95-check feature test. Uploads the server log if anything fails |
 | [`release.yml`](.github/workflows/release.yml) | tag `v*`, manual | Checks the signing secrets exist, restores the keystore from a secret, runs the unit tests again, assembles the signed release APK and App Bundle, uploads them as the `ithrift-release` artefact, and deletes the keystore from the runner even if the build failed |
 
 The unit tests run first because they need no server and finish in seconds: if a
@@ -381,6 +382,39 @@ cellphone number (a South African mobile number that no other account uses) and 
 password twice. A customer can then sign in with either their email or that number,
 typed in any common form (`082 555 0101`, `0825550101` or `+27 82 555 0101`).
 
+## Online payments
+
+Checkout takes real payment gateways in their test modes, through the server, so the
+website and the app behave the same way. The customer pays on the provider's own page
+(in a browser tab, in the app), so card details and bank logins never reach iTHRIFT.
+
+| Method | Works with no setup | How the server knows it was paid | Settings that switch it on |
+|---|---|---|---|
+| PayFast: card, instant EFT, SnapScan, Zapper | Yes, in PayFast's sandbox with its shared test merchant | PayFast's notification (ITN), checked with PayFast | Optional, for our own merchant: `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE`; `PAYFAST_SANDBOX=false` for live |
+| Ozow: instant EFT | No | The server asks Ozow for the payment's transactions | `OZOW_CLIENT_ID`, `OZOW_CLIENT_SECRET`, `OZOW_SITE_CODE` (Ozow staging unless `OZOW_STAGING=false`) |
+| Paystack: card | No | The server asks Paystack to verify it; Paystack's signed webhook too | `PAYSTACK_SECRET_KEY` |
+| Yoco: card | No | Yoco's signed `payment.succeeded` webhook | `YOCO_SECRET_KEY` and `YOCO_WEBHOOK_SECRET`; `npm run yoco:webhook -- <public address>` registers the webhook and prints the secret |
+| Bank transfer (EFT) | Yes | Staff mark it received on the order | None |
+
+On Render the settings go in the dashboard (they are listed in `render.yaml`, never
+committed); on a laptop, set them in the environment before `npm start`.
+
+- Every order is placed first with its payment **pending**, so the stock is held while
+  the customer pays, and nothing can be shipped or collected before it is paid.
+- An order counts as paid only when the provider confirms it to the server. Coming
+  back to the site proves nothing, and a notification for the wrong amount, or one
+  PayFast did not send, is ignored.
+- An abandoned payment leaves **Pay now** on the order, which makes a fresh link; or
+  the customer cancels and the pieces go back on sale.
+- PayFast and Yoco confirm by calling the server, which they can only do on the hosted
+  site; on a laptop a PayFast order stays waiting for payment. The server asks Ozow and
+  Paystack itself, so those also work on a laptop.
+- Refunds are not sent to the providers: a cancelled paid order is marked refunded and
+  staff pay it back from the provider's dashboard.
+
+The code is in [`server/payments/`](server/payments/), one file per provider, each
+citing the provider's documentation.
+
 ## Demonstrating the link between the two clients and the database
 
 1. On the website, sign in as the administrator and open **Console → Listings**.
@@ -399,14 +433,15 @@ typed in any common form (`082 555 0101`, `0825550101` or `+27 82 555 0101`).
 
 ## Automated testing
 
-**323 automated checks across four suites, plus a screenshot test**, all run by GitHub
-Actions so the code is proven on a clean machine and not only on ours.
+**359 automated checks across four suites, plus a screenshot test**, all run by GitHub
+Actions (and by Azure Pipelines) so the code is proven on a clean machine and not only
+on ours.
 
 | Suite | Count | What it covers |
 |---|---|---|
 | Kotlin unit tests (`app/src/test/`) | 53 | Input validation (including cellphone numbers and matching passwords), server-address parsing, money and date formatting, network error handling, the theme setting |
-| API unit tests (`test/unit-tests.js`) | 25 | Password hashing and the password policy, SSO configuration and token verification, the app sign-in codes, cart arithmetic, delivery fees, promo codes, cellphone numbers |
-| End-to-end smoke test (`test/smoke-test.js`) | 150 | The whole API surface against a running server, every role, account deletion, and the cross-client database link |
+| API unit tests (`test/unit-tests.js`) | 39 | Password hashing and the password policy, SSO configuration and token verification, the app sign-in codes, cart arithmetic, delivery fees, promo codes, cellphone numbers, and the payment checks: PayFast's form and notifications, Paystack's and Yoco's webhook signatures, Ozow's statuses, which methods are offered |
+| End-to-end smoke test (`test/smoke-test.js`) | 172 | The whole API surface against a running server, every role, account deletion, the cross-client database link, and paying: a PayFast sandbox order, forged notifications, EFT confirmed by staff, nothing shipped unpaid |
 | Feature test (`test/feature-test.js`) | 95 | Thrift Points, alerts and notifications, saved searches, the working-day calendar, collection slots, gift orders, selling to the shop, support messages, bulk markdowns, promo limits, analytics and the CSV export |
 | Screenshot test (`app/src/test/.../ScreenshotTest.kt`) | 33 screens and 4 journeys | Every main app screen, light and dark, rendered with Robolectric against the seeded server; runs on a manual branch build |
 
@@ -446,8 +481,8 @@ The app is prepared for the Play Store:
 | Requirement | State |
 |---|---|
 | Application id | `com.ithrift.app` |
-| Version | 1.3.4 (versionCode 7), `targetSdk` 35 |
-| Signed APK and App Bundle | Built by `release.yml` from tag `v1.3.4` and attached to the [release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases) |
+| Version | 1.4.0 (versionCode 8), `targetSdk` 35 |
+| Signed APK and App Bundle | Built by `release.yml` from a version tag and attached to the [release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases); the latest signed build is from tag `v1.3.4` |
 | Keystore | Kept out of the repository, in repository secrets |
 | Privacy policy (required by Play for an app with accounts) | <https://ithrift-api.onrender.com/#/privacy> |
 | Account deletion (required by Play) | In the app and on the website under Account, Settings, and described in the privacy policy |
@@ -500,9 +535,10 @@ Recorded here for transparency; also explained in the final report.
   with one command and no setup, it uses Node's built-in SQLite engine. The schema is
   the same Third Normal Form design; see `database/mysql-schema.sql`. SQLite treats
   `ORDER` as reserved, so that table is named `Orders`.
-- **Payments are simulated.** No money changes hands. The payment step records a method
-  and a status, which is enough to demonstrate the order and reporting flow. Live
-  PayFast integration is the next step.
+- **Payments run in test mode.** PayFast works in its sandbox; Ozow, Paystack and Yoco
+  need their test keys before they appear. PayFast and Yoco can only confirm payments
+  to the hosted server, and refunds are made by staff from each provider's dashboard
+  (see [Online payments](#online-payments)).
 - **Sessions are in memory.** Signing in issues a bearer token held in the server's
   memory, so restarting the server signs everyone out. A production build would use a
   persistent session store.
@@ -527,7 +563,8 @@ Recorded here for transparency; also explained in the final report.
 The prototype marked for Task 2 was **version 1.2.0**. Everything below 1.2.0 in these
 notes was added after it. In short, 1.3.0 rebuilt the website and added thirty
 features, 1.3.1 rebuilt the Android app in Jetpack Compose with every one of those
-features, 1.3.2 and 1.3.3 reworked sign-in, and 1.3.4 is the final release.
+features, 1.3.2 and 1.3.3 reworked sign-in, 1.3.4 is the final Task 3 release, and
+1.4.0 adds online payments.
 
 **Our innovative features, added after the prototype.** These go beyond what a
 clothing shop usually offers and were designed around how a second-hand business
@@ -543,6 +580,23 @@ actually works:
 | **Gift orders** with a gift slip without prices, and a **VAT tax invoice** | Real documents a customer can print or save as PDF | 1.3.0 web, 1.3.1 app |
 | **Staff console in the app** | Staff can process orders and collections from the shop floor | 1.3.1 |
 | **App Google sign-in through the website with a single-use code** (PKCE) | Works with the same Google set-up as the website, without the app ever holding a reusable token in a link | 1.3.3 |
+
+### 1.4.0: Online payments (November 2026)
+
+- **Payment gateways in test mode** replace the simulated card, on the website and in
+  the app. PayFast works straight away in its sandbox; Ozow, Paystack and Yoco switch
+  on once their keys are set on the server. Bank transfer (EFT) stays. See
+  [Online payments](#online-payments).
+- Orders are placed with their payment **pending** and marked paid only when the
+  provider confirms it. **Pay now** on an unpaid order makes a fresh payment link; the
+  app opens it in a browser tab and comes back to the order through an
+  `ithrift://payment` link.
+- Staff **mark a bank transfer received** on the order, and an order can no longer be
+  shipped or collected before it is paid. "Orders to pack" counts paid orders only.
+- The Payment table gained the provider's reference, the payment link's token and the
+  time the money was confirmed. An existing database is upgraded the first time the
+  server opens it, keeping its data.
+- 14 new API unit tests and 22 new smoke checks cover the payment rules.
 
 ### 1.3.4: Final release (October 2026)
 
@@ -722,9 +776,13 @@ Website, installable web app, REST API and seeded database, with a 51-check smok
 - Google. 2025. *Verify the Google ID token on your server side*. Available at: <https://developers.google.com/identity/gsi/web/guides/verify-google-id-token>
 - Node.js. 2025. *Crypto: scrypt*. Available at: <https://nodejs.org/api/crypto.html>
 - OWASP. 2021. *Password Storage Cheat Sheet*. Available at: <https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html>
+- Ozow. 2026. *Hosted Checkout* and *Transaction and settlement statuses*. Available at: <https://hub.ozow.com/integration-methods/apis/money-in/hosted-checkout/>
+- PayFast. 2026. *Developer documentation: custom integration and ITN*. Available at: <https://developers.payfast.co.za/docs>
+- Paystack. 2026. *Accept Payments*, *Transaction API* and *Webhooks*. Available at: <https://paystack.com/docs/payments/accept-payments/>
 - Sakimura, N., Bradley, J. and Agarwal, N. 2015. *RFC 7636: Proof Key for Code Exchange by OAuth Public Clients*. Available at: <https://datatracker.ietf.org/doc/html/rfc7636>
 - Square. 2025. *Retrofit* and *OkHttp*. Available at: <https://square.github.io/retrofit/> and <https://square.github.io/okhttp/>
 - The Independent Institute of Education. 2026. *Module manual XISD6329: Work Integrated Learning 3B*. Johannesburg: The Independent Institute of Education.
+- Yoco. 2026. *Checkout API* and *Verifying webhook events*. Available at: <https://developer.yoco.com/api-reference/checkout-api>
 
 Fonts and icons: Instrument Sans (SIL Open Font Licence) and Lucide (ISC licence); the
 licence texts are in `app/src/main/assets/licences/` and `public/js/icons-LICENSE.txt`.

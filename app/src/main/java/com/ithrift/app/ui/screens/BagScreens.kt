@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -44,17 +45,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.ithrift.app.data.AddCartItemRequest
 import com.ithrift.app.data.Address
 import com.ithrift.app.data.ApiOutcome
 import com.ithrift.app.data.CartItem
 import com.ithrift.app.data.CartResponse
 import com.ithrift.app.data.CheckoutRequest
+import com.ithrift.app.data.OnlinePayment
 import com.ithrift.app.data.OrderDetail
 import com.ithrift.app.data.OrderPayment
 import com.ithrift.app.data.PointsSummary
 import com.ithrift.app.data.QuoteRequest
 import com.ithrift.app.data.QuoteResponse
+import com.ithrift.app.data.StartPaymentRequest
 import com.ithrift.app.data.StockAlertRequest
 import com.ithrift.app.data.UpdateCartItemRequest
 import com.ithrift.app.data.WishlistAddRequest
@@ -123,9 +127,54 @@ fun CustomerOnly(next: String, what: String, content: @Composable () -> Unit) {
 
 fun paymentLabel(p: OrderPayment?): String {
     if (p == null) return ""
-    val name = mapOf("card" to "Card", "payfast" to "PayFast", "eft" to "EFT")[p.method] ?: p.method
+    val name = p.label ?: PAYMENT_NAMES[p.method] ?: p.method
     val status = mapOf("paid" to "paid", "pending" to "waiting for payment", "refunded" to "refunded")[p.status] ?: p.status
     return "$name, $status"
+}
+
+/** Every way an order can have been paid, including the simulated card of older orders. */
+val PAYMENT_NAMES = mapOf("card" to "Card", "payfast" to "PayFast", "ozow" to "Ozow", "paystack" to "Paystack", "yoco" to "Yoco", "eft" to "EFT")
+
+/**
+ * What the customer still has to do about an unpaid order: pay by EFT with
+ * the order number, or open the provider's page again with Pay now.
+ */
+@Composable
+fun PaymentNote(o: OrderDetail, modifier: Modifier = Modifier) {
+    val app = LocalApp.current
+    val context = LocalContext.current
+    val p = o.payment ?: return
+    if (p.status != "pending" || o.status == "Cancelled") return
+    if (p.method == "eft") {
+        Callout("Pay by EFT using ${o.ref} as the reference. We start packing once the money clears.", tone = Tone.Warn, icon = Lucide.clock, modifier = modifier)
+        return
+    }
+    if (!p.canPay) return
+    val name = p.label ?: PAYMENT_NAMES[p.method] ?: "online"
+    var opening by remember { mutableStateOf(false) }
+    Column(modifier) {
+        Callout("This order is waiting for your $name payment. We start packing once $name confirms it.", tone = Tone.Warn, icon = Lucide.clock)
+        Btn("Pay now, ${formatMoney(p.amount)}", {
+            opening = true
+            app.run({ safeApiCall { app.api.startPayment(o.id, StartPaymentRequest("app")) } }, onDone = { opening = false }) { r ->
+                OnlinePayment.open(context, r.url)?.let { app.toast(it, ToastKind.Error) }
+            }
+        }, loading = opening, modifier = Modifier.fillMaxWidth().padding(top = Space.s2))
+    }
+}
+
+/**
+ * Reloads an order when the customer comes back to the app while it is
+ * unpaid, as from a payment page closed without the return link.
+ */
+@Composable
+fun ReloadWhenBack(order: OrderDetail?, reload: () -> Unit) {
+    var leftApp by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(order?.payment?.status) {
+        if (leftApp && order?.payment?.status == "pending") reload()
+        leftApp = false
+        onPauseOrDispose { leftApp = true }
+    }
 }
 
 /** Subtotal, discounts, delivery and the total, as orderTotals() on the website. */
@@ -458,7 +507,10 @@ private fun CheckoutForm(d: CheckoutData, onAddressesChanged: () -> Unit) {
     var slotError by remember { mutableStateOf(false) }
     var gift by remember { mutableStateOf(false) }
     var giftMessage by remember { mutableStateOf("") }
-    var pay by remember { mutableStateOf("card") }
+    // The server lists only the methods it can take right now.
+    val payMethods = options.paymentMethods.orEmpty()
+    var pay by remember { mutableStateOf(payMethods.firstOrNull()?.id ?: "eft") }
+    val context = LocalContext.current
     var promoInput by remember { mutableStateOf("") }
     var promo by remember { mutableStateOf("") }
     var promoMsg by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
@@ -574,13 +626,11 @@ private fun CheckoutForm(d: CheckoutData, onAddressesChanged: () -> Unit) {
     // 4. Payment
     Panel {
         StepHead(4, "Payment")
-        Text("Payments are simulated in this version of iTHRIFT. No money changes hands.", style = T.small, color = C.muted, modifier = Modifier.padding(bottom = Space.s3))
-        for ((value, title, sub) in listOf(
-            Triple("card", "Card", "Visa or Mastercard"),
-            Triple("payfast", "PayFast", "Instant EFT, SnapScan or Zapper"),
-            Triple("eft", "Bank transfer (EFT)", "We pack your order once the money clears"),
-        )) {
-            OptionCard(pay == value, { pay = value }, title, sub = sub, modifier = Modifier.padding(bottom = Space.s2))
+        if (payMethods.any { it.testMode }) {
+            Text("Payment pages marked Test mode are the providers' sandboxes, so no real money changes hands there.", style = T.small, color = C.muted, modifier = Modifier.padding(bottom = Space.s3))
+        }
+        for (m in payMethods) {
+            OptionCard(pay == m.id, { pay = m.id }, m.label, sub = m.description, trailing = if (m.testMode) "Test mode" else null, modifier = Modifier.padding(bottom = Space.s2))
         }
     }
     Spacer(Modifier.height(Space.s4))
@@ -658,6 +708,11 @@ private fun CheckoutForm(d: CheckoutData, onAddressesChanged: () -> Unit) {
                     Log.i(CHECKOUT_TAG, "Order ${r.order.ref} placed: $method delivery, $pay payment, total ${r.order.total}")
                     app.scope.launch { app.refreshCounts() }
                     app.nav.navigate(Routes.placed(r.order.id)) { popUpTo(Routes.HOME) }
+                    // A gateway payment carries on on the provider's page; the order is safe either way.
+                    when {
+                        r.payUrl != null -> OnlinePayment.open(context, r.payUrl)?.let { app.toast(it, ToastKind.Error) }
+                        r.paymentError != null -> app.toast(r.paymentError, ToastKind.Error)
+                    }
                 }
             },
             large = true,
@@ -688,6 +743,7 @@ fun OrderPlacedScreen(id: Int) {
             is ApiOutcome.Failure -> r
         }
     }
+    ReloadWhenBack(load.data) { load.reload() }
     Screen("Order placed") {
         when (val s = load.state) {
             is Load.Loading -> SkeletonPage()
@@ -722,9 +778,7 @@ fun OrderPlacedScreen(id: Int) {
                         Text((o.deliveryAddress ?: "").removePrefix("Collect from: "), style = T.body, color = C.ink, textAlign = TextAlign.End, modifier = Modifier.weight(1.4f))
                     }
                 }
-                if (o.payment?.status == "pending") {
-                    Callout("Pay by EFT using ${o.ref} as the reference. We start packing once the money clears.", tone = Tone.Warn, icon = Lucide.clock, modifier = Modifier.padding(top = Space.s4))
-                }
+                PaymentNote(o, Modifier.padding(top = Space.s4))
                 Callout("You will earn ${(o.total / 10).toInt()} Thrift Points when this order is delivered.", tone = Tone.Good, icon = Lucide.coins, modifier = Modifier.padding(top = Space.s4))
                 Spacer(Modifier.height(Space.s5))
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {

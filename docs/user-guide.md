@@ -143,10 +143,23 @@ sends people to the website.
 1. Choose standard, express or collection. For collection, pick a day and a
    two-hour slot; bring your order number to the Hatfield store.
 2. Tick **This is a gift** to add a message. The gift slip leaves the prices off.
-3. Choose how to pay. Payments are simulated; no money changes hands.
+3. Choose how to pay: **PayFast** (card, instant EFT, SnapScan and more), any other
+   gateway the shop has switched on (Ozow, Paystack, Yoco), or **Bank transfer (EFT)**.
+   Methods marked **Test mode** use the provider's sandbox, so no real money moves.
 4. Apply a promo code or spend Thrift Points (100 points for R10 off).
-5. Place the order. The order page shows a timeline of every change, and
-   **Receipt** opens a printable tax invoice or gift slip.
+5. Place the order. With a gateway you go straight to its secure page to pay (in the
+   app it opens in a browser tab), then back to your order. With EFT, pay into the
+   shop's account with your order number as the reference.
+6. The order page shows a timeline of every change, and **Receipt** opens a printable
+   tax invoice or gift slip.
+
+### If a payment does not go through
+
+Your order is kept with the pieces held for you, marked **waiting for payment**. Open
+it and tap **Pay now** to try again, or **Cancel this order** to put the pieces back on
+sale. An order is only packed once it is paid, and it shows **paid** as soon as the
+provider confirms the money. For staff: an EFT order shows **Mark payment received**
+under Process order; check the bank account for the order number first.
 
 ---
 

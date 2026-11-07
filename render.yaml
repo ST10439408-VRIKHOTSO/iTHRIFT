@@ -22,3 +22,18 @@ services:
       # dashboard so it is never committed. Leave it empty to run without SSO.
       - key: GOOGLE_CLIENT_ID
         sync: false
+      # Online payments (see server/payments). PayFast works with no settings,
+      # in its sandbox. Each other gateway stays hidden at checkout until its
+      # keys are set here in the Render dashboard, so none is ever committed.
+      - key: OZOW_CLIENT_ID
+        sync: false
+      - key: OZOW_CLIENT_SECRET
+        sync: false
+      - key: OZOW_SITE_CODE
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: YOCO_SECRET_KEY
+        sync: false
+      - key: YOCO_WEBHOOK_SECRET
+        sync: false

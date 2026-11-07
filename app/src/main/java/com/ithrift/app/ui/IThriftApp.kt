@@ -33,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ithrift.app.data.GoogleSignIn
+import com.ithrift.app.data.OnlinePayment
 import com.ithrift.app.ui.components.ToastHost
 import com.ithrift.app.ui.screens.finishGoogleSignIn
 import com.ithrift.app.ui.screens.AboutScreen
@@ -80,6 +81,7 @@ import com.ithrift.app.ui.staff.StaffSupportScreen
 import com.ithrift.app.ui.theme.C
 import com.ithrift.app.ui.theme.IThriftTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // The app shell: one NavHost for every screen, the theme, and the shared AppState.
 // References: Navigation with Compose, https://developer.android.com/develop/ui/compose/navigation;
@@ -119,6 +121,26 @@ fun IThriftApp(startRoute: String? = null) {
                     if (uri != null) {
                         GoogleSignIn.returned.value = null
                         finishGoogleSignIn(app, uri)
+                    }
+                }
+            }
+            // Back from a payment page in the browser tab: show the order as the
+            // server now sees it. The link's status only chooses the message;
+            // the order screen reads whether it is paid from the server.
+            LaunchedEffect(Unit) {
+                OnlinePayment.returned.collect { uri ->
+                    if (uri != null) {
+                        OnlinePayment.returned.value = null
+                        val id = uri.getQueryParameter("order")?.toIntOrNull()
+                        if (id != null && app.isSignedIn) {
+                            when (uri.getQueryParameter("status")) {
+                                "paid" -> app.toast("Payment received. Thank you.", ToastKind.Success)
+                                "cancelled" -> app.toast("Payment cancelled. Nothing was taken.")
+                                "failed" -> app.toast("The payment did not go through. Nothing was taken.", ToastKind.Error)
+                            }
+                            app.scope.launch { app.refreshCounts() }
+                            nav.navigate(Routes.order(id))
+                        }
                     }
                 }
             }

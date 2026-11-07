@@ -338,13 +338,23 @@ route(/^\/orders$/, async (view) => {
 const STATUS_FLOW = ['Processing', 'Shipped', 'Delivered'];
 const STATUS_WORDS = { Processing: 'Order placed', Shipped: 'With the courier', Delivered: 'Delivered', Cancelled: 'Cancelled' };
 
-route(/^\/orders\/(\d+)$/, async (view, [id]) => {
+// What the customer sees after coming back from a payment page (?payment= on the order link).
+const PAYMENT_RETURN = {
+  paid: ['good', 'circle-check', () => 'Payment received. Thank you, we are picking and packing your order.'],
+  pending: ['info', 'clock', (p) => `We are waiting for ${p.label} to confirm your payment. Reload this page in a moment to see it.`],
+  cancelled: ['warn', 'circle-alert', () => 'You cancelled the payment, so nothing was taken. Pay when you are ready, or cancel the order.'],
+  failed: ['bad', 'circle-alert', () => 'The payment did not go through and nothing was taken. Try again, or choose another way to pay by placing the order again.'],
+};
+
+route(/^\/orders\/(\d+)$/, async (view, [id], query) => {
   if (!requireLogin()) return;
   const [{ order }, options] = await Promise.all([api(`/orders/${id}`), loadOptions()]);
   setTitle(order.ref);
   const staff = isStaff();
   const step = STATUS_FLOW.indexOf(order.status);
   const collect = order.deliveryMethod === 'collection';
+  // A payment that has since been confirmed wins over what the return link said.
+  const returned = PAYMENT_RETURN[order.payment.status === 'paid' && query.payment ? 'paid' : query.payment];
 
   view.innerHTML = `
     <div class="container mid page">
@@ -356,8 +366,10 @@ route(/^\/orders\/(\d+)$/, async (view, [id]) => {
           <a class="btn btn-secondary btn-sm" href="#/orders/${order.id}/receipt">${icon('printer', { size: 16 })}Receipt</a>
         </div>
       </div>
+      ${!staff && returned ? `<div class="callout ${returned[0]}" style="margin-bottom:16px">${icon(returned[1], { size: 18 })}<p>${esc(returned[2](order.payment))}</p></div>` : ''}
+      ${!staff ? paymentNote(order) : ''}
 
-      <div class="two-col">
+      <div class="two-col"${!staff && (returned || paymentNote(order)) ? ' style="margin-top:16px"' : ''}>
         <div>
           <section class="panel" aria-labelledby="track-h">
             <h2 id="track-h" style="font-size:1.125rem;margin-bottom:12px">${order.status === 'Cancelled' ? 'This order was cancelled' : collect ? 'Collection' : 'Tracking'}</h2>
@@ -391,6 +403,9 @@ route(/^\/orders\/(\d+)$/, async (view, [id]) => {
           ${staff ? `
           <section class="panel" aria-labelledby="process-h">
             <h2 id="process-h" style="font-size:1.125rem;margin-bottom:12px">Process order</h2>
+            ${order.payment.status === 'pending' && order.status === 'Processing' ? `
+            <div class="callout warn" style="margin-bottom:12px">${icon('clock', { size: 18 })}<p>Not paid yet, so it cannot be shipped or collected.${order.payment.method === 'eft' ? ` Check the bank account for ${esc(order.ref)} first.` : ` ${esc(order.payment.label)} confirms the payment itself.`}</p></div>
+            ${order.payment.method === 'eft' ? `<button type="button" class="btn btn-secondary btn-block" id="mark-paid" style="margin-bottom:12px">${icon('circle-check', { size: 16 })}Mark payment received</button>` : ''}` : ''}
             ${order.nextStatuses.length ? `
             <form id="status-form">
               <div class="field"><label for="st">Move to</label><select class="select" id="st" name="status">${order.nextStatuses.map((s) => `<option value="${s}">${collect ? ({ Shipped: 'Ready to collect', Delivered: 'Collected' }[s] || s) : s}</option>`).join('')}</select></div>
@@ -418,6 +433,18 @@ route(/^\/orders\/(\d+)$/, async (view, [id]) => {
         </aside>
       </div>
     </div>`;
+
+  if (!staff) bindPayNow(view, order);
+
+  document.getElementById('mark-paid')?.addEventListener('click', async () => {
+    const ok = await confirmDialog({ title: `Payment for ${order.ref} received?`, body: `Only confirm once ${money(order.payment.amount)} with the reference ${order.ref} is in the bank account. The customer is told straight away.`, confirmLabel: 'Mark received' });
+    if (!ok) return;
+    try {
+      await api(`/orders/${order.id}/payment`, { method: 'PUT', body: { status: 'paid' } });
+      toast('Payment marked as received. The order can be packed.', 'success');
+      router();
+    } catch (err) { toast(err.message, 'error'); }
+  });
 
   document.getElementById('cancel')?.addEventListener('click', async () => {
     const ok = await confirmDialog({ title: `Cancel ${order.ref}?`, body: 'The pieces go back on sale straight away, so you may not get them back. Paid orders are refunded.', confirmLabel: 'Cancel order', danger: true });

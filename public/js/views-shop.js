@@ -820,8 +820,10 @@ route(/^\/checkout$/, async (view) => {
     points: 0,
     collectionDate: null,
     collectionSlot: null,
-    method: 'card',
+    // The server lists only the methods it can take right now.
+    method: ((options.paymentMethods || [])[0] || { id: 'eft' }).id,
   };
+  const payMethods = options.paymentMethods || [];
   const maxBlocks = Math.floor(pts.balance / options.points.block);
 
   view.innerHTML = `
@@ -866,10 +868,11 @@ route(/^\/checkout$/, async (view) => {
 
           <section class="panel step" aria-labelledby="s4">
             <div class="step-head"><span class="step-num" aria-hidden="true">4</span><h2 id="s4" style="font-size:1.125rem">Payment</h2></div>
-            <p class="small muted">Payments are simulated in this version of iTHRIFT. No money changes hands.</p>
-            <label class="option"><input type="radio" name="method" value="card" checked><span class="grow"><span class="opt-title">Card</span><span class="opt-sub">Visa or Mastercard</span></span></label>
-            <label class="option"><input type="radio" name="method" value="payfast"><span class="grow"><span class="opt-title">PayFast</span><span class="opt-sub">Instant EFT, SnapScan or Zapper</span></span></label>
-            <label class="option"><input type="radio" name="method" value="eft"><span class="grow"><span class="opt-title">Bank transfer (EFT)</span><span class="opt-sub">We pack your order once the money clears</span></span></label>
+            ${payMethods.some((m) => m.testMode) ? '<p class="small muted">Payment pages marked Test mode are the providers\' sandboxes, so no real money changes hands there.</p>' : ''}
+            ${payMethods.map((m) => `
+              <label class="option"><input type="radio" name="method" value="${esc(m.id)}" ${m.id === choice.method ? 'checked' : ''}>
+                <span class="grow"><span class="opt-title"><span>${esc(m.label)}</span>${m.testMode ? '<span class="pill">Test mode</span>' : ''}</span>
+                <span class="opt-sub">${esc(m.description)}</span></span></label>`).join('')}
           </section>
         </div>
 
@@ -983,10 +986,11 @@ route(/^\/checkout$/, async (view) => {
     }
     busy(place, async () => {
       try {
-        const { order } = await api('/orders', {
+        const { order, payUrl, paymentError } = await api('/orders', {
           method: 'POST',
           body: {
             method: choice.method,
+            returnTo: 'web',
             deliveryMethod: choice.deliveryMethod,
             addressId: choice.deliveryMethod === 'collection' ? undefined : (choice.addressId || undefined),
             instructions: choice.deliveryMethod === 'collection' ? undefined : (form.instructions.value || undefined),
@@ -999,6 +1003,9 @@ route(/^\/checkout$/, async (view) => {
           },
         });
         await refreshCounts();
+        // A gateway payment carries on on the provider's page, which sends the customer back to the order.
+        if (payUrl) { window.location.href = payUrl; return; }
+        if (paymentError) { toast(paymentError, 'error'); go('#/orders/' + order.id); return; }
         go('#/order-placed/' + order.id);
       } catch (err) { toast(err.message, 'error'); }
     }, 'Placing order');
@@ -1029,19 +1036,44 @@ route(/^\/(?:order-placed|order-confirmation)\/(\d+)$/, async (view, [id]) => {
         <div class="summary-row"><span>Payment</span><span>${esc(paymentLabel(order.payment))}</span></div>
         <div class="summary-row"><span>${order.deliveryMethod === 'collection' ? 'Collection' : 'Deliver to'}</span><span style="max-width:60%">${esc(order.deliveryAddress || '')}</span></div>
       </div>
-      ${order.payment.status === 'pending' ? `<div class="callout warn" style="margin-top:16px">${icon('clock', { size: 18 })}<p>Pay by EFT using ${esc(order.ref)} as the reference. We start packing once the money clears.</p></div>` : ''}
+      ${paymentNote(order)}
       <div class="callout good" style="margin-top:16px">${icon('coins', { size: 18 })}<p>You will earn ${willEarn} Thrift Points when this order is delivered.</p></div>
       <div class="row wrap" style="justify-content:center;margin-top:24px">
         <a class="btn btn-primary" href="#/orders/${order.id}">Track this order</a>
         <a class="btn btn-secondary" href="#/shop">Keep shopping</a>
       </div>
     </div>`;
+  bindPayNow(view, order);
 });
 
 function paymentLabel(p) {
-  const names = { card: 'Card', payfast: 'PayFast', eft: 'EFT' };
+  const names = { card: 'Card', payfast: 'PayFast', ozow: 'Ozow', paystack: 'Paystack', yoco: 'Yoco', eft: 'EFT' };
   const status = { paid: 'paid', pending: 'waiting for payment', refunded: 'refunded' };
-  return `${names[p.method] || p.method}, ${status[p.status] || p.status}`;
+  return `${p.label || names[p.method] || p.method}, ${status[p.status] || p.status}`;
+}
+
+/** What a customer needs to do about an unpaid order: a bank transfer, or a Pay now button for a gateway. */
+function paymentNote(order) {
+  const p = order.payment;
+  if (!p || p.status !== 'pending' || order.status === 'Cancelled') return '';
+  if (p.method === 'eft') {
+    return `<div class="callout warn" style="margin-top:16px">${icon('clock', { size: 18 })}<p>Pay by EFT using ${esc(order.ref)} as the reference. We start packing once the money clears.</p></div>`;
+  }
+  if (!p.canPay) return '';
+  return `<div class="callout warn" style="margin-top:16px">${icon('clock', { size: 18 })}<div class="grow"><p>This order is waiting for your ${esc(p.label)} payment. We start packing once ${esc(p.label)} confirms it.</p>
+    <button type="button" class="btn btn-primary btn-sm" data-pay-now style="margin-top:8px">Pay now, ${money(p.amount)}</button></div></div>`;
+}
+
+/** Wires a Pay now button: the server makes a fresh payment link and the browser goes to it. */
+function bindPayNow(view, order) {
+  const b = view.querySelector('[data-pay-now]');
+  if (!b) return;
+  b.addEventListener('click', () => busy(b, async () => {
+    try {
+      const { url } = await api(`/payments/${order.id}/start`, { method: 'POST', body: { returnTo: 'web' } });
+      window.location.href = url;
+    } catch (err) { toast(err.message, 'error'); }
+  }, 'Opening payment'));
 }
 
 function orderTotals(order) {

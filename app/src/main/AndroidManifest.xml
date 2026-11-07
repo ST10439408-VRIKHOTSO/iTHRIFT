@@ -35,6 +35,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="ithrift" android:host="signed-in" />
+                <data android:scheme="ithrift" android:host="payment" />
             </intent-filter>
         </activity>
     </application>

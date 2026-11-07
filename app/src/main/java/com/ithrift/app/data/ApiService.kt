@@ -112,7 +112,16 @@ interface ApiService {
     suspend fun removeCartItem(@Path("id") id: Int): Response<CartResponse>
 
     @POST("orders")
-    suspend fun checkout(@Body body: CheckoutRequest): Response<OrderDetailResponse>
+    suspend fun checkout(@Body body: CheckoutRequest): Response<CheckoutResponse>
+
+    // --- Paying online (see OnlinePayment) ---
+
+    @POST("payments/{id}/start")
+    suspend fun startPayment(@Path("id") orderId: Int, @Body body: StartPaymentRequest): Response<StartPaymentResponse>
+
+    /** Staff: a bank transfer has arrived. */
+    @PUT("orders/{id}/payment")
+    suspend fun markPaymentReceived(@Path("id") orderId: Int, @Body body: PaymentStatusRequest): Response<OrderDetailResponse>
 
     @GET("orders")
     suspend fun getOrders(@QueryMap filters: Map<String, String> = emptyMap()): Response<OrderListResponse>

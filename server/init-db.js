@@ -15,6 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { hashPassword } = require('./utils/password');
+const { paymentTableSql } = require('./payments/schema');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_PATH = path.join(DATA_DIR, 'ithrift.db');
@@ -228,14 +229,8 @@ CREATE TABLE OrderItem (
   UnitPrice   NUMERIC NOT NULL CHECK (UnitPrice >= 0)
 );
 
-CREATE TABLE Payment (
-  PaymentID INTEGER PRIMARY KEY AUTOINCREMENT,
-  OrderID   INTEGER NOT NULL UNIQUE REFERENCES Orders(OrderID),
-  Method    TEXT NOT NULL CHECK (Method IN ('payfast','card','eft')),
-  Status    TEXT NOT NULL CHECK (Status IN ('pending','paid','refunded')),
-  Amount    NUMERIC NOT NULL CHECK (Amount >= 0),
-  CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
-);
+-- One payment per order; defined in server/payments/schema.js.
+${paymentTableSql('Payment')}
 
 -- A return request for one line of a delivered order.
 CREATE TABLE ReturnRequest (

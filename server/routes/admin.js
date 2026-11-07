@@ -120,7 +120,8 @@ router.get('/reports/analytics', requireRole('admin', 'staff'), (_req, res) => {
   const payments = db.prepare(`SELECT Method AS method, COUNT(*) AS count FROM Payment GROUP BY Method ORDER BY count DESC`).all();
   const delivery = db.prepare(`SELECT DeliveryMethod AS method, COUNT(*) AS count FROM Orders WHERE Status != 'Cancelled' GROUP BY DeliveryMethod ORDER BY count DESC`).all();
   const attention = {
-    processing: db.prepare(`SELECT COUNT(*) AS n FROM Orders WHERE Status = 'Processing'`).get().n,
+    // Only paid orders can be packed; unpaid ones wait for their payment.
+    processing: db.prepare(`SELECT COUNT(*) AS n FROM Orders o JOIN Payment p ON p.OrderID = o.OrderID WHERE o.Status = 'Processing' AND p.Status = 'paid'`).get().n,
     returnsWaiting: db.prepare(`SELECT COUNT(*) AS n FROM ReturnRequest WHERE Status = 'Requested'`).get().n,
     questionsWaiting: db.prepare('SELECT COUNT(*) AS n FROM ProductQuestion WHERE Answer IS NULL').get().n,
     ticketsOpen: db.prepare(`SELECT COUNT(*) AS n FROM SupportTicket WHERE Status = 'Open'`).get().n,

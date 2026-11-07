@@ -8,6 +8,8 @@ const { DELIVERY_METHODS, FREE_DELIVERY_THRESHOLD, POINTS_BLOCK, RAND_PER_POINTS
 const points = require('../utils/points');
 const notifyUtil = require('../utils/notify');
 const calendar = require('../../public/js/calendar');
+const payments = require('../payments');
+const { baseUrlFor } = require('./payments');
 
 const RETURN_WINDOW_DAYS = 30;
 const RETURN_REASONS = ["Doesn't fit", 'Not as described', 'Damaged or faulty', 'Changed my mind', 'Wrong item received'];
@@ -21,7 +23,9 @@ const STORE = {
 
 const router = express.Router();
 
-const PAYMENT_METHODS = ['payfast', 'card', 'eft'];
+// Express 4 does not catch a rejected promise, so async routes pass errors on themselves.
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 const ORDER_STATUSES = ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
 
 /**
@@ -75,7 +79,7 @@ function loadOrderDetail(db, orderId) {
   for (const it of items) it.canReturn = returnWindowOpen && !it.returnStatus;
   const method = DELIVERY_METHODS[order.DeliveryMethod] || DELIVERY_METHODS.standard;
 
-  const payment = db.prepare('SELECT Method AS method, Status AS status, Amount AS amount, CreatedAt AS createdAt FROM Payment WHERE OrderID = ?').get(orderId);
+  const payment = payments.describe(order.Status, payments.paymentForOrder(db, orderId));
   const history = db.prepare(`
     SELECT Status AS status, Note AS note, CreatedAt AS at FROM OrderStatusHistory WHERE OrderID = ? ORDER BY CreatedAt, HistoryID
   `).all(orderId);
@@ -169,7 +173,7 @@ function quoteFor(db, customerId, { deliveryMethod, promoCode, pointsToRedeem })
   };
 }
 
-// Delivery methods, the free-delivery threshold, return reasons, collection slots and points rules.
+// Delivery methods, payment methods, the free-delivery threshold, return reasons, collection slots and points rules.
 router.get('/options', (_req, res) => {
   const today = calendar.todayInSouthAfrica();
   res.json({
@@ -177,6 +181,8 @@ router.get('/options', (_req, res) => {
       const w = calendar.deliveryWindow(m.id, today);
       return { ...m, arrives: { from: w.from, to: w.to, label: calendar.rangeLabel(w) } };
     }),
+    // Only the methods this server can take right now (a gateway needs its keys).
+    paymentMethods: payments.availableMethods(),
     freeDeliveryThreshold: FREE_DELIVERY_THRESHOLD,
     returnReasons: RETURN_REASONS,
     returnWindowDays: RETURN_WINDOW_DAYS,
@@ -195,16 +201,18 @@ router.post('/quote', requireRole('customer'), (req, res) => {
 });
 
 // UC6 / UC7: Place order and pay. The server, not the client, locks
-// stock and recalculates the total, then records the payment.
-router.post('/', requireRole('customer'), (req, res) => {
+// stock and recalculates the total. The payment starts pending: a gateway
+// confirms it later (see server/payments), and staff confirm a bank transfer.
+router.post('/', requireRole('customer'), wrap(async (req, res) => {
   const db = getDb();
   const {
     method, deliveryMethod = 'standard', addressId, promoCode, instructions,
-    collectionDate, collectionSlot, isGift, giftMessage, pointsToRedeem,
+    collectionDate, collectionSlot, isGift, giftMessage, pointsToRedeem, returnTo,
   } = req.body || {};
 
-  if (!PAYMENT_METHODS.includes(method)) {
-    return res.status(400).json({ error: 'Payment method must be one of: ' + PAYMENT_METHODS.join(', ') + '.' });
+  if (!payments.isAvailable(method)) {
+    const offered = payments.availableMethods().map((m) => m.label).join(', ');
+    return res.status(400).json({ error: `Choose how to pay: ${offered}.` });
   }
 
   const q = quoteFor(db, req.user.id, { deliveryMethod, promoCode, pointsToRedeem });
@@ -260,6 +268,7 @@ router.post('/', requireRole('customer'), (req, res) => {
 
   const { subtotal, discount, deliveryFee, total, pointsRedeemed, pointsDiscount } = q.totals;
 
+  let placedId;
   db.exec('BEGIN');
   try {
     const orderInfo = db.prepare(`
@@ -285,8 +294,7 @@ router.post('/', requireRole('customer'), (req, res) => {
       }
     }
 
-    const paymentStatus = method === 'eft' ? 'pending' : 'paid';
-    db.prepare('INSERT INTO Payment (OrderID, Method, Status, Amount) VALUES (?, ?, ?, ?)').run(orderId, method, paymentStatus, total);
+    db.prepare(`INSERT INTO Payment (OrderID, Method, Status, Amount) VALUES (?, ?, 'pending', ?)`).run(orderId, method, total);
     if (pointsRedeemed > 0) points.add(db, req.user.id, -pointsRedeemed, `Spent on ${orderRef(orderId)}`, orderId);
     addHistory(db, orderId, 'Processing', 'Order placed');
 
@@ -302,12 +310,26 @@ router.post('/', requireRole('customer'), (req, res) => {
     });
 
     db.exec('COMMIT');
-    res.status(201).json({ order: loadOrderDetail(db, orderId) });
+    placedId = orderId;
   } catch (err) {
     db.exec('ROLLBACK');
-    res.status(409).json({ error: 'Checkout could not be completed: ' + err.message });
+    return res.status(409).json({ error: 'Checkout could not be completed: ' + err.message });
   }
-});
+
+  // The order is safe in the database before any provider is called, so a
+  // provider being down never loses an order: the customer can pay later.
+  let payUrl = null;
+  let paymentError = null;
+  if (payments.isGateway(method)) {
+    try {
+      ({ url: payUrl } = await payments.startPayment(db, { orderId: placedId, customerId: req.user.id, returnTo, baseUrl: baseUrlFor(req) }));
+    } catch (err) {
+      if (!(err instanceof payments.PaymentError)) throw err;
+      paymentError = err.message;
+    }
+  }
+  res.status(201).json({ order: loadOrderDetail(db, placedId), payUrl, paymentError });
+}));
 
 // UC14 (customer): order history. UC10 (staff/admin): all orders for processing.
 router.get('/', requireAuth, (req, res) => {
@@ -348,15 +370,33 @@ router.get('/', requireAuth, (req, res) => {
   res.json({ orders });
 });
 
-// UC8 / UC14: order detail / tracking.
-router.get('/:id', requireAuth, (req, res) => {
+// UC8 / UC14: order detail / tracking. An unpaid gateway order is checked
+// with the provider on the way, so the customer sees a payment as soon as
+// it lands, even one made in a tab they never came back from.
+router.get('/:id', requireAuth, wrap(async (req, res) => {
   const db = getDb();
-  const detail = loadOrderDetail(db, req.params.id);
-  if (!detail) return res.status(404).json({ error: 'Order not found.' });
-  if (req.user.type === 'customer' && detail.customer.id !== req.user.id) {
+  const owner = db.prepare('SELECT CustomerID FROM Orders WHERE OrderID = ?').get(req.params.id);
+  if (!owner) return res.status(404).json({ error: 'Order not found.' });
+  if (req.user.type === 'customer' && owner.CustomerID !== req.user.id) {
     return res.status(403).json({ error: 'You can only view your own orders.' });
   }
-  res.json({ order: detail });
+  await payments.refresh(db, payments.paymentForOrder(db, req.params.id));
+  res.json({ order: loadOrderDetail(db, req.params.id) });
+}));
+
+// Staff confirm a bank transfer once the money is in the account. Gateway
+// payments are never marked paid by hand: only the provider can say so.
+router.put('/:id/payment', requireRole('admin', 'staff'), (req, res) => {
+  const db = getDb();
+  const payment = payments.paymentForOrder(db, req.params.id);
+  if (!payment) return res.status(404).json({ error: 'Order not found.' });
+  if ((req.body || {}).status !== 'paid') return res.status(400).json({ error: 'A payment can only be marked as received.' });
+  if (payment.Method !== 'eft') {
+    return res.status(409).json({ error: `${payments.LABELS[payment.Method]} confirms its own payments, so this one cannot be marked paid by hand.` });
+  }
+  if (payment.Status !== 'pending') return res.status(409).json({ error: `This payment is already ${payment.Status}.` });
+  payments.markPaid(db, payment, `confirmed by ${req.user.name}`);
+  res.json({ order: loadOrderDetail(db, req.params.id) });
 });
 
 /** Puts an order's stock back, refunds a paid payment and returns spent points. */
@@ -437,6 +477,11 @@ router.put('/:id/status', requireRole('admin', 'staff'), (req, res) => {
   const changing = status !== existing.Status;
   if (changing && !NEXT_STATUS[existing.Status].includes(status)) {
     return res.status(409).json({ error: `An order that is ${existing.Status.toLowerCase()} cannot be marked ${status.toLowerCase()}.` });
+  }
+  // Nothing leaves the shop before it is paid for.
+  const paid = payments.paymentForOrder(db, existing.OrderID);
+  if (changing && ['Shipped', 'Delivered'].includes(status) && (!paid || paid.Status !== 'paid')) {
+    return res.status(409).json({ error: `${orderRef(existing.OrderID)} has not been paid yet, so it cannot be marked ${status.toLowerCase()}.` });
   }
   const ref = courierRef ? String(courierRef).trim().slice(0, 40) : null;
 

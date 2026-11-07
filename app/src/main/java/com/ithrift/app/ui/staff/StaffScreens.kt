@@ -49,6 +49,7 @@ import com.ithrift.app.data.InventoryReport
 import com.ithrift.app.data.OrderDetail
 import com.ithrift.app.data.OrderListItem
 import com.ithrift.app.data.OrderStatusRequest
+import com.ithrift.app.data.PaymentStatusRequest
 import com.ithrift.app.data.Product
 import com.ithrift.app.data.ProductRequest
 import com.ithrift.app.data.ProductSize
@@ -105,6 +106,7 @@ import com.ithrift.app.ui.rememberLoad
 import com.ithrift.app.ui.run
 import com.ithrift.app.ui.screens.LineItem
 import com.ithrift.app.ui.screens.OrderRow
+import com.ithrift.app.ui.screens.PAYMENT_NAMES
 import com.ithrift.app.ui.screens.TicketList
 import com.ithrift.app.ui.screens.categoryIcon
 import com.ithrift.app.ui.theme.C
@@ -194,7 +196,7 @@ private fun Dashboard(a: Analytics) {
     Spacer(Modifier.height(Space.s4))
     Panel {
         Text("How customers pay", style = T.h3, color = C.ink, modifier = Modifier.padding(bottom = Space.s3))
-        Bars(a.payments.map { (mapOf("card" to "Card", "payfast" to "PayFast", "eft" to "EFT")[it.method] ?: it.method) to it.count.toDouble() }) { plural(it.toInt(), "order") }
+        Bars(a.payments.map { (PAYMENT_NAMES[it.method] ?: it.method) to it.count.toDouble() }) { plural(it.toInt(), "order") }
         Text("How orders reach customers", style = T.h3, color = C.ink, modifier = Modifier.padding(top = Space.s5, bottom = Space.s3))
         Bars(a.delivery.map { (mapOf("standard" to "Standard", "express" to "Express", "collection" to "Collection")[it.method] ?: it.method) to it.count.toDouble() }) { plural(it.toInt(), "order") }
     }
@@ -279,8 +281,22 @@ fun ProcessOrderPanel(order: OrderDetail, onDone: () -> Unit) {
     var courier by remember { mutableStateOf(order.courierRef ?: "") }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var confirmPaid by remember { mutableStateOf(false) }
+    val payment = order.payment
     Panel {
         Text("Process order", style = T.h3, color = C.ink, modifier = Modifier.padding(bottom = Space.s3))
+        // Nothing leaves the shop unpaid. A bank transfer is confirmed here; a gateway confirms itself.
+        if (payment != null && payment.status == "pending" && order.status == "Processing") {
+            val name = payment.label ?: PAYMENT_NAMES[payment.method] ?: payment.method
+            Callout(
+                "Not paid yet, so it cannot be shipped or collected. " +
+                    if (payment.method == "eft") "Check the bank account for ${order.ref} first." else "$name confirms the payment itself.",
+                tone = Tone.Warn, icon = Lucide.clock, modifier = Modifier.padding(bottom = Space.s3),
+            )
+            if (payment.method == "eft") {
+                Btn("Mark payment received", { confirmPaid = true }, style = BtnStyle.Secondary, icon = Lucide.circleCheck, modifier = Modifier.fillMaxWidth().padding(bottom = Space.s3))
+            }
+        }
         if (next.isEmpty()) {
             Text("This order is ${order.status.lowercase()}, so nothing more can change.", style = T.small, color = C.muted)
             return@Panel
@@ -302,6 +318,21 @@ fun ProcessOrderPanel(order: OrderDetail, onDone: () -> Unit) {
                 onDone()
             }
         }, loading = busy, modifier = Modifier.fillMaxWidth())
+    }
+    if (confirmPaid && payment != null) {
+        ConfirmDialog(
+            title = "Payment for ${order.ref} received?",
+            body = "Only confirm once ${formatMoney(payment.amount)} with the reference ${order.ref} is in the bank account. The customer is told straight away.",
+            confirmLabel = "Mark received",
+            onConfirm = {
+                app.run({ safeApiCall { app.api.markPaymentReceived(order.id, PaymentStatusRequest("paid")) } }) {
+                    Log.i(STAFF_TAG, "EFT payment for ${order.ref} marked received by ${app.user?.type} #${app.user?.id}")
+                    app.toast("Payment marked as received. The order can be packed.", ToastKind.Success)
+                    onDone()
+                }
+            },
+            onDismiss = { confirmPaid = false },
+        )
     }
 }
 

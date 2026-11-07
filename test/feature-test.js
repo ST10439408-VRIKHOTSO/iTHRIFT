@@ -202,12 +202,12 @@ async function main() {
     const q = await call('/api/orders/quote', { method: 'POST', token: lerato, body: { deliveryMethod: 'collection', pointsToRedeem: 100 } });
     check('100 points take R10 off the quote', q.status === 200 && q.data.pointsDiscount === 10 && q.data.total === q.data.subtotal - 10);
 
-    const badSlot = await call('/api/orders', { method: 'POST', token: lerato, body: { method: 'card', deliveryMethod: 'collection', collectionDate: '2020-01-01', collectionSlot: '10:00 to 12:00' } });
+    const badSlot = await call('/api/orders', { method: 'POST', token: lerato, body: { method: 'eft', deliveryMethod: 'collection', collectionDate: '2020-01-01', collectionSlot: '10:00 to 12:00' } });
     check('A collection date in the past is refused', badSlot.status === 400);
     const date = opts.data.collection.dates[0];
     const placed = await call('/api/orders', {
       method: 'POST', token: lerato,
-      body: { method: 'card', deliveryMethod: 'collection', collectionDate: date, collectionSlot: '12:00 to 14:00', isGift: true, giftMessage: 'Enjoy!', pointsToRedeem: 100 },
+      body: { method: 'eft', deliveryMethod: 'collection', collectionDate: date, collectionSlot: '12:00 to 14:00', isGift: true, giftMessage: 'Enjoy!', pointsToRedeem: 100 },
     });
     const o = placed.data.order;
     check('An order books a collection slot', placed.status === 201 && o.collectionDate === date && o.collectionSlot === '12:00 to 14:00');
@@ -221,6 +221,8 @@ async function main() {
     const coll = await call('/api/admin/collections', { token: staff });
     check('The order appears in the staff collections list', coll.data.collections.some((c) => c.id === o.id && c.slot === '12:00 to 14:00'));
 
+    // Paid by bank transfer: staff confirm the money before it can be collected.
+    await call(`/api/orders/${o.id}/payment`, { method: 'PUT', token: staff, body: { status: 'paid' } });
     const skip = await call(`/api/orders/${o.id}/status`, { method: 'PUT', token: staff, body: { status: 'Delivered' } });
     check('A collected order can go straight to Delivered', skip.status === 200 && skip.data.order.history.length === 2);
     check('Delivery earns points on the order', skip.data.order.pointsEarned === Math.floor(skip.data.order.total / 10));
@@ -231,7 +233,7 @@ async function main() {
     const p2 = (await call('/api/products?inStock=true&sort=price_asc')).data.products.find((x) => x.sizes.length);
     await call('/api/cart/items', { method: 'POST', token: lerato, body: { productId: p2.id, quantity: 1, size: p2.sizes[0].size } });
     const bal2 = (await call('/api/account/points', { token: lerato })).data.balance;
-    const placed2 = await call('/api/orders', { method: 'POST', token: lerato, body: { method: 'card', deliveryMethod: 'collection', pointsToRedeem: 100 } });
+    const placed2 = await call('/api/orders', { method: 'POST', token: lerato, body: { method: 'eft', deliveryMethod: 'collection', pointsToRedeem: 100 } });
     await call(`/api/orders/${placed2.data.order.id}/cancel`, { method: 'PUT', token: lerato });
     const bal3 = (await call('/api/account/points', { token: lerato })).data.balance;
     check('Cancelling an order returns the points spent on it', bal3 === bal2);
@@ -242,7 +244,7 @@ async function main() {
     const p3 = (await call('/api/products?inStock=true&sort=price_asc')).data.products.find((x) => x.sizes.length);
     await call('/api/cart/items', { method: 'POST', token: sipho, body: { productId: p3.id, quantity: 1, size: p3.sizes[0].size } });
     const stockBefore = (await call(`/api/products/${p3.id}`)).data.product.stock;
-    const placed3 = await call('/api/orders', { method: 'POST', token: sipho, body: { method: 'card', deliveryMethod: 'collection' } });
+    const placed3 = await call('/api/orders', { method: 'POST', token: sipho, body: { method: 'eft', deliveryMethod: 'collection' } });
     await call(`/api/orders/${placed3.data.order.id}/status`, { method: 'PUT', token: staff, body: { status: 'Cancelled' } });
     const stockAfter = (await call(`/api/products/${p3.id}`)).data.product.stock;
     check('When staff cancel an order its stock goes back on sale', stockAfter === stockBefore);
@@ -263,7 +265,7 @@ async function main() {
     check('A percentage over 90 is refused', bad.status === 400);
     const p = (await call('/api/products?inStock=true&sort=price_asc')).data.products.find((x) => x.sizes.length);
     await call('/api/cart/items', { method: 'POST', token: sipho, body: { productId: p.id, quantity: 1, size: p.sizes[0].size } });
-    const used = await call('/api/orders', { method: 'POST', token: sipho, body: { method: 'card', deliveryMethod: 'collection', promoCode: code } });
+    const used = await call('/api/orders', { method: 'POST', token: sipho, body: { method: 'eft', deliveryMethod: 'collection', promoCode: code } });
     check('The new code works once', used.status === 201 && used.data.order.discount === 5);
     const p2 = (await call('/api/products?inStock=true&sort=price_asc')).data.products.find((x) => x.sizes.length);
     await call('/api/cart/items', { method: 'POST', token: sipho, body: { productId: p2.id, quantity: 1, size: p2.sizes[0].size } });
