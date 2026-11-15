@@ -301,8 +301,8 @@ console, the REST API's JSON and the stored rows in the database.
 
 The walk-through of the final version, 1.4.1, follows the scene-by-scene script in
 [`docs/task3/video-script.md`](docs/task3/video-script.md): every feature on the phone,
-paying through PayFast's sandbox, the staff console, the data behind the screens and the
-privacy controls.
+the settings changed live, paying through PayFast's sandbox, the staff console, the data
+behind the screens and the privacy controls.
 
 ## Requirements
 

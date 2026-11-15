@@ -1,6 +1,6 @@
 # Demonstration video for version 1.4.1: script and shot list
 
-About six and a half minutes. Record the phone with its built-in screen recorder (on Samsung:
+About seven minutes. Record the phone with its built-in screen recorder (on Samsung:
 swipe down, **Screen recorder**, sound **None**), and the computer with the Windows
 Snipping Tool's video mode or the Xbox Game Bar (Windows + G). Put the clips and the
 voice-over together in **Clipchamp** (it comes with Windows 11), export at 1080p,
@@ -18,8 +18,9 @@ you prefer: the module asks for a voice-over that shows your understanding.
    [v1.4.1 release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.4.1)
    (uninstall any debug build first: the keys differ).
 3. Have a customer account with a password, a Google account on the phone, and a staff
-   or administrator account for the website.
-4. For scene 9, have the Google Cloud console (Credentials), the Render dashboard
+   or administrator account for the website. For scene 8, also sign in to the website on
+   the computer as the same customer.
+4. For scene 10, have the Google Cloud console (Credentials), the Render dashboard
    (Logs), and a local copy of the seeded database open (`npm run init-db`, then open
    `data/ithrift.db` in DB Browser for SQLite).
 5. For scene 5, check that the hosted API reports version 1.4.1 at
@@ -96,18 +97,36 @@ shows as paid.
 > within thirty days, and the notification centre collects order updates, price drops
 > and back-in-stock alerts.
 
-### 7. Account (3:40 to 4:25)
+### 7. Account (3:40 to 4:15)
 
 **Show:** Thrift Points and the tier; **Sell to us** (offer a piece); the help centre
-search; a message to the store; Settings: dark theme and larger text.
+search; a message to the store.
 
 > Customers earn a Thrift Point for every ten rand, move up from Bronze to Gold, and
 > spend points at checkout. Sell to us lets them offer their own clothes for cash, or
 > for points worth twenty percent more. The help centre answers common questions, and
-> customers can message the store. Settings has light and dark themes, larger text and
-> reduced motion.
+> customers can message the store.
 
-### 8. Staff console (4:25 to 5:05)
+### 8. Settings, changed live (4:15 to 5:00)
+
+The Task 2 feedback asked for this: show each setting being changed and its result, not
+only the Settings screen. Click through it slowly.
+
+**Show:** Account, **Details, password and notifications**. Change the first name (for
+example Lerato to Lee) and the cellphone number, tap **Save details**, and go back to the
+Account hub: it shows the new name. On the computer, refresh the website, signed in as
+the same customer: the same new name. Back on the phone, switch **Shopping alerts** off,
+choose the **Dark** theme and turn on **Larger text**: the app changes at once. Put the
+name, theme and text size back.
+
+> Settings is where customers look after their own details. I change the first name and
+> the cellphone number and save: the server checks them and stores them, and the account
+> shows the new name straight away. The website shows the same name, because both
+> clients read the one account from our API. Notification choices are saved on the
+> server; the theme, larger text and reduced motion are saved on the phone and apply at
+> once.
+
+### 9. Staff console (5:00 to 5:40)
 
 **Show:** on the computer, sign in to the website as staff; the dashboard; Orders; open
 the order from scene 5 and mark it **Ready to collect**; back on the phone, the
@@ -118,7 +137,7 @@ order's timeline has updated.
 > the phone is marked ready to collect, and the customer's timeline updates at once,
 > because both clients share one API and one database.
 
-### 9. Behind the screens (5:05 to 5:50)
+### 10. Behind the screens (5:40 to 6:25)
 
 **Show:** the Google Cloud console Credentials page (the OAuth clients); the hosted
 API's JSON at `/api`; the Render log for the requests just made; the database in DB
@@ -134,7 +153,7 @@ time it confirmed the payment); Android Studio's Logcat filtered by `tag:ApiCall
 > never a card number. In the app, Logcat records every failed call with its HTTP
 > status, and never a password or a token.
 
-### 10. Privacy and close (5:50 to 6:15)
+### 11. Privacy and close (6:25 to 6:50)
 
 **Show:** the privacy policy at `/#/privacy`; Settings, **Delete my account** on a
 throwaway account, and the confirmation.
