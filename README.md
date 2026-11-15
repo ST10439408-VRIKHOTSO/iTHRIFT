@@ -47,7 +47,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 |---|---|---|
 | Task 1 | Updated project plan, site map, wireframes | Complete, see [`docs/task1/`](docs/task1/) |
 | Task 2 | Working prototype: Android app, API, database, tests | Complete, see [`docs/task2/`](docs/task2/) and the frozen [`task-2`](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/tree/task-2) branch |
-| Task 3 | Final release, final report and presentation | Complete, see [`docs/task3/`](docs/task3/) and release [v1.3.4](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases) |
+| Task 3 | Final release, final report and presentation | Complete, see [`docs/task3/`](docs/task3/) and the final release [v1.4.1](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.4.1) |
 
 The `task-2` branch is left exactly as it was marked, so the links in the Task 2
 report still show the prototype. `main` carries the final version.
@@ -105,10 +105,12 @@ business did not lack demand; it lacked a channel that could carry the demand it
 
 ## Screenshots
 
-All screenshots are of version 1.3.4. The app screens are rendered by the screenshot
-test against the real API and seeded database (see [Automated testing](#automated-testing));
-the website screens were taken in a browser against the same server. More, with
-captions, are in [`docs/task3/figures/`](docs/task3/figures/).
+The screens were captured on version 1.3.4, which 1.4 left as they were apart from
+paying, and the payment screens on 1.4.1. The app screens are rendered by the
+screenshot test against the real API and seeded database (see
+[Automated testing](#automated-testing)); the website screens were taken in a browser
+against the same server. More, with captions, are in
+[`docs/task3/figures/`](docs/task3/figures/).
 
 ### Android app: shopping
 
@@ -170,6 +172,15 @@ captions, are in [`docs/task3/figures/`](docs/task3/figures/).
 | Checkout, priced by the server | Order tracking and returns |
 | ![Staff dashboard](docs/task3/figures/web-30-admin-dashboard.png) | ![Sign in with Google on the hosted site](docs/task3/figures/hosted-04-login.png) |
 | Staff dashboard | Sign in on the hosted site, with Continue with Google |
+
+### Website: paying (1.4.1)
+
+| | |
+|---|---|
+| ![Checkout, the payment step](docs/task3/figures/web-41-checkout-payment.png) | ![PayFast's sandbox page](docs/task3/figures/web-43-payfast-sandbox.png) |
+| Checkout: PayFast (test mode) or a bank transfer | The customer pays on PayFast's own page (sandbox) |
+| ![An order waiting for payment](docs/task3/figures/web-42-order-awaiting-payment.png) | ![Staff mark a bank transfer received](docs/task3/figures/web-44-staff-mark-eft-received.png) |
+| An unpaid order waits, with Pay now | Staff mark a bank transfer received before it can ship |
 
 ## Design considerations
 
@@ -245,7 +256,8 @@ a ZIP file.
 | `main` | The current version. Every push is built and tested |
 | `task-2` | The prototype exactly as it was marked for Task 2 |
 | `v1.2.0` | The Task 2 release tag |
-| `v1.3.4` | The final release tag; it produced the signed APK and App Bundle |
+| `v1.3.4` | The release presented on 30 October 2026, with its signed APK and App Bundle |
+| `v1.4.1` | The final release tag; it produced the final signed APK and App Bundle |
 
 **Workflows.** Three workflows live in `.github/workflows/`. Two run on every push and
 pull request; the release only runs on a tag, because a release is a decision and not a
@@ -255,11 +267,20 @@ side effect of committing.
 |---|---|---|
 | [`android.yml`](.github/workflows/android.yml) | push, pull request, manual | Sets up JDK 17 and Gradle, runs the 53 Kotlin unit tests, assembles the debug APK and uploads it as the `ithrift-debug-apk` artefact. On a failure it turns the Kotlin compiler errors into annotations and uploads the test reports. A manual run on a branch also starts the API and renders the screenshot test |
 | [`api-and-website.yml`](.github/workflows/api-and-website.yml) | push, pull request, manual | Sets up Node 24, installs from the lock file, runs the 42 API unit tests, seeds the database, starts the server, then runs the 179-check smoke test and the 100-check feature test. Uploads the server log if anything fails |
-| [`release.yml`](.github/workflows/release.yml) | tag `v*`, manual | Checks the signing secrets exist, restores the keystore from a secret, runs the unit tests again, assembles the signed release APK and App Bundle, uploads them as the `ithrift-release` artefact, and deletes the keystore from the runner even if the build failed |
+| [`release.yml`](.github/workflows/release.yml) | tag `v*`, manual | Checks the signing secrets exist, restores the keystore from a secret, runs the unit tests again, assembles the signed release APK and App Bundle, uploads them as the `ithrift-release` artefact, publishes them as a GitHub release with `docs/task3/release-notes.md` as its notes, and deletes the keystore from the runner even if the build failed |
 
 The unit tests run first because they need no server and finish in seconds: if a
 business rule is broken there is no point booting the API to find out. A red run is
 fixed before anything else is pushed.
+
+**Azure DevOps.** The work was planned on the Azure Boards Kanban board linked at the
+top, and [`azure-pipelines.yml`](azure-pipelines.yml) runs the same checks from the Azure
+DevOps project on every push and pull request to `main`: an *API and website* stage
+(the API unit tests, then the seeded server with the smoke and feature tests) and an
+*Android application* stage (the Kotlin unit tests and the debug build) that run side by
+side. Azure Pipelines reads the code through its GitHub connection, publishes the server
+and Android unit test results to the run's **Tests** tab, and keeps the debug APK as an
+artefact, so the automated testing is visible in Azure DevOps as well as on GitHub.
 
 **Secrets.** The release keystore and its passwords are repository secrets
 (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). Anyone holding
@@ -278,9 +299,10 @@ The prototype video shows the app running on a physical Android phone, the websi
 Google single sign-on, and the data behind them: the OAuth clients in the Google Cloud
 console, the REST API's JSON and the stored rows in the database.
 
-The walk-through of the final version, 1.3.4, follows the scene-by-scene script in
+The walk-through of the final version, 1.4.1, follows the scene-by-scene script in
 [`docs/task3/video-script.md`](docs/task3/video-script.md): every feature on the phone,
-the staff console, the data behind the screens and the privacy controls.
+paying through PayFast's sandbox, the staff console, the data behind the screens and the
+privacy controls.
 
 ## Requirements
 
@@ -498,7 +520,7 @@ The app is prepared for the Play Store:
 |---|---|
 | Application id | `com.ithrift.app` |
 | Version | 1.4.1 (versionCode 9), `targetSdk` 35 |
-| Signed APK and App Bundle | Built by `release.yml` from a version tag and attached to the [release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases); the latest signed build is from tag `v1.3.4` |
+| Signed APK and App Bundle | Built by `release.yml` from a version tag and attached to the release; the final signed build is [v1.4.1](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.4.1) |
 | Keystore | Kept out of the repository, in repository secrets |
 | Privacy policy (required by Play for an app with accounts) | <https://ithrift-api.onrender.com/#/privacy> |
 | Account deletion (required by Play) | In the app and on the website under Account, Settings, and described in the privacy policy |
@@ -588,8 +610,9 @@ Recorded here for transparency; also explained in the final report.
 The prototype marked for Task 2 was **version 1.2.0**. Everything below 1.2.0 in these
 notes was added after it. In short, 1.3.0 rebuilt the website and added thirty
 features, 1.3.1 rebuilt the Android app in Jetpack Compose with every one of those
-features, 1.3.2 and 1.3.3 reworked sign-in, 1.3.4 is the final Task 3 release, and
-1.4.0 adds online payments.
+features, 1.3.2 and 1.3.3 reworked sign-in, 1.3.4 was the release we presented on
+30 October 2026, 1.4.0 added online payments, and 1.4.1, the final release, is a
+security and content audit.
 
 **Our innovative features, added after the prototype.** These go beyond what a
 clothing shop usually offers and were designed around how a second-hand business
@@ -605,8 +628,10 @@ actually works:
 | **Gift orders** with a gift slip without prices, and a **VAT tax invoice** | Real documents a customer can print or save as PDF | 1.3.0 web, 1.3.1 app |
 | **Staff console in the app** | Staff can process orders and collections from the shop floor | 1.3.1 |
 | **App Google sign-in through the website with a single-use code** (PKCE) | Works with the same Google set-up as the website, without the app ever holding a reusable token in a link | 1.3.3 |
+| **Delete my account** and a POPIA privacy policy | Customers can erase their personal details at any time, as POPIA allows and Google Play requires | 1.3.4 |
+| **South African payment gateways**: PayFast, Ozow, Paystack and Yoco, with bank transfer kept | Customers pay the way South Africans pay, on the provider's own page, and an order counts as paid only when the provider confirms it to the server | 1.4.0 |
 
-### 1.4.1: Security and content audit (November 2026)
+### 1.4.1: Final release, a security and content audit (November 2026)
 
 - **Security:** rate limits on sign-in, registration, password changes, checkout,
   payments and everything customers write; security headers with a
@@ -644,7 +669,7 @@ actually works:
   server opens it, keeping its data.
 - 14 new API unit tests and 22 new smoke checks cover the payment rules.
 
-### 1.3.4: Final release (October 2026)
+### 1.3.4: The release we presented (October 2026)
 
 - **Delete your account**, on the website and in the app (Account, Settings). The
   personal details are erased at once and every session ends; orders, payments and
@@ -663,7 +688,7 @@ actually works:
 - The app's compare tray holds three pieces, the same as the website (it allowed four).
 - This README: purpose, design considerations, GitHub and GitHub Actions, screenshots
   and release notes for the final report.
-- Final report, presentation and Play Store listing in `docs/task3/`.
+- The Play Store listing, graphics, figures and release notes in `docs/task3/`.
 
 ### 1.3.3: Google sign-in in the app (October 2026)
 

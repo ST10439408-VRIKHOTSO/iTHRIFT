@@ -5,9 +5,9 @@ Everything for XISD6329 Task 3 that lives in the repository.
 | What | Where |
 |---|---|
 | Script for the final demonstration video | [`video-script.md`](video-script.md) |
-| Release notes for the final version, 1.3.4 | [`release-notes.md`](release-notes.md) and the [GitHub release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.3.4) |
+| Release notes for the final version, 1.4.1 | [`release-notes.md`](release-notes.md) and the [GitHub release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.4.1) |
 | Google Play listing, graphics and upload steps | [`play-store/`](play-store/) |
-| Screenshots of the app and the website (version 1.3.4) | [`figures/`](figures/), captioned below |
+| Screenshots of the app and the website (version 1.3.4, and the payment screens of 1.4.1) | [`figures/`](figures/), captioned below |
 | Final report and presentation | Submitted on ARC; the report links back here |
 
 The app screenshots were rendered by the screenshot test
@@ -84,6 +84,10 @@ phone (390 px) or dark. Files named `hosted-` were taken from the hosted site on
 | `web-21-privacy.png` | Privacy policy |
 | `web-22-settings-delete-account.png` | Settings: Delete your account |
 | `web-23-delete-account-confirm.png` | The confirmation before an account is deleted |
+| `web-41-checkout-payment.png` | Checkout, the payment step: PayFast in test mode, or a bank transfer (1.4.1) |
+| `web-42-order-awaiting-payment.png` | An order waiting for its PayFast payment, with Pay now (1.4.1) |
+| `web-43-payfast-sandbox.png` | PayFast's sandbox page for that order: the customer pays on PayFast, not on iTHRIFT (1.4.1) |
+| `web-44-staff-mark-eft-received.png` | Staff: a bank transfer order that cannot ship until the payment is marked received (1.4.1) |
 | `web-30-admin-dashboard.png` | Staff dashboard: revenue, orders and what needs attention |
 | `web-31-admin-orders.png` | Staff: orders |
 | `web-32-admin-listings.png` | Staff: listings |

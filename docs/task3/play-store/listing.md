@@ -78,8 +78,10 @@ The expected rating is Everyone / PEGI 3.
   Settings, Delete my account, and on the web at
   https://ithrift-api.onrender.com/#/privacy (section "Deleting your account").
 - No location, contacts, photos, files, health, financial account numbers or device
-  identifiers are collected. Payments are simulated in this version, so no card details
-  are handled.
+  identifiers are collected. Payments are taken on the payment provider's own page
+  (PayFast, Ozow, Paystack or Yoco), so card and bank details never reach the app or our
+  server; the provider receives the name, email address and order amount it needs to
+  take the payment.
 
 **Account deletion URL** (Play asks for this separately):
 https://ithrift-api.onrender.com/#/privacy
@@ -93,18 +95,19 @@ https://ithrift-api.onrender.com/#/privacy
    policy, app access, ads, content rating, target audience, data safety, and the
    store listing with the graphics in this folder.
 3. Download the signed App Bundle `app-release.aab` from the
-   [v1.3.4 release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.3.4).
+   [v1.4.1 release](https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases/tag/v1.4.1).
 4. Go to **Test and release, Testing, Internal testing**, create a release, choose
    **Play App Signing** when asked (Google keeps the app signing key; our keystore
-   becomes the upload key), upload `app-release.aab`, name the release 1.3.4 (7) and
+   becomes the upload key), upload `app-release.aab`, name the release 1.4.1 (9) and
    paste the release notes below.
 5. Add testers by email, then **Review release** and **Start rollout to Internal
    testing**.
-6. Take a screenshot of the release page showing version 1.3.4 (7) and its status, and
+6. Take a screenshot of the release page showing version 1.4.1 (9) and its status, and
    of the app's dashboard. These are the evidence of the upload for the final report.
 
 **Release notes for the Play Console** (500 characters at most)
 
 > First release of iTHRIFT on Google Play. Shop graded, pre-loved branded clothing,
-> track your orders, earn and spend Thrift Points, sell us your clothes, and sign in
-> with Google. Delete your account at any time under Account, Settings.
+> pay on PayFast's secure page or by bank transfer, track your orders, earn and spend
+> Thrift Points, sell us your clothes, and sign in with Google. Delete your account at
+> any time under Account, Settings.
