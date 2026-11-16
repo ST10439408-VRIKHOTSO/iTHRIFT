@@ -19,6 +19,7 @@ IIE Rosebank College, Pretoria · Client: iTHRIFT Clothes, Pretoria
 | Hosted website | <https://ithrift-api.onrender.com/> |
 | Hosted REST API | <https://ithrift-api.onrender.com/api> |
 | Demonstration video, prototype (unlisted on YouTube) | <https://youtu.be/7wly_1Y31v8> |
+| Demonstration video, final version 1.4.1 (unlisted on YouTube) | <https://youtu.be/Xy8ro1b9g2o> |
 | Pipeline runs | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/actions> |
 | Releases (signed APK and App Bundle) | <https://github.com/ST10439408-VRIKHOTSO/iTHRIFT/releases> |
 | Azure DevOps board | <https://dev.azure.com/ST10439408/iTHRIFT/_boards/board/t/iTHRIFT%20Team/Issues> |
@@ -299,10 +300,12 @@ The prototype video shows the app running on a physical Android phone, the websi
 Google single sign-on, and the data behind them: the OAuth clients in the Google Cloud
 console, the REST API's JSON and the stored rows in the database.
 
-The walk-through of the final version, 1.4.1, follows the scene-by-scene script in
-[`docs/task3/video-script.md`](docs/task3/video-script.md): every feature on the phone,
-paying through PayFast's sandbox, the staff console, the data behind the screens and the
-privacy controls.
+**Final version (1.4.1): <https://youtu.be/Xy8ro1b9g2o>** (unlisted on YouTube, with a voice-over)
+
+The walk-through of the final version follows the scene-by-scene script in
+[`docs/task3/video-script.md`](docs/task3/video-script.md), on the phone: signing in with
+Google, finding pieces, a product, buying and paying through PayFast's sandbox, after
+buying, the account, and the settings changed live.
 
 ## Requirements
 
